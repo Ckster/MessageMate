@@ -12,7 +12,7 @@ struct BusinessInformationView: View {
     @Environment(\.colorScheme) var colorScheme
 
     let subViewDict: Dictionary<String, some View> = [
-        "Business Inf": BusinessInfoSubView(),
+        "Business Info": BusinessInfoSubView(),
         "Messager Characteristics": BusinessInfoSubView(),
         "Services & Pricing": BusinessInfoSubView(),
         "Frequently Changing": BusinessInfoSubView(),
