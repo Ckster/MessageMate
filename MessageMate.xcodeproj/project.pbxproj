@@ -3,10 +3,22 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 56;
+	objectVersion = 55;
 	objects = {
 
 /* Begin PBXBuildFile section */
+		50EDAEB1AC054D8B013BD0F3 /* Pods_MessageMate.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 45119550D69CF278208C3634 /* Pods_MessageMate.framework */; };
+		ED53B9AF297F8A0E0013C03B /* InboxView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED53B9AE297F8A0E0013C03B /* InboxView.swift */; };
+		ED53B9B1297F8A250013C03B /* TutorialView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED53B9B0297F8A250013C03B /* TutorialView.swift */; };
+		ED53B9B3297F8A400013C03B /* BusinessInformationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED53B9B2297F8A400013C03B /* BusinessInformationView.swift */; };
+		ED53B9B5297F8AAA0013C03B /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED53B9B4297F8AAA0013C03B /* OnboardingView.swift */; };
+		ED700B6B297CA1AD0058968B /* SessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED700B68297CA1AC0058968B /* SessionStore.swift */; };
+		ED700B6C297CA1AD0058968B /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED700B69297CA1AC0058968B /* AppDelegate.swift */; };
+		ED700B6D297CA1AD0058968B /* FirebaseNamespaces.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED700B6A297CA1AD0058968B /* FirebaseNamespaces.swift */; };
+		ED700B6F297CA3F50058968B /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = ED700B6E297CA3F50058968B /* GoogleService-Info.plist */; };
+		ED700B71297CA4930058968B /* SignInWithApple.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED700B70297CA4930058968B /* SignInWithApple.swift */; };
+		ED700B73297CA54E0058968B /* SignInView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED700B72297CA54E0058968B /* SignInView.swift */; };
+		ED700B75297CA5AB0058968B /* Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED700B74297CA5AB0058968B /* Constants.swift */; };
 		ED99A90B297C8F2A0029235B /* MessageMateApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED99A90A297C8F2A0029235B /* MessageMateApp.swift */; };
 		ED99A90D297C8F2A0029235B /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED99A90C297C8F2A0029235B /* ContentView.swift */; };
 		ED99A90F297C8F2C0029235B /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = ED99A90E297C8F2C0029235B /* Assets.xcassets */; };
@@ -14,6 +26,21 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		45119550D69CF278208C3634 /* Pods_MessageMate.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_MessageMate.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		A4A4002FCFF80CF21658C102 /* Pods-MessageMate.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-MessageMate.release.xcconfig"; path = "Target Support Files/Pods-MessageMate/Pods-MessageMate.release.xcconfig"; sourceTree = "<group>"; };
+		A7F0443B0D22E0F7234A77B9 /* Pods-MessageMate.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-MessageMate.debug.xcconfig"; path = "Target Support Files/Pods-MessageMate/Pods-MessageMate.debug.xcconfig"; sourceTree = "<group>"; };
+		ED53B9AE297F8A0E0013C03B /* InboxView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InboxView.swift; sourceTree = "<group>"; };
+		ED53B9B0297F8A250013C03B /* TutorialView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TutorialView.swift; sourceTree = "<group>"; };
+		ED53B9B2297F8A400013C03B /* BusinessInformationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BusinessInformationView.swift; sourceTree = "<group>"; };
+		ED53B9B4297F8AAA0013C03B /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
+		ED53B9B6297F8C7F0013C03B /* MessageMate.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = MessageMate.entitlements; sourceTree = "<group>"; };
+		ED700B68297CA1AC0058968B /* SessionStore.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SessionStore.swift; sourceTree = "<group>"; };
+		ED700B69297CA1AC0058968B /* AppDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		ED700B6A297CA1AD0058968B /* FirebaseNamespaces.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FirebaseNamespaces.swift; sourceTree = "<group>"; };
+		ED700B6E297CA3F50058968B /* GoogleService-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
+		ED700B70297CA4930058968B /* SignInWithApple.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignInWithApple.swift; sourceTree = "<group>"; };
+		ED700B72297CA54E0058968B /* SignInView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignInView.swift; sourceTree = "<group>"; };
+		ED700B74297CA5AB0058968B /* Constants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Constants.swift; sourceTree = "<group>"; };
 		ED99A907297C8F2A0029235B /* MessageMate.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MessageMate.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		ED99A90A297C8F2A0029235B /* MessageMateApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageMateApp.swift; sourceTree = "<group>"; };
 		ED99A90C297C8F2A0029235B /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -26,17 +53,37 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				50EDAEB1AC054D8B013BD0F3 /* Pods_MessageMate.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		173967B48D131C63060C2473 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				45119550D69CF278208C3634 /* Pods_MessageMate.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		982A831FC187589E44FCBD7D /* Pods */ = {
+			isa = PBXGroup;
+			children = (
+				A7F0443B0D22E0F7234A77B9 /* Pods-MessageMate.debug.xcconfig */,
+				A4A4002FCFF80CF21658C102 /* Pods-MessageMate.release.xcconfig */,
+			);
+			path = Pods;
+			sourceTree = "<group>";
+		};
 		ED99A8FE297C8F2A0029235B = {
 			isa = PBXGroup;
 			children = (
 				ED99A909297C8F2A0029235B /* MessageMate */,
 				ED99A908297C8F2A0029235B /* Products */,
+				982A831FC187589E44FCBD7D /* Pods */,
+				173967B48D131C63060C2473 /* Frameworks */,
 			);
 			sourceTree = "<group>";
 		};
@@ -51,10 +98,22 @@
 		ED99A909297C8F2A0029235B /* MessageMate */ = {
 			isa = PBXGroup;
 			children = (
+				ED53B9B6297F8C7F0013C03B /* MessageMate.entitlements */,
+				ED700B6E297CA3F50058968B /* GoogleService-Info.plist */,
+				ED700B72297CA54E0058968B /* SignInView.swift */,
+				ED700B70297CA4930058968B /* SignInWithApple.swift */,
+				ED700B69297CA1AC0058968B /* AppDelegate.swift */,
+				ED700B6A297CA1AD0058968B /* FirebaseNamespaces.swift */,
+				ED700B68297CA1AC0058968B /* SessionStore.swift */,
 				ED99A90A297C8F2A0029235B /* MessageMateApp.swift */,
 				ED99A90C297C8F2A0029235B /* ContentView.swift */,
 				ED99A90E297C8F2C0029235B /* Assets.xcassets */,
 				ED99A910297C8F2C0029235B /* Preview Content */,
+				ED700B74297CA5AB0058968B /* Constants.swift */,
+				ED53B9AE297F8A0E0013C03B /* InboxView.swift */,
+				ED53B9B0297F8A250013C03B /* TutorialView.swift */,
+				ED53B9B2297F8A400013C03B /* BusinessInformationView.swift */,
+				ED53B9B4297F8AAA0013C03B /* OnboardingView.swift */,
 			);
 			path = MessageMate;
 			sourceTree = "<group>";
@@ -74,9 +133,12 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = ED99A915297C8F2C0029235B /* Build configuration list for PBXNativeTarget "MessageMate" */;
 			buildPhases = (
+				9F8C4E7BD657FAAA9E855444 /* [CP] Check Pods Manifest.lock */,
 				ED99A903297C8F2A0029235B /* Sources */,
 				ED99A904297C8F2A0029235B /* Frameworks */,
 				ED99A905297C8F2A0029235B /* Resources */,
+				6F5DD87D615F814F2C78FFE1 /* [CP] Embed Pods Frameworks */,
+				D6BA9C8AF6A37EA8487A34DB /* [CP] Copy Pods Resources */,
 			);
 			buildRules = (
 			);
@@ -103,7 +165,7 @@
 				};
 			};
 			buildConfigurationList = ED99A902297C8F2A0029235B /* Build configuration list for PBXProject "MessageMate" */;
-			compatibilityVersion = "Xcode 14.0";
+			compatibilityVersion = "Xcode 13.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -127,18 +189,88 @@
 			files = (
 				ED99A912297C8F2C0029235B /* Preview Assets.xcassets in Resources */,
 				ED99A90F297C8F2C0029235B /* Assets.xcassets in Resources */,
+				ED700B6F297CA3F50058968B /* GoogleService-Info.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		6F5DD87D615F814F2C78FFE1 /* [CP] Embed Pods Frameworks */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-MessageMate/Pods-MessageMate-frameworks-${CONFIGURATION}-input-files.xcfilelist",
+			);
+			name = "[CP] Embed Pods Frameworks";
+			outputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-MessageMate/Pods-MessageMate-frameworks-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-MessageMate/Pods-MessageMate-frameworks.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+		9F8C4E7BD657FAAA9E855444 /* [CP] Check Pods Manifest.lock */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
+				"${PODS_ROOT}/Manifest.lock",
+			);
+			name = "[CP] Check Pods Manifest.lock";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/Pods-MessageMate-checkManifestLockResult.txt",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+			showEnvVarsInLog = 0;
+		};
+		D6BA9C8AF6A37EA8487A34DB /* [CP] Copy Pods Resources */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-MessageMate/Pods-MessageMate-resources-${CONFIGURATION}-input-files.xcfilelist",
+			);
+			name = "[CP] Copy Pods Resources";
+			outputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-MessageMate/Pods-MessageMate-resources-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-MessageMate/Pods-MessageMate-resources.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		ED99A903297C8F2A0029235B /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				ED700B6C297CA1AD0058968B /* AppDelegate.swift in Sources */,
+				ED700B73297CA54E0058968B /* SignInView.swift in Sources */,
 				ED99A90D297C8F2A0029235B /* ContentView.swift in Sources */,
 				ED99A90B297C8F2A0029235B /* MessageMateApp.swift in Sources */,
+				ED700B6B297CA1AD0058968B /* SessionStore.swift in Sources */,
+				ED700B71297CA4930058968B /* SignInWithApple.swift in Sources */,
+				ED700B6D297CA1AD0058968B /* FirebaseNamespaces.swift in Sources */,
+				ED53B9AF297F8A0E0013C03B /* InboxView.swift in Sources */,
+				ED700B75297CA5AB0058968B /* Constants.swift in Sources */,
+				ED53B9B5297F8AAA0013C03B /* OnboardingView.swift in Sources */,
+				ED53B9B3297F8A400013C03B /* BusinessInformationView.swift in Sources */,
+				ED53B9B1297F8A250013C03B /* TutorialView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -261,9 +393,11 @@
 		};
 		ED99A916297C8F2C0029235B /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = A7F0443B0D22E0F7234A77B9 /* Pods-MessageMate.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = MessageMate/MessageMate.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"MessageMate/Preview Content\"";
@@ -275,6 +409,7 @@
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.2;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -290,9 +425,11 @@
 		};
 		ED99A917297C8F2C0029235B /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = A4A4002FCFF80CF21658C102 /* Pods-MessageMate.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = MessageMate/MessageMate.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"MessageMate/Preview Content\"";
@@ -304,6 +441,7 @@
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.2;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",

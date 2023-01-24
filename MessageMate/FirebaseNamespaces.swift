@@ -30,7 +30,7 @@ struct Users {
 struct UsersFields {
     static let DISPLAY_NAME = "display_name"
     static let TOKENS = "tokens"
-    static let TUTORIAL_COMPLETED = "tutorial_completed"
+    static let ONBOARDING_COMPLETED = "onboarding_completed"
     static let LEGAL_AGREEMENT = "legal_agreement"
 }
 

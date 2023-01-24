@@ -21,19 +21,20 @@ struct SignInView: View {
     let TITLE = "MessageMate"
 
     var body: some View {
-        return NavigationView {
-        GeometryReader { geometry in
-            ZStack {
-                // TODO: Add new logo here
-                VStack {
-                    // Show the app title
-                    Text(TITLE).font(.system(size: 20)).bold().padding().foregroundColor(colorScheme == .dark ? Color.white : Color.black)
-                    
-                    Text("Welcome").font(.system(size: 30)).bold().padding().foregroundColor(colorScheme == .dark ? Color.white : Color.black)
-                    
-                    // Show the sign up options
-                    BottomScreen(width: geometry.size.width, height: geometry.size.height).environmentObject(self.session)
-                }
+        return
+        
+        NavigationView {
+            GeometryReader { geometry in
+            // TODO: Add new logo here
+            VStack {
+                // Show the app title
+                Text(TITLE).font(.system(size: 25)).bold().padding().foregroundColor(colorScheme == .dark ? Color.white : Color.black).frame(height: geometry.size.height * 0.15)
+                
+                Text("Welcome").font(.system(size: 60)).bold().padding().foregroundColor(colorScheme == .dark ? Color.white : Color.black)
+                    .frame(height: geometry.size.height * 0.55).offset(y: geometry.size.height * -0.10)
+                
+                // Show the sign up options
+                BottomScreen(width: geometry.size.width, height: geometry.size.height).environmentObject(self.session).frame(height: geometry.size.height * 0.30)
             }
         }
         }.navigationViewStyle(StackNavigationViewStyle()).onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification), perform: { _ in
@@ -96,54 +97,58 @@ struct BottomScreen: View {
 //            Alert(title: Text(TERMS_AND_PRIVACY_POLICY), message: Text(USER_AGREEMENT_TEXT), primaryButton: .default(Text(CANCEL)), secondaryButton: .default(Text(CONTINUE), action: {
 //                self.session.googleLogin(authWorkflow: true)
 //            }))
-        
-        VStack {
-//            VStack {
-                
-                // Sign in with Apple
-                Button(action: {self.showingALegalAlert = true}) {
-                    SignInWithApple(style: self.colorScheme == .light ? .black : .white).aspectRatio(contentMode: .fit).frame(width: self.width * 0.80, height: self.height * 0.10, alignment: .center).id(self.colorScheme)
-                }.alert(isPresented: $showingALegalAlert) {
-                    AlegalAlert
-                }
-                
-//                // Sign in with Google
-//                Button(action: {self.showingGoogleLegalAlert = true}) {
-//                Image("sign_in_with_google").resizable().cornerRadius(3.0).aspectRatio(contentMode: .fit).frame(width: self.width * 0.92, height: self.height * 0.10)
-//                }.alert(isPresented: $showingGoogleLegalAlert) {
-//                    GoogleLegalAlert
-//                }
-//
-//                // Sign in with Facebook
-//                Button(action: {self.showingFBLegalAlert = true}) {
-//                    Image("facebook_login").resizable().cornerRadius(3.0).aspectRatio(contentMode: .fit).frame(width: self.width * 0.80)
-//                }.alert(isPresented: $showingFBLegalAlert) {
-//                    FBlegalAlert
-//                }
-//            }
+
             
-            // Show the legal text and hyperlinks
+            
             VStack {
-            Text(USER_CONTINUE_LEGAL_TEXT).bold().font(.system(size: 17))
-                HStack{
-                    Link(TERMS_OF_SERVICE, destination: URL(string: self.termsURLString)!).foregroundColor(.blue).font(.system(size: 17))
-            
-            Text("and").bold().font(.system(size: 17))
-                    Link(PRIVACY_POLICY, destination: URL(string: self.privacyURLString)!).foregroundColor(.blue).font(.system(size: 17))
-                }
-            }.frame(width: width, alignment: .center)
-            
-        }.frame(height: height).onAppear {
-            // Read in the URLs for the Privacy Policy and Terms. Use website as backup link
-            if self.termsURLString == BACKUP_LEGAL_LINK || self.privacyURLString == BACKUP_LEGAL_LINK {
-                self.db.collection(AppSettings.name).document(AppSettings.documents.LINKS.name).getDocument {
-                    docData, _ in
-                    guard let data = docData?.data() else {return}
-                    self.privacyURLString = data[AppSettings.documents.LINKS.fields.PRIVACY_POLICY] as? String ?? BACKUP_LEGAL_LINK
-                    self.termsURLString = data[AppSettings.documents.LINKS.fields.TERMS_OF_SERVICE] as? String ?? BACKUP_LEGAL_LINK
+    //            VStack {
+                    
+                    // Sign in with Apple
+                    Button(action: {self.showingALegalAlert = true}) {
+                        SignInWithApple(style: self.colorScheme == .light ? .black : .white).aspectRatio(contentMode: .fit).frame(width: self.width * 0.80, height: self.height * 0.10, alignment: .center).id(self.colorScheme)
+                    }.alert(isPresented: $showingALegalAlert) {
+                        AlegalAlert
+                    }
+                    
+    //                // Sign in with Google
+    //                Button(action: {self.showingGoogleLegalAlert = true}) {
+    //                Image("sign_in_with_google").resizable().cornerRadius(3.0).aspectRatio(contentMode: .fit).frame(width: self.width * 0.92, height: self.height * 0.10)
+    //                }.alert(isPresented: $showingGoogleLegalAlert) {
+    //                    GoogleLegalAlert
+    //                }
+    //
+    //                // Sign in with Facebook
+    //                Button(action: {self.showingFBLegalAlert = true}) {
+    //                    Image("facebook_login").resizable().cornerRadius(3.0).aspectRatio(contentMode: .fit).frame(width: self.width * 0.80)
+    //                }.alert(isPresented: $showingFBLegalAlert) {
+    //                    FBlegalAlert
+    //                }
+    //            }
+                
+                // Show the legal text and hyperlinks
+                VStack {
+                Text(USER_CONTINUE_LEGAL_TEXT).bold().font(.system(size: 17))
+                    HStack{
+                        Link(TERMS_OF_SERVICE, destination: URL(string: self.termsURLString)!).foregroundColor(.blue).font(.system(size: 17))
+                
+                Text("and").bold().font(.system(size: 17))
+                        Link(PRIVACY_POLICY, destination: URL(string: self.privacyURLString)!).foregroundColor(.blue).font(.system(size: 17))
+                    }
+                }.frame(width: width, alignment: .center)
+                
+            }.onAppear {
+                // Read in the URLs for the Privacy Policy and Terms. Use website as backup link
+                if self.termsURLString == BACKUP_LEGAL_LINK || self.privacyURLString == BACKUP_LEGAL_LINK {
+                    self.db.collection(AppSettings.name).document(AppSettings.documents.LINKS.name).getDocument {
+                        docData, _ in
+                        guard let data = docData?.data() else {return}
+                        self.privacyURLString = data[AppSettings.documents.LINKS.fields.PRIVACY_POLICY] as? String ?? BACKUP_LEGAL_LINK
+                        self.termsURLString = data[AppSettings.documents.LINKS.fields.TERMS_OF_SERVICE] as? String ?? BACKUP_LEGAL_LINK
+                    }
                 }
             }
-        }
+                    
+        
     }
     private func showAppleLogin() {
         appleSignInDelegates = SignInWithAppleDelegates(window: window, session: self.session)

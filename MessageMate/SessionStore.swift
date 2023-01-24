@@ -39,6 +39,9 @@ class SessionStore : NSObject, ObservableObject {
     @Published var signInError: String = ""
     @Published var isLoggedIn: SignInState = .loading
     
+    // TODO: Add in actual workflow to make this false when it needs to be
+    @Published var onboardingCompleted: Bool? = nil
+    
     private var db = Firestore.firestore()
     let loginManager = LoginManager()
     
@@ -48,8 +51,8 @@ class SessionStore : NSObject, ObservableObject {
         // Check to see if the user is authenticated
         if self.user.user != nil {
             
-            // See if the user has completed the tutorial
-            //self.getTutorialStatus()
+            // See if the user has completed the onboarding
+            self.getOnboardingStatus()
             
             // See if the user's document is in the database
             if self.user.uid != nil {
@@ -92,36 +95,36 @@ class SessionStore : NSObject, ObservableObject {
         }
     }
     
-//    func getTutorialStatus() {
-//        /// Reads whether the user has completed the tutorial, and udpates the observable object in the session
-//
-//        if self.user.uid != nil {
-//            Firestore.firestore().collection(UserSettings.name).document(self.user.uid!).getDocument(
-//                completion: { data, error in
-//
-//                    print("READ K")
-//                    guard let data = data?.data() else {
-//
-//                        // Could not read the data, so just show the user the tutorial
-//                        self.isTutorialCompleted = false
-//                        return
-//                    }
-//
-//                    if data[UserSettings.fields.TUTORIAL_COMPLETED] != nil {
-//                    self.isTutorialCompleted = data[UserSettings.fields.TUTORIAL_COMPLETED] as? Bool ?? false
-//                }
-//                    else {
-//                        // Could not read the data or it wasn't there. Show the user the tutorial
-//                        self.isTutorialCompleted = false
-//                    }
-//                }
-//            )
-//        }
-//
-//        else {
-//            self.isTutorialCompleted = false
-//        }
-//    }
+    func getOnboardingStatus() {
+        /// Reads whether the user has completed the tutorial, and udpates the observable object in the session
+
+        if self.user.uid != nil {
+            Firestore.firestore().collection(Users.name).document(self.user.uid!).getDocument(
+                completion: { data, error in
+
+                    print("READ K")
+                    guard let data = data?.data() else {
+
+                        // Could not read the data, so just show the user the tutorial
+                        self.onboardingCompleted = false
+                        return
+                    }
+
+                    if data[Users.fields.ONBOARDING_COMPLETED] != nil {
+                    self.onboardingCompleted = data[Users.fields.ONBOARDING_COMPLETED] as? Bool ?? false
+                }
+                    else {
+                        // Could not read the data or it wasn't there. Show the user the tutorial
+                        self.onboardingCompleted = false
+                    }
+                }
+            )
+        }
+
+        else {
+            self.onboardingCompleted = false
+        }
+    }
     
     func signOut () {
         self.db.collection(Users.name).document(self.user.user!.uid).updateData(["tokens": FieldValue.arrayRemove([Messaging.messaging().fcmToken ?? ""])], completion: {
@@ -218,11 +221,12 @@ class SessionStore : NSObject, ObservableObject {
                         let user_settings = self.db.collection(Users.name).document(String(user.uid))
                         
                         // Update session to show tutorial completed is false
-                        //self.isTutorialCompleted = false
+                        self.onboardingCompleted = false
                         
                         // Set the initial datafields
                         user_settings.setData([
-                            Users.fields.TUTORIAL_COMPLETED: false,
+                            // TODO: Get first name of user from the credential here or earlier on in the auth workflow and put it in the database here
+                            Users.fields.ONBOARDING_COMPLETED: false,
                             Users.fields.LEGAL_AGREEMENT: Timestamp.init(),
                             Users.fields.TOKENS: [Messaging.messaging().fcmToken ?? ""]
                         ])
