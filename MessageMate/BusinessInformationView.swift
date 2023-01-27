@@ -22,8 +22,8 @@ struct BusinessInformationView: View {
     var body: some View {
         NavigationView {
             GeometryReader { geometry in
-                VStack {
-                    Text("Business Information").bold().font(.system(size: 33)).frame(width: geometry.size.width, height: geometry.size.height * 0.10, alignment: .leading).offset(x: 5).padding()
+                VStack(alignment: .leading) {
+                    Text("Business Information").bold().font(.system(size: 30)).offset(x: 0).padding(.leading).padding(.bottom)
                     ScrollView {
                         ForEach(self.subViewDict.keys.sorted(), id:\.self) { category in
                             VStack {
@@ -33,8 +33,8 @@ struct BusinessInformationView: View {
                                         Image(systemName: "chevron.right").foregroundColor(.gray).imageScale(.small).offset(x: -5)
                                     }
                                 }
-                                HorizontalLine(color: .gray, height: 0.5)
-                            }.offset(x: -20)
+                                HorizontalLine(color: .gray, height: 1.0)
+                            }.padding(.leading).offset(x: -geometry.size.width * 0.03)
                         }
                     }
                 }
@@ -72,25 +72,13 @@ struct InputBoxView: View {
     var body: some View {
         VStack {
             Text(heading).frame(width: width, alignment: .leading).font(.system(size: 15)).foregroundColor(.gray)
-            
             NeumorphicStyleTextField(textField: TextField("", text: $input), sfName: nil, imageName: nil, textBinding: $input, placeholderText: heading, autoCorrect: autoCorrect).frame(width: width * 0.95).padding(.trailing)
-            
-//            TextField(heading, text: $input)
-//                .padding()
-//                .foregroundColor(.white)
-//                .background(Color.textBoxGgray)
-//                .cornerRadius(6)
-//                .overlay(
-//                    RoundedRectangle(cornerRadius: 6).stroke(self.isFieldFocused ? .white : .clear, lineWidth: 1)
-//                )
-//                .frame(width: width * 0.95).padding(.trailing)
-//                .focused($isFieldFocused)
-                
         }.frame(width: width)
     }
 }
 
 struct NeumorphicStyleTextField: View {
+    @Environment(\.colorScheme) var colorScheme
     var textField: TextField<Text>
     var sfName: String?
     var imageName: String?
@@ -122,14 +110,16 @@ struct NeumorphicStyleTextField: View {
                         .foregroundColor(.white)
                 }
             }
-            textField.placeholder(when: textBinding.isEmpty) {Text(self.placeholderText).foregroundColor(.white)}.autocorrectionDisabled(!autoCorrect)
+            
+            textField.placeholder(when: textBinding.isEmpty) {Text(self.placeholderText).foregroundColor(self.colorScheme == .dark ? .white : .black)}.autocorrectionDisabled(!autoCorrect)
+            
             }
             .padding()
             .foregroundColor(.white)
-            .background(Color.textBoxGgray)
+            .background(self.colorScheme == .dark ? Color.textBoxGgray : .gray)
             .cornerRadius(6)
             .overlay(
-                RoundedRectangle(cornerRadius: 6).stroke(self.isFieldFocused ? .white : .clear, lineWidth: 1)
+                RoundedRectangle(cornerRadius: 6).stroke(self.isFieldFocused ? self.colorScheme == .dark ? .white : .black : .clear, lineWidth: 1)
             )
             .padding(.trailing)
             .focused($isFieldFocused)
@@ -173,45 +163,6 @@ struct NeumorphicStyleButton: View {
         }
 }
 
-struct PullToRefresh: View {
-    
-    var coordinateSpaceName: String
-    var onRefresh: () -> Void
-    
-    @State var needRefresh: Bool = false
-    
-    var body: some View {
-        GeometryReader { geo in
-            if (geo.frame(in: .named(coordinateSpaceName)).midY > 50) {
-                Spacer()
-                    .onAppear {
-                        let impactMed = UIImpactFeedbackGenerator(style: .heavy)
-                        impactMed.impactOccurred()
-                        needRefresh = true
-                    }
-            } else if (geo.frame(in: .named(coordinateSpaceName)).maxY < 10) {
-                Spacer()
-                    .onAppear {
-                        if needRefresh {
-                            needRefresh = false
-                            onRefresh()
-                        }
-                    }
-            }
-            HStack {
-                Spacer()
-                VStack {
-                    if needRefresh {
-                        ProgressView()
-                    }
-                    Text("Pull to refresh").padding(.top)
-                }
-                Spacer()
-            }
-        }.padding(.top, -50)
-    }
-}
-
 struct HorizontalLineShape: Shape {
 
     func path(in rect: CGRect) -> Path {
@@ -237,6 +188,7 @@ struct HorizontalLine: View {
         HorizontalLineShape().fill(self.color ?? .black).frame(minWidth: 0, maxWidth: .infinity, minHeight: height, maxHeight: height)
     }
 }
+
 
 extension Color {
     static let lightShadow = Color(red: 255 / 255, green: 255 / 255, blue: 255 / 255)
