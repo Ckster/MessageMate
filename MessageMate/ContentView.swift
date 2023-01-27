@@ -42,9 +42,9 @@ struct ContentView: View {
                     switch self.session.onboardingCompleted {
                         case nil:
                         Text("Discerning onboarding status ...")
-    //                        .onAppear(perform: {
-    //                            self.session.getTutorialStatus()
-    //                        })
+                            .onAppear(perform: {
+                                self.session.getOnboardingStatus()
+                            })
                         
                         case true:
                             ZStack {
@@ -66,7 +66,7 @@ struct ContentView: View {
                                         
                                         BusinessInformationView().environmentObject(self.session)
                                             .tabItem {
-                                                Label("Business Information", systemImage: "building.2.crop.circle.fill")
+                                                Label("Business Info", systemImage: "building.2.crop.circle.fill")
                                         }
                                     }.frame(height: geometry.size.height * 0.95)
                                 }
