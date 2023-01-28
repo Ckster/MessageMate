@@ -152,11 +152,13 @@ class SessionStore : NSObject, ObservableObject {
     }
     
     func facebookLogin(authWorkflow: Bool) {
-        self.loginManager.logIn(permissions: ["email"], from: nil) { (loginResult, error) in
+        let permissions = authWorkflow ? ["email"] : ["email", "pages_show_list", "pages_messaging"]
+        self.loginManager.logIn(permissions: permissions, from: nil) { (loginResult, error) in
             self.signInError = error?.localizedDescription ?? ""
             if error == nil {
                 if loginResult?.isCancelled == false {
                     let credential = FacebookAuthProvider.credential(withAccessToken: AccessToken.current!.tokenString)
+                    print(AccessToken.current!.tokenString)
                     if authWorkflow {
                         self.firebaseAuthWorkflow(credential: credential)
                     }

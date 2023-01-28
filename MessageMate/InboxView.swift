@@ -15,54 +15,60 @@ struct InboxView: View {
     @Environment(\.colorScheme) var colorScheme
     
     var body: some View {
-        NavigationView {
-            GeometryReader { geometry in
-                VStack(alignment: .leading) {
-                    //Text("Inbox").bold().font(.system(size: 30)).offset(x: 0).padding(.leading).padding(.bottom)
-                    
-                    if self.loading {
-                        Text("Loading").onAppear(perform: {
-                            print("on appear")
-                            self.getConversations()
-                        })
-                    }
-                    else {
-                        ScrollView {
-                            PullToRefresh(coordinateSpaceName: "pullToRefresh") {
-                                self.loading = true
-                                self.getConversations()
-                            }
-                            if self.conversations.count == 0 {
-                                Text("No messages. Pull down to refresh")
-                            }
-                            else {
-                                ForEach(self.conversations, id:\.self) { conversation in
-                                    VStack {
-                                        NavigationLink(destination: ConversationView(conversation: conversation).navigationTitle(conversation.correspondent)) {
-                                            HStack {
-                                                VStack {
-                                                    Text(conversation.correspondent).foregroundColor(self.colorScheme == .dark ? .white : .black).font(.system(size: 23)).frame(width: geometry.size.width * 0.85, alignment: .leading)
-                                                    Text((conversation.messages.first ?? Message(text: "", selfSent: false)).text).foregroundColor(.gray).font(.system(size: 23)).frame(width: geometry.size.width * 0.85, alignment: .leading)
-                                                }
-                                                
-                                                Image(systemName: "chevron.right").foregroundColor(.gray).imageScale(.small).offset(x: -5)
-                                            }
-                                        }.navigationBarTitleDisplayMode(.inline).navigationTitle(" ")
-//                                            .toolbar {
-//                                            ToolbarItem(placement: .principal) {
-//                                                // this sets the screen title in the navigation bar, when the screen is visible
-//                                                Text("Inbox")
-//                                            }
-//                                        }
-                                        HorizontalLine(color: .gray, height: 0.75)
-                                    }.padding(.leading).offset(x: -geometry.size.width * 0.03)
-                                }
-                            }
-                        }.coordinateSpace(name: "pullToRefresh")
-                    }
-                }
-            }
+        
+        Button(action: {self.session.facebookLogin(authWorkflow: false)}) {
+            Image("facebook_login").resizable().cornerRadius(3.0).aspectRatio(contentMode: .fit)
+                //.frame(width: self.width * 0.80)
         }
+        
+//        NavigationView {
+//            GeometryReader { geometry in
+//                VStack(alignment: .leading) {
+//                    //Text("Inbox").bold().font(.system(size: 30)).offset(x: 0).padding(.leading).padding(.bottom)
+//
+//                    if self.loading {
+//                        Text("Loading").onAppear(perform: {
+//                            print("on appear")
+//                            self.getConversations()
+//                        })
+//                    }
+//                    else {
+//                        ScrollView {
+//                            PullToRefresh(coordinateSpaceName: "pullToRefresh") {
+//                                self.loading = true
+//                                self.getConversations()
+//                            }
+//                            if self.conversations.count == 0 {
+//                                Text("No messages. Pull down to refresh")
+//                            }
+//                            else {
+//                                ForEach(self.conversations, id:\.self) { conversation in
+//                                    VStack {
+//                                        NavigationLink(destination: ConversationView(conversation: conversation).navigationTitle(conversation.correspondent)) {
+//                                            HStack {
+//                                                VStack {
+//                                                    Text(conversation.correspondent).foregroundColor(self.colorScheme == .dark ? .white : .black).font(.system(size: 23)).frame(width: geometry.size.width * 0.85, alignment: .leading)
+//                                                    Text((conversation.messages.first ?? Message(text: "", selfSent: false)).text).foregroundColor(.gray).font(.system(size: 23)).frame(width: geometry.size.width * 0.85, alignment: .leading)
+//                                                }
+//
+//                                                Image(systemName: "chevron.right").foregroundColor(.gray).imageScale(.small).offset(x: -5)
+//                                            }
+//                                        }.navigationBarTitleDisplayMode(.inline).navigationTitle(" ")
+////                                            .toolbar {
+////                                            ToolbarItem(placement: .principal) {
+////                                                // this sets the screen title in the navigation bar, when the screen is visible
+////                                                Text("Inbox")
+////                                            }
+////                                        }
+//                                        HorizontalLine(color: .gray, height: 0.75)
+//                                    }.padding(.leading).offset(x: -geometry.size.width * 0.03)
+//                                }
+//                            }
+//                        }.coordinateSpace(name: "pullToRefresh")
+//                    }
+//                }
+//            }
+//        }
     }
     
     func getConversations() {

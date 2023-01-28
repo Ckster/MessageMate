@@ -60,21 +60,21 @@ class AppDelegate: UIResponder, UIApplicationDelegate, MessagingDelegate, UNUser
         return true
     }
     
-//    //FB  Login
-//    func application(
-//            _ app: UIApplication,
-//            open url: URL,
-//            options: [UIApplication.OpenURLOptionsKey : Any] = [:]
-//        ) -> Bool {
-//
-//            ApplicationDelegate.shared.application(
-//                app,
-//                open: url,
-//                sourceApplication: options[UIApplication.OpenURLOptionsKey.sourceApplication] as? String,
-//                annotation: options[UIApplication.OpenURLOptionsKey.annotation]
-//            )
-//
-//        }
+    //FB  Login
+    func application(
+            _ app: UIApplication,
+            open url: URL,
+            options: [UIApplication.OpenURLOptionsKey : Any] = [:]
+        ) -> Bool {
+
+            ApplicationDelegate.shared.application(
+                app,
+                open: url,
+                sourceApplication: options[UIApplication.OpenURLOptionsKey.sourceApplication] as? String,
+                annotation: options[UIApplication.OpenURLOptionsKey.annotation]
+            )
+
+        }
     
     // [START receive_message]
       func application(_ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable: Any]) {
@@ -153,7 +153,11 @@ extension AppDelegate {
     func application(_ application: UIApplication, configurationForConnecting connectingSceneSession: UISceneSession, options: UIScene.ConnectionOptions) -> UISceneConfiguration {
         // Called when a new scene session is being created.
         // Use this method to select a configuration to create the new scene with.
-        return UISceneConfiguration(name: "Default Configuration", sessionRole: connectingSceneSession.role)
+        let sceneConfig = UISceneConfiguration(name: nil, sessionRole: connectingSceneSession.role)
+        sceneConfig.delegateClass = SceneDelegate.self // 👈🏻
+        return sceneConfig
+        
+        //return UISceneConfiguration(name: "Default Configuration", sessionRole: connectingSceneSession.role)
     }
 
     func application(_ application: UIApplication, didDiscardSceneSessions sceneSessions: Set<UISceneSession>) {
