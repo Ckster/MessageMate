@@ -72,7 +72,7 @@ struct InputBoxView: View {
     var body: some View {
         VStack {
             Text(heading).frame(width: width, alignment: .leading).font(.system(size: 15)).foregroundColor(.gray)
-            NeumorphicStyleTextField(textField: TextField("", text: $input), sfName: nil, imageName: nil, textBinding: $input, placeholderText: heading, autoCorrect: autoCorrect).frame(width: width * 0.95).padding(.trailing)
+            NeumorphicStyleTextField(textField: TextField("", text: $input), sfName: nil, imageName: nil, textBinding: $input, placeholderText: heading, autoCorrect: autoCorrect).frame(width: width * 0.9).padding(.trailing)
         }.frame(width: width)
     }
 }

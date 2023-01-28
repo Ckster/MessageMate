@@ -38,6 +38,7 @@ class SessionStore : NSObject, ObservableObject {
     @Published var signUpError: String = ""
     @Published var signInError: String = ""
     @Published var isLoggedIn: SignInState = .loading
+    @Published var showMenu: Bool = true
     
     // TODO: Add in actual workflow to make this false when it needs to be
     @Published var onboardingCompleted: Bool? = nil

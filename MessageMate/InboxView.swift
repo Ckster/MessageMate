@@ -18,7 +18,7 @@ struct InboxView: View {
         NavigationView {
             GeometryReader { geometry in
                 VStack(alignment: .leading) {
-                    Text("Inbox").bold().font(.system(size: 30)).offset(x: 0).padding(.leading).padding(.bottom)
+                    //Text("Inbox").bold().font(.system(size: 30)).offset(x: 0).padding(.leading).padding(.bottom)
                     
                     if self.loading {
                         Text("Loading").onAppear(perform: {
@@ -38,7 +38,7 @@ struct InboxView: View {
                             else {
                                 ForEach(self.conversations, id:\.self) { conversation in
                                     VStack {
-                                        NavigationLink(destination: ConversationView(conversation: conversation)) {
+                                        NavigationLink(destination: ConversationView(conversation: conversation).navigationTitle(conversation.correspondent)) {
                                             HStack {
                                                 VStack {
                                                     Text(conversation.correspondent).foregroundColor(self.colorScheme == .dark ? .white : .black).font(.system(size: 23)).frame(width: geometry.size.width * 0.85, alignment: .leading)
@@ -47,7 +47,13 @@ struct InboxView: View {
                                                 
                                                 Image(systemName: "chevron.right").foregroundColor(.gray).imageScale(.small).offset(x: -5)
                                             }
-                                        }
+                                        }.navigationBarTitleDisplayMode(.inline).navigationTitle(" ")
+//                                            .toolbar {
+//                                            ToolbarItem(placement: .principal) {
+//                                                // this sets the screen title in the navigation bar, when the screen is visible
+//                                                Text("Inbox")
+//                                            }
+//                                        }
                                         HorizontalLine(color: .gray, height: 0.75)
                                     }.padding(.leading).offset(x: -geometry.size.width * 0.03)
                                 }
@@ -145,9 +151,24 @@ class Conversation: Hashable, Equatable {
 struct ConversationView: View {
     let conversation: Conversation
     @State var typingMessage: String = ""
-    @State var yPosition: CGFloat = 0
+    @State var placeholder: Bool = true
+    @State var scrollDown: Bool = false
+    @State var textEditorHeight : CGFloat = 100
+    @FocusState var messageIsFocused: Bool
+    var maxHeight : CGFloat = 250
+    @EnvironmentObject var session: SessionStore
+    
+    init(conversation: Conversation) {
+        self.conversation = conversation
+        
+        let appearance = UINavigationBarAppearance()
+        appearance.configureWithOpaqueBackground()
+            appearance.backgroundColor = UIColor.systemBackground
+            UINavigationBar.appearance().standardAppearance = appearance
+    }
     
     var body: some View {
+        
         GeometryReader {
             geometry in
             VStack {
@@ -158,27 +179,86 @@ struct ConversationView: View {
                             ForEach(conversation.messages, id: \.self.id) { msg in
                                 MessageView(width: geometry.size.width, currentMessage: msg).id(msg.id)
                             }
-                        }.onChange(of: yPosition) { _ in
-                            print("YUH")
+                        }.onChange(of: scrollDown) { _ in
+                            value.scrollTo(conversation.messages.last?.id)
+                        }.onChange(of: typingMessage) { _ in
                             value.scrollTo(conversation.messages.last?.id)
                         }.onAppear(perform: {
                             value.scrollTo(conversation.messages.last?.id)
                         })
                     }
+                }.onTapGesture {
+                    self.messageIsFocused = false
+                    self.placeholder = true
                 }
-                //.frame(height: geometry.size.height * 0.85)
+                
+//                HStack {
+//
+//                      MessagingUI()
+////                    TextView(text: $typingMessage, placeholder: $placeholder)
+////                        .overlay(
+////                            RoundedRectangle(cornerRadius: 5, style: .continuous)
+////                                .strokeBorder(Color.gray, lineWidth: 1.5)
+////                        )
+////                        .frame(width: geometry.size.width * 0.75, height: geometry.size.height * 0.10, alignment: .leading)
+////                        .focused($messageIsFocused)
+////                       // .offset(y: 15)
+////                        .onTapGesture {
+////                            self.placeholder = false
+////                            self.scrollDown.toggle()
+////                        }.padding(.bottom).padding(.top)
+//
+//                    Button(action: sendMessage) {
+//                        Image(systemName: "paperplane.circle.fill").font(.system(size: 35))
+//                    }.frame(width: geometry.size.width * 0.20, alignment: .center)
+//
+//                }.frame(height: geometry.size.height * 0.15)
+                    //.background(rectReader($yPosition))
                 
                 HStack {
-                       TextField("Message...", text: $typingMessage)
-                          .textFieldStyle(RoundedBorderTextFieldStyle())
-                          //.frame(width: geometry.size.width * 0.70, height: geometry.size.height * 0.05, alignment: .leading)
-                        Button(action: sendMessage) {
-                            Text("Send")
-                                //.frame(width: geometry.size.width * 0.10, height: geometry.size.height * 0.05)
-                         }
-                }.frame(height: geometry.size.height * 0.15).background(rectReader($yPosition))
-            }.navigationTitle(conversation.correspondent).navigationBarTitleDisplayMode(.inline)
+                    ZStack(alignment: .leading) {
+                        Text(typingMessage)
+                            .font(.system(.body))
+                            .foregroundColor(.clear)
+                            .padding(15)
+                            .background(GeometryReader {
+                                Color.clear.preference(key: ViewHeightKey.self,
+                                                       value: $0.frame(in: .local).size.height)
+                            })
+                        
+                        TextEditor(text: $typingMessage)
+                            .font(.system(.body))
+                            .padding(7)
+                            .frame(height: min(textEditorHeight, maxHeight))
+                            .background(Color.black)
+                    }
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 5, style: .continuous)
+                            .strokeBorder(Color.gray, lineWidth: 1)
+                    )
+                    .focused($messageIsFocused)
+                    
+                    Button(action: sendMessage) {
+                       Image(systemName: "paperplane.circle.fill").font(.system(size: 35))
+                   }.frame(width: geometry.size.width * 0.20, alignment: .center)
+                    
+//                    Button(action: {}) {
+//                        Image(systemName: "plus.circle")
+//                            .imageScale(.large)
+//                            .foregroundColor(.primary)
+//                            .font(.title)
+//                    }.padding(15).foregroundColor(.primary)
+                }.onPreferenceChange(ViewHeightKey.self) { textEditorHeight = $0 }
+                    .padding(.bottom)
+                    .padding(.top)
+                
+            }
         }
+        .onAppear(perform: {
+            self.session.showMenu = false
+        }).onDisappear(perform: {
+            self.session.showMenu = true
+        })
     }
     
     func sendMessage() {
@@ -280,21 +360,6 @@ struct KeyboardAdaptive: ViewModifier {
     }
 }
 
-
-//struct KeyboardAdaptive: ViewModifier {
-//    @State private var keyboardHeight: CGFloat = 0
-//
-//    @State var offset: CGFloat
-//
-//    func body(content: Content) -> some View {
-//        content
-//            .offset(y: -keyboardHeight)
-//            .onReceive(Publishers.keyboardHeight) {
-//                self.keyboardHeight = $0 == 0 ? 0 : $0 - offset
-//            }
-//    }
-//}
-
 extension View {
     func keyboardAdaptive() -> some View {
         ModifiedContent(content: self, modifier: KeyboardAdaptive())
@@ -320,5 +385,99 @@ extension Publishers {
 extension Notification {
     var keyboardHeight: CGFloat {
         return (userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect)?.height ?? 0
+    }
+}
+
+struct TextView: UIViewRepresentable {
+    @Binding var text: String
+    @Binding var placeholder: Bool
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+
+    func makeUIView(context: Context) -> UITextView {
+
+        let myTextView = UITextView()
+        myTextView.delegate = context.coordinator
+        myTextView.font = UIFont(name: "HelveticaNeue", size: 17)
+        myTextView.isScrollEnabled = true
+        myTextView.isEditable = true
+        myTextView.isUserInteractionEnabled = true
+        myTextView.backgroundColor = UIColor(white: 0.0, alpha: 0.05)
+
+        return myTextView
+    }
+
+    func updateUIView(_ uiView: UITextView, context: Context) {
+        uiView.text = self.placeholder && (self.text == "") ? "Message..." : text
+    }
+
+    class Coordinator : NSObject, UITextViewDelegate {
+
+        var parent: TextView
+
+        init(_ uiTextView: TextView) {
+            self.parent = uiTextView
+        }
+
+        func textView(_ textView: UITextView, shouldChangeTextIn range: NSRange, replacementText text: String) -> Bool {
+            return true
+        }
+
+        func textViewDidChange(_ textView: UITextView) {
+            self.parent.text = textView.text
+        }
+    }
+}
+
+
+struct MessagingUI: View {
+    @State private var textEditorHeight : CGFloat = 100
+    @State private var text = "Testing text. Hit a few returns to see what happens"
+    
+    private var maxHeight : CGFloat = 250
+    
+    var body: some View {
+        VStack {
+            VStack {
+                Text("Messages")
+                Spacer()
+            }
+            Divider()
+            HStack {
+                ZStack(alignment: .leading) {
+                    Text(text)
+                        .font(.system(.body))
+                        .foregroundColor(.clear)
+                        .padding(14)
+                        .background(GeometryReader {
+                            Color.clear.preference(key: ViewHeightKey.self,
+                                                   value: $0.frame(in: .local).size.height)
+                        })
+                    
+                    TextEditor(text: $text)
+                        .font(.system(.body))
+                        .padding(6)
+                        .frame(height: min(textEditorHeight, maxHeight))
+                        .background(Color.black)
+                }
+                .padding(20)
+                Button(action: {}) {
+                    Image(systemName: "plus.circle")
+                        .imageScale(.large)
+                        .foregroundColor(.primary)
+                        .font(.title)
+                }.padding(15).foregroundColor(.primary)
+            }.onPreferenceChange(ViewHeightKey.self) { textEditorHeight = $0 }
+        }
+    }
+}
+
+
+struct ViewHeightKey: PreferenceKey {
+    static var defaultValue: CGFloat { 0 }
+    static func reduce(value: inout Value, nextValue: () -> Value) {
+        value = value + nextValue()
     }
 }

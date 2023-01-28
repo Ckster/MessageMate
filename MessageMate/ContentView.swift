@@ -22,7 +22,7 @@ struct ContentView: View {
                     // Set the drag to control the menu UI
                     let drag = DragGesture().onEnded {
                         if !self.showingMenu {
-                            if $0.translation.width > 5 || $0.location.x < geometry.size.width * 0.25 {
+                            if $0.translation.width > 20 {
                                 print(1)
                                 withAnimation {
                                     self.showingMenu = true
@@ -49,10 +49,11 @@ struct ContentView: View {
                         case true:
                             ZStack {
                                 VStack {
+                                    
                                     Image(systemName: "line.3.horizontal").font(.system(size: 25)).onTapGesture(perform: {
                                         withAnimation {self.showingMenu.toggle()}
                                     }).frame(width: geometry.size.width, height: geometry.size.height * 0.05, alignment: .leading).padding(.leading)
-                                        
+                                    
                                     TabView {
                                         InboxView().environmentObject(self.session)
                                             .tabItem {
@@ -61,14 +62,14 @@ struct ContentView: View {
                                         
                                         TutorialView().environmentObject(self.session)
                                             .tabItem {
-                                                Label("Tutorial", systemImage: "graduationcap.circle.fill")
+                                                Label("Instructions", systemImage: "graduationcap.circle.fill")
                                             }
                                         
                                         BusinessInformationView().environmentObject(self.session)
                                             .tabItem {
                                                 Label("Business Info", systemImage: "building.2.crop.circle.fill")
                                         }
-                                    }.frame(height: geometry.size.height * 0.95)
+                                    }.ignoresSafeArea(.keyboard).frame(height: geometry.size.height * 0.95)
                                 }
                                 .disabled(self.showingMenu ? true : false)
                                 
