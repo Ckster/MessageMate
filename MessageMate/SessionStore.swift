@@ -39,6 +39,7 @@ class SessionStore : NSObject, ObservableObject {
     @Published var signInError: String = ""
     @Published var isLoggedIn: SignInState = .loading
     @Published var showMenu: Bool = true
+    @Published var facebookUserToken: String? = nil
     
     // TODO: Add in actual workflow to make this false when it needs to be
     @Published var onboardingCompleted: Bool? = nil
@@ -62,6 +63,7 @@ class SessionStore : NSObject, ObservableObject {
                         data, error in
                         print("READ J")
                         if error == nil && data != nil {
+                            self.getFacebokUserToken()
                             self.isLoggedIn = .signedIn
                         }
                         else {
@@ -127,6 +129,18 @@ class SessionStore : NSObject, ObservableObject {
         }
     }
     
+    func getFacebokUserToken() {
+        if self.user.uid != nil {
+            self.db.collection(Users.name).document(self.user.uid!).getDocument(completion:  {
+                data, error in
+                guard let data = data?.data() else {
+                    return
+                }
+                self.facebookUserToken = data[Users.fields.FACEBOOK_USER_TOKEN] as? String
+            })
+        }
+    }
+    
     func signOut () {
         self.db.collection(Users.name).document(self.user.user!.uid).updateData(["tokens": FieldValue.arrayRemove([Messaging.messaging().fcmToken ?? ""])], completion: {
             error in
@@ -141,19 +155,19 @@ class SessionStore : NSObject, ObservableObject {
             try Auth.auth().signOut()
             self.loginManager.logOut()
             self.isLoggedIn = .signedOut
-            GIDSignIn.sharedInstance.signOut()
+           // GIDSignIn.sharedInstance().signOut()
             UIApplication.shared.unregisterForRemoteNotifications()
         }
         catch {
             self.db.collection(Users.name).document(self.user.user!.uid).updateData([Users.fields.TOKENS: FieldValue.arrayUnion([Messaging.messaging().fcmToken ?? ""])])
             self.isLoggedIn = .signedIn
-            self.loginManager.logIn()
+           // self.loginManager.logIn()
         }
     }
     
     func facebookLogin(authWorkflow: Bool) {
-        let permissions = authWorkflow ? ["email"] : ["email", "pages_show_list", "pages_messaging"]
-        self.loginManager.logIn(permissions: permissions, from: nil) { (loginResult, error) in
+        let permissions = authWorkflow ? [] : []
+        self.loginManager.logIn(permissions: [], from: nil) { (loginResult, error) in
             self.signInError = error?.localizedDescription ?? ""
             if error == nil {
                 if loginResult?.isCancelled == false {
@@ -165,41 +179,42 @@ class SessionStore : NSObject, ObservableObject {
                 }
             }
             else {
+                print(error)
                 // There was an error signing in
             }
         }
     }
     
-    func googleLogin(authWorkflow: Bool) {
-        guard let clientID = FirebaseApp.app()?.options.clientID else { return }
-        
-        // Create Google Sign In configuration object.
-        let config = GIDConfiguration(clientID: clientID)
-        
-        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene else { return }
-        guard let rootViewController = windowScene.windows.first?.rootViewController else { return }
-        
-        // Start the sign in flow!
-        GIDSignIn.sharedInstance.signIn(with: config, presenting: rootViewController) { [unowned self] user, error in
-
-          if let error = error {
-              self.signInError = error.localizedDescription
-              return
-          }
-
-          guard
-            let authentication = user?.authentication,
-            let idToken = authentication.idToken
-          else {
-              return
-          }
-            let credential = GoogleAuthProvider.credential(withIDToken: idToken, accessToken: authentication.accessToken)
-            if authWorkflow {
-                firebaseAuthWorkflow(credential: credential)
-            }
-          return
-        }
-    }
+//    func googleLogin(authWorkflow: Bool) {
+//        guard let clientID = FirebaseApp.app()?.options.clientID else { return }
+//
+//        // Create Google Sign In configuration object.
+//        let config = GIDConfiguration(clientID: clientID)
+//
+//        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene else { return }
+//        guard let rootViewController = windowScene.windows.first?.rootViewController else { return }
+//
+//        // Start the sign in flow!
+//        GIDSignIn.sharedInstance.signIn(with: config, presenting: rootViewController) { [unowned self] user, error in
+//
+//          if let error = error {
+//              self.signInError = error.localizedDescription
+//              return
+//          }
+//
+//          guard
+//            let authentication = user?.authentication,
+//            let idToken = authentication.idToken
+//          else {
+//              return
+//          }
+//            let credential = GoogleAuthProvider.credential(withIDToken: idToken, accessToken: authentication.accessToken)
+//            if authWorkflow {
+//                firebaseAuthWorkflow(credential: credential)
+//            }
+//          return
+//        }
+//    }
         
     func firebaseAuthWorkflow(credential: FirebaseAuth.AuthCredential) {
         Auth.auth().signIn(with: credential) { (authResult, error) in

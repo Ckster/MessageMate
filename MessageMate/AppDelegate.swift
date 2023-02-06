@@ -15,9 +15,9 @@ import Firebase
 import CoreLocation
 import FirebaseAuth
 
+// MessagingDelegate
+class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate {
 
-class AppDelegate: UIResponder, UIApplicationDelegate, MessagingDelegate, UNUserNotificationCenterDelegate {
-    
     var window: UIWindow?
     let gcmMessageIDKey = "gcm.message_id"
     override init() {
@@ -28,9 +28,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, MessagingDelegate, UNUser
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         // Override point for customization after application launch.
             // [START set_messaging_delegate]
-            Messaging.messaging().delegate = self
-            Auth.auth().currentUser?.reload(completion: {error in})
-        
+//            Messaging.messaging().delegate = self
+//            Auth.auth().currentUser?.reload(completion: {error in})
+
             // [END set_messaging_delegate]
             // Register for remote notifications. This shows a permission dialog on first run, to
             // show the dialog at a more appropriate time move this registration accordingly.
@@ -50,13 +50,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate, MessagingDelegate, UNUser
             }
 
             application.registerForRemoteNotifications()
-        
+
         ApplicationDelegate.shared.application(
                     application,
                     didFinishLaunchingWithOptions: launchOptions
                 )
-        
-        
+
+
         return true
     }
     
@@ -75,15 +75,15 @@ class AppDelegate: UIResponder, UIApplicationDelegate, MessagingDelegate, UNUser
             )
 
         }
-    
+
     // [START receive_message]
       func application(_ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable: Any]) {
-        
-        // If you are receiving a notification message while your app is in the background,
-        // this callback will not be fired till the user taps on the notification launching the application.
-        // With swizzling disabled you must let Messaging know about the message, for Analytics
-        Messaging.messaging().appDidReceiveMessage(userInfo)
-        // Print message ID.
+
+//         If you are receiving a notification message while your app is in the background,
+//         this callback will not be fired till the user taps on the notification launching the application.
+//         With swizzling disabled you must let Messaging know about the message, for Analytics
+//        Messaging.messaging().appDidReceiveMessage(userInfo)
+//         Print message ID.
         if let messageID = userInfo[gcmMessageIDKey] {
           print("Message ID: \(messageID)")
         }
@@ -91,15 +91,15 @@ class AppDelegate: UIResponder, UIApplicationDelegate, MessagingDelegate, UNUser
         // Print full message.
         print(userInfo)
       }
-    
+
 
     func application(_ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable: Any],
                        fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
-        
+
         // If you are receiving a notification message while your app is in the background,
         // this callback will not be fired till the user taps on the notification launching the application.
         // With swizzling disabled you must let Messaging know about the message, for Analytics
-        Messaging.messaging().appDidReceiveMessage(userInfo)
+        //Messaging.messaging().appDidReceiveMessage(userInfo)
         // Print message ID.
         if let messageID = userInfo[gcmMessageIDKey] {
           print("Message ID: \(messageID)")
@@ -107,21 +107,21 @@ class AppDelegate: UIResponder, UIApplicationDelegate, MessagingDelegate, UNUser
 
         // Print full message.
         print(userInfo)
-        
+//
         completionHandler(UIBackgroundFetchResult.newData)
       }
-    
+
     func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
         print("Unable to register for remote notifications: \(error.localizedDescription)")
       }
-    
+
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
         print("APNs token retrieved: \(deviceToken)")
         // With swizzling disabled you must set the APNs token here.
-        Messaging.messaging().apnsToken = deviceToken
+       // Messaging.messaging().apnsToken = deviceToken
       }
 }
-    
+
 @available(iOS 10, *)
 extension AppDelegate {
 
@@ -129,7 +129,7 @@ extension AppDelegate {
   func userNotificationCenter(_ center: UNUserNotificationCenter,
                               willPresent notification: UNNotification,
                               withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
-    
+
     let userInfo = notification.request.content.userInfo
 
     // With swizzling disabled you must let Messaging know about the message, for Analytics
@@ -138,10 +138,10 @@ extension AppDelegate {
     if let messageID = userInfo[gcmMessageIDKey] {
       print("Message ID: \(messageID)")
     }
-    
+
     // Print full message.
     print(userInfo)
-    
+
     // Change this to your preferred presentation option
     completionHandler(.list)
     completionHandler(.banner)
@@ -154,9 +154,9 @@ extension AppDelegate {
         // Called when a new scene session is being created.
         // Use this method to select a configuration to create the new scene with.
         let sceneConfig = UISceneConfiguration(name: nil, sessionRole: connectingSceneSession.role)
-        sceneConfig.delegateClass = SceneDelegate.self // 👈🏻
+        sceneConfig.delegateClass = SceneDelegate.self //
         return sceneConfig
-        
+
         //return UISceneConfiguration(name: "Default Configuration", sessionRole: connectingSceneSession.role)
     }
 
@@ -172,5 +172,5 @@ extension AppDelegate {
       let dataDict:[String: String] = ["token": fcmToken ?? ""]
       NotificationCenter.default.post(name: Notification.Name("FCMToken"), object: nil, userInfo: dataDict)
     }
-    
+
 }

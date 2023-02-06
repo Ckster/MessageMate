@@ -11,14 +11,14 @@ struct Users {
     // type attributes
     static let name = "users"
     static let fields = UsersFields.self
-    
+
     // instance attributes
     var name: String
     var fields: UsersFields
     var documentPath: String
-    
+
     init(uid: String) {
-        
+
         // This allows you to access the "type attributes" (static let ...) if you are using an instance of the class
         self.name = Users.name
         self.fields = UsersFields()
@@ -32,6 +32,7 @@ struct UsersFields {
     static let TOKENS = "tokens"
     static let ONBOARDING_COMPLETED = "onboarding_completed"
     static let LEGAL_AGREEMENT = "legal_agreement"
+    static let FACEBOOK_USER_TOKEN = "facebook_user_token"
 }
 
 
