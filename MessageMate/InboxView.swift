@@ -9,6 +9,40 @@ import SwiftUI
 import FBSDKLoginKit
 import FirebaseFirestore
 
+
+func getRequest(urlString: String, completion: @escaping ([String: AnyObject]) -> Void) {
+    let url = URL(string: urlString)!
+    let request = URLRequest(url: url)
+    
+    let dataTask = URLSession.shared.dataTask(with: request) {(data, response, error) in
+        if let error = error {
+            print("Request error:", error)
+            return
+        }
+        
+        guard let data = data else {
+            print("Couldn't get data")
+            return
+        }
+
+        do {
+            if let jsonDataDict = try JSONSerialization.jsonObject(with: data, options: JSONSerialization.ReadingOptions.allowFragments) as? [String: AnyObject] {
+                completion(jsonDataDict)
+            }
+            else {
+                print("Couldn't deserialize data")
+            }
+        }
+        
+        catch let error as NSError {
+            print(error)
+        }
+        
+    }
+    dataTask.resume()
+}
+
+
 struct InboxView: View {
     @EnvironmentObject var session: SessionStore
     
@@ -31,68 +65,78 @@ struct ConversationsView: View {
     @Environment(\.colorScheme) var colorScheme
     @State var pages: [Page] = []
     @State var loading: Bool = true
+    @State var firstAppear: Bool = true
+    @State var selectedPageIndex: Int = 0
     
     var body: some View {
         NavigationView {
             GeometryReader { geometry in
                 VStack(alignment: .leading) {
                     Text("Inbox").bold().font(.system(size: 30)).offset(x: 0).padding(.leading).padding(.bottom)
-
+                    
                     if self.loading {
-                        Text("Loading").onAppear(perform: {
-                            self.updatePages()
-                        })
+                        LottieView(name: "9844-loading-40-paperplane")
                     }
                     else {
+                        
                         ScrollView {
                             PullToRefresh(coordinateSpaceName: "pullToRefresh") {
-                                //self.loading = true
-                                //self.getConversations()
+                                self.loading = true
+                                self.updatePages()
                             }
-                            if self.pages[1].conversations.count == 0 {
-                                Text("No conversations. Pull down to refresh")
-                            }
-                            else {
-                                ForEach(self.pages[1].conversations, id:\.self) { conversation in
-                                    
-                                    // TODO: Make sure ther is at least one message in the conversation
-                                    if conversation.messages.count > 0 {
-                                        ConversationNavigationView(conversation: conversation, width: geometry.size.width, page: self.pages[1])
+                            
+                            if self.pages.count > 0 {
+                                if self.pages[self.selectedPageIndex].conversations.count == 0 {
+                                    Text("No conversations. Pull down to refresh")
+                                }
+                                else {
+                                    ForEach(self.pages[self.selectedPageIndex].conversations, id:\.self) { conversation in
+                                        if conversation.messages.count > 0 {
+                                            ConversationNavigationView(conversation: conversation, width: geometry.size.width, page: self.pages[self.selectedPageIndex])
+                                        }
                                     }
                                 }
+                            }
+                            
+                            else {
+                                Text("There are no business accounts linked to you. Add a business account to your Messenger account to see it here.")
                             }
                         }.coordinateSpace(name: "pullToRefresh")
                     }
                 }
             }
         }
+        .onAppear(perform: {
+            if self.firstAppear {
+                print("ON_APPEAR")
+                self.firstAppear = false
+                self.updatePages()
+            }
+        })
     }
-    
     
     func updatePages() {
         self.getPages() { pages in
             for page in pages {
-                
-                self.getPageBusinessAccountId(page: page) {
-                    businessAccountId in
-                    page.businessAccountId = businessAccountId
+                self.getConversations(page: page) {
+                    conversations in
+                    var newConversations: [Conversation] = []
                     
-                    self.getConversations(page: page) {
-                        conversations in
-                        page.conversations = conversations
-                        for conversation in conversations {
-                            self.getMessages(page: page, conversation: conversation) {
-                                messages in
-                                
-                                print(page.name, conversation.id, messages)
+                    for conversation in conversations {
+                        self.getMessages(page: page, conversation: conversation) {
+                            messages in
+                            if messages.count > 0 {
                                 conversation.messages = messages.sorted { $0.createdTime < $1.createdTime }
                                 conversation.updateCorrespondent()
-                                if page == pages.last && conversation == conversations.last {
-                                    DispatchQueue.main.async {
-                                        print("UPDATING")
-                                        self.pages = pages
-                                        self.loading = false
-                                    }
+                                newConversations.append(conversation)
+                            }
+                        
+                            if conversation == conversations.last {
+                                page.conversations = newConversations
+                                if page == pages.last {
+                                    print("Updating")
+                                    self.pages = pages
+                                    self.loading = false
                                 }
                             }
                         }
@@ -102,44 +146,11 @@ struct ConversationsView: View {
         }
     }
     
-    func getRequest(urlString: String, completion: @escaping ([String: AnyObject]) -> Void) {
-        let url = URL(string: urlString)!
-        let request = URLRequest(url: url)
-        
-        let dataTask = URLSession.shared.dataTask(with: request) {(data, response, error) in
-            print("starting data task")
-            if let error = error {
-                print("Request error:", error)
-                return
-            }
-            
-            guard let data = data else {
-                print("Couldn't get data")
-                return
-            }
-
-            do {
-                if let jsonDataDict = try JSONSerialization.jsonObject(with: data, options: JSONSerialization.ReadingOptions.allowFragments) as? [String: AnyObject] {
-                    completion(jsonDataDict)
-                }
-                else {
-                    print("Couldn't deserialize data")
-                }
-            }
-            
-            catch let error as NSError {
-                print(error)
-            }
-            
-        }
-        dataTask.resume()
-    }
-    
     func getMessages(page: Page, conversation: Conversation, completion: @escaping ([Message]) -> Void) {
         // TODO: Only look for details on 20 most recent messages
         
-        let urlString = "https://graph.facebook.com/v9.0/\(conversation.id)?fields=messages&access_token=\(page.accessToken)"
-        self.getRequest(urlString: urlString) {
+        let urlString = "https://graph.facebook.com/v16.0/\(conversation.id)?fields=messages&access_token=\(page.accessToken)"
+        getRequest(urlString: urlString) {
             jsonDataDict in
             let messagePointers = jsonDataDict["messages"] as? [String: AnyObject]
             if messagePointers != nil {
@@ -148,13 +159,14 @@ struct ConversationsView: View {
                     let messagePointerLen = messagePointerData!.count
                     var indexCounter = 0
                     var newMessages: [Message] = []
+                    var userRegistry: [String: MetaUser] = [:]
                     for messagePointer in messagePointerData! {
                         let id = messagePointer["id"] as? String
                         let createdTime = messagePointer["created_time"] as? String
                         
                         if id != nil {
                             let messageDataURLString = "https://graph.facebook.com/v9.0/\(id!)?fields=id,created_time,from,to,message&access_token=\(page.accessToken)"
-                            self.getRequest(urlString: messageDataURLString) {
+                            getRequest(urlString: messageDataURLString) {
                                 messageDataDict in
                             
                                 let fromDict = messageDataDict["from"] as? [String: AnyObject]
@@ -173,9 +185,15 @@ struct ConversationsView: View {
                                             let toId = toDict![0]["id"] as? String
                                     
                                             if fromUsername != nil && fromId != nil && toUsername != nil && toId != nil {
-                                                let fromUser = MetaUser(id: fromId!, username: fromUsername!)
+                                                // TODO: Need to make this user creation wayyyyy more efficient
+                                            
                                                 let toUser = MetaUser(id: toId!, username: toUsername!)
-                                                newMessages.append(Message(id: id!, message: message!, to: toUser, from: fromUser, createdTime: createdTime!))
+                                                
+                                                fromUser.getProfilePicture(access_token: page.accessToken) {
+                                                    toUser.getProfilePicture(access_token: page.accessToken) {
+                                                        newMessages.append(Message(id: id!, message: message!, to: toUser, from: fromUser, createdTime: createdTime!))
+                                                    }
+                                                }
                                             }
                                         }
                                     }
@@ -198,8 +216,8 @@ struct ConversationsView: View {
     }
     
     func getConversations(page: Page, completion: @escaping ([Conversation]) -> Void) {
-        let urlString = "https://graph.facebook.com/v9.0/\(page.id)/conversations?platform=instagram&access_token=\(page.accessToken)"
-        self.getRequest(urlString: urlString) {
+        let urlString = "https://graph.facebook.com/v16.0/\(page.id)/conversations?platform=instagram&access_token=\(page.accessToken)"
+        getRequest(urlString: urlString) {
             jsonDataDict in
             let conversations = jsonDataDict["data"] as? [[String: AnyObject]]
             var newConversations: [Conversation] = []
@@ -222,24 +240,45 @@ struct ConversationsView: View {
     
     func getPages(completion: @escaping ([Page]) -> Void) {
         if self.session.facebookUserToken != nil {
-            let urlString = "https://graph.facebook.com/v9.0/me/accounts?access_token=\(self.session.facebookUserToken!)"
-            self.getRequest(urlString: urlString) {
+            let urlString = "https://graph.facebook.com/v16.0/me/accounts?access_token=\(self.session.facebookUserToken!)"
+            getRequest(urlString: urlString) {
                 jsonDataDict in
                 NSLog("Received data:\n\(jsonDataDict))")
                 let pages = jsonDataDict["data"] as? [[String: AnyObject]]
                 if pages != nil {
                     var newPages: [Page] = []
+                    let pageCount = pages!.count
+                    var pageIndex = 0
+                    
                     for page in pages! {
+                        pageIndex = pageIndex + 1
                         let pageAccessToken = page["access_token"] as? String
                         let category = page["category"] as? String
                         let name = page["name"] as? String
                         let id = page["id"] as? String
-                        
+                    
                         if pageAccessToken != nil && category != nil && name != nil && id != nil {
-                            newPages.append(Page(id: id!, name: name!, accessToken: pageAccessToken!, category: category!))
+                            let newPage = Page(id: id!, name: name!, accessToken: pageAccessToken!, category: category!)
+                            self.getPageBusinessAccountId(page: newPage) {
+                                busAccountId in
+                                if busAccountId != nil {
+                                    newPage.businessAccountId = busAccountId!
+                                    newPages.append(newPage)
+                                    if pageIndex == pageCount {
+                                        completion(newPages)
+                                    }
+                                }
+                            }
                         }
                     }
-                    completion(newPages)
+                    
+                    if pageCount == 0 {
+                        completion([])
+                    }
+                    
+                }
+                else {
+                    completion([])
                 }
             }
         }
@@ -248,9 +287,9 @@ struct ConversationsView: View {
         }
     }
     
-    func getPageBusinessAccountId(page: Page, completion: @escaping (String) -> Void) {
-        let urlString = "https://graph.facebook.com/v9.0/\(page.id)?fields=instagram_business_account&access_token=\(page.accessToken)"
-        self.getRequest(urlString: urlString) {
+    func getPageBusinessAccountId(page: Page, completion: @escaping (String?) -> Void) {
+        let urlString = "https://graph.facebook.com/v16.0/\(page.id)?fields=instagram_business_account&access_token=\(page.accessToken)"
+        getRequest(urlString: urlString) {
             jsonDataDict in
             let instaData = jsonDataDict["instagram_business_account"] as? [String: String]
             if instaData != nil {
@@ -258,6 +297,12 @@ struct ConversationsView: View {
                 if id != nil {
                     completion(id!)
                 }
+                else {
+                    completion(nil)
+                }
+            }
+            else {
+                completion(nil)
             }
         }
     }
@@ -272,13 +317,13 @@ struct ConversationNavigationView: View {
     
     var body: some View {
         VStack {
-            NavigationLink(destination: ConversationView(conversation: conversation, page: page).navigationTitle(conversation.correspondent)) {
+            NavigationLink(destination: ConversationView(conversation: conversation, page: page).navigationTitle(conversation.correspondent!.username)) {
                 HStack {
+                    AsyncImage(url: URL(string: self.conversation.correspondent!.profilePicURL!)) { image in image.resizable() } placeholder: { Color.red } .frame(width: 55, height: 55) .clipShape(Circle())
                     VStack {
-                        Text(conversation.correspondent).foregroundColor(self.colorScheme == .dark ? .white : .black).font(.system(size: 23)).frame(width: width * 0.85, alignment: .leading)
+                        Text(conversation.correspondent!.username).foregroundColor(self.colorScheme == .dark ? .white : .black).font(.system(size: 23)).frame(width: width * 0.85, alignment: .leading)
                         Text((conversation.messages.last!).message).foregroundColor(.gray).font(.system(size: 23)).frame(width: width * 0.85, alignment: .leading)
                     }
-                    Image(systemName: "chevron.right").foregroundColor(.gray).imageScale(.small).offset(x: -5)
                 }
             }.navigationBarTitleDisplayMode(.inline).navigationTitle(" ")
             HorizontalLine(color: .gray, height: 0.75)
@@ -363,7 +408,7 @@ class Conversation: Hashable, Equatable {
     let id: String
     let updatedTime: Date?
     let page: Page
-    var correspondent: String = ""
+    var correspondent: MetaUser? = nil
     var messages: [Message] = []
     
     init(id: String, updatedTime: String, page: Page) {
@@ -383,7 +428,7 @@ class Conversation: Hashable, Equatable {
     func updateCorrespondent() {
         for message in self.messages {
             if message.from.id != page.businessAccountId {
-                self.correspondent = message.from.username
+                self.correspondent = message.from
                 return
             }
         }
@@ -412,12 +457,18 @@ class Page: Hashable, Equatable {
     static func ==(lhs: Page, rhs: Page) -> Bool {
         return lhs.id == rhs.id
     }
+    
+    func sortConversations() {
+        self.conversations = self.conversations.sorted {$0.messages.last!.createdTime > $1.messages.last!.createdTime}
+    }
+    
 }
 
 
 class MetaUser: Hashable, Equatable {
     let id: String
     let username: String
+    var profilePicURL: String? = nil
     
     init(id: String, username: String) {
         self.id = id
@@ -432,6 +483,17 @@ class MetaUser: Hashable, Equatable {
         return lhs.id == rhs.id
     }
     
+    func getProfilePicture(access_token: String, completion: @escaping () -> Void) {
+        let urlString = "https://graph.facebook.com/v16.0/\(self.id)?access_token=\(access_token)"
+        getRequest(urlString: urlString) {
+            profileData in
+            let profilePicURL = profileData["profile_pic"] as? String
+            if profilePicURL != nil {
+                self.profilePicURL = profilePicURL?.replacingOccurrences(of: "\\", with: "")
+                completion()
+            }
+        }
+    }
 }
 
 
@@ -445,6 +507,7 @@ struct ConversationView: View {
     @FocusState var messageIsFocused: Bool
     var maxHeight : CGFloat = 250
     @EnvironmentObject var session: SessionStore
+    @Environment(\.colorScheme) var colorScheme
 
     init(conversation: Conversation, page: Page) {
         self.conversation = conversation
@@ -459,12 +522,14 @@ struct ConversationView: View {
         GeometryReader {
             geometry in
             VStack {
+                
+                // The message thread
                 ScrollView {
                     ScrollViewReader {
                         value in
                         VStack {
                             ForEach(conversation.messages, id: \.self.id) { msg in
-                                MessageView(width: geometry.size.width, currentMessage: msg, page: page).id(msg.id)
+                                MessageView(width: geometry.size.width, currentMessage: msg, conversation: conversation, page: page).id(msg.id)
                             }
                         }.onChange(of: scrollDown) { _ in
                             value.scrollTo(conversation.messages.last?.id)
@@ -478,8 +543,10 @@ struct ConversationView: View {
                     self.messageIsFocused = false
                     self.placeholder = true
                 }
-
+                    
                 HStack {
+                    
+                    // Input text box
                     ZStack(alignment: .leading) {
                         Text(typingMessage)
                             .font(.system(.body))
@@ -494,7 +561,7 @@ struct ConversationView: View {
                             .font(.system(.body))
                             .padding(7)
                             .frame(height: min(textEditorHeight, maxHeight))
-                            .background(Color.black)
+                            .background(self.colorScheme == .dark ? Color.black : Color.white)
                     }
                     .overlay(
                         RoundedRectangle(cornerRadius: 5, style: .continuous)
@@ -502,9 +569,12 @@ struct ConversationView: View {
                     )
                     .focused($messageIsFocused)
 
+                    // Send message button
                     Button(action: sendMessage) {
                        Image(systemName: "paperplane.circle.fill").font(.system(size: 35))
-                   }.frame(width: geometry.size.width * 0.20, alignment: .center)
+                   }.frame(width: geometry.size.width * 0.20, alignment: .leading)
+                    
+                    
                 }.onPreferenceChange(ViewHeightKey.self) { textEditorHeight = $0 }
                     .padding(.bottom)
                     .padding(.top)
@@ -536,16 +606,18 @@ struct ConversationView: View {
 struct MessageView : View {
     let width: CGFloat
     var currentMessage: Message
+    let conversation: Conversation
     let page: Page
         
     var body: some View {
         let isCurrentUser = page.businessAccountId == currentMessage.from.id
         if !isCurrentUser {
             HStack {
-                Image(systemName: "person.circle")
-                .resizable()
-                .frame(width: 40, height: 40)
-                .cornerRadius(20)
+                AsyncImage(url: URL(string: conversation.correspondent!.profilePicURL!)) { image in image.resizable() } placeholder: { Color.red } .frame(width: 45, height: 45) .clipShape(Circle())
+                //Image(systemName: "person.circle")
+                //.resizable()
+                
+                //.cornerRadius(20)
 
                 MessageBlurbView(contentMessage: currentMessage.message,
                                    isCurrentUser: isCurrentUser)
@@ -553,7 +625,7 @@ struct MessageView : View {
         }
         else {
             MessageBlurbView(contentMessage: currentMessage.message,
-                             isCurrentUser: isCurrentUser).frame(width: width * 0.90, alignment: .trailing).padding(.trailing)
+                             isCurrentUser: isCurrentUser).frame(width: width * 0.875, alignment: .trailing).padding(.trailing)
         }
     }
 }
@@ -725,3 +797,12 @@ struct ViewHeightKey: PreferenceKey {
 //
 //        {"id":"aWdfZAG1faXRlbToxOklHTWVzc2FnZAUlEOjE3ODQxNDU0NjA0MTQ1ODE0OjM0MDI4MjM2Njg0MTcxMDMwMDk0OTEyODE3MzIyOTkxMzk1ODc0NzozMDg5NTc2MzM0NTU3MzczNDg0MzY4ODM3NTc1NzU3MDA0OAZDZD","created_time":"2023-01-27T23:38:06+0000","from":{"username":"axon.messaging","id":"17841454604145814"},"to":{"data":[{"username":"evan.marrone","id":"6521113831237472"}]},"message":""}
 
+
+//curl -i -X GET "https://graph.facebook.com/v9.0/aWdfZAG1faXRlbToxOklHTWVzc2FnZAUlEOjE3ODQxNDU0NjA0MTQ1ODE0OjM0MDI4MjM2Njg0MTcxMDMwMDk0OTEyODE3MzIyOTkxMzk1ODc0NzozMDgyOTE3OTA2NTgzNTE2NDk4MTMyMTY2MjM1NDk0ODA5NgZDZD?fields=id,created_time,from,to,message&access_token=EAAPjZCIdKOzEBAKMbZBTeEpVAfLfZBkqIkNpysACCqsEosMXjOajJ2CxfIVuBfTi2R2oxQCbnOtTjSZBsP6wJRR9Tylnj0Tnky1nk84eYv2wIs3oUpxpB4e2LuyQwHDc2WFlEcTBmCoR0C2Lp8ok7NBccKUZCgZCvROhHDtc8NF21FkrDp8iOP"
+//
+//
+//curl -i -X GET \
+// "https://graph.facebook.com/v16.0/6521113831237472/picture"
+
+
+//"https://scontent-den4-1.cdninstagram.com/v/t51.2885-19/147454587_483650809463544_8013518899283133287_n.jpg?stp=dst-jpg_s200x200&_nc_cat=107&ccb=1-7&_nc_sid=8ae9d6&_nc_ohc=Q3zKGTK6HHQAX-C_mcR&_nc_ht=scontent-den4-1.cdninstagram.com&edm=ALmAK4EEAAAA&oh=00_AfDXOH3hYHcNc-d6fsE-_udK11cGdpZbGq-oOvLopJwh6Q&oe=640AA2EB"
