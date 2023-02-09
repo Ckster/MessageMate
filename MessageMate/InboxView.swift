@@ -10,37 +10,7 @@ import FBSDKLoginKit
 import FirebaseFirestore
 
 
-func getRequest(urlString: String, completion: @escaping ([String: AnyObject]) -> Void) {
-    let url = URL(string: urlString)!
-    let request = URLRequest(url: url)
-    
-    let dataTask = URLSession.shared.dataTask(with: request) {(data, response, error) in
-        if let error = error {
-            print("Request error:", error)
-            return
-        }
-        
-        guard let data = data else {
-            print("Couldn't get data")
-            return
-        }
-
-        do {
-            if let jsonDataDict = try JSONSerialization.jsonObject(with: data, options: JSONSerialization.ReadingOptions.allowFragments) as? [String: AnyObject] {
-                completion(jsonDataDict)
-            }
-            else {
-                print("Couldn't deserialize data")
-            }
-        }
-        
-        catch let error as NSError {
-            print(error)
-        }
-        
-    }
-    dataTask.resume()
-}
+var userRegistry: [String: MetaUser] = [:]
 
 
 struct InboxView: View {
@@ -94,6 +64,9 @@ struct ConversationsView: View {
                                         if conversation.messages.count > 0 {
                                             ConversationNavigationView(conversation: conversation, width: geometry.size.width, page: self.pages[self.selectedPageIndex])
                                         }
+                                        else {
+                                            Text("ZERO")
+                                        }
                                     }
                                 }
                             }
@@ -127,7 +100,8 @@ struct ConversationsView: View {
                             messages in
                             if messages.count > 0 {
                                 conversation.messages = messages.sorted { $0.createdTime < $1.createdTime }
-                                conversation.updateCorrespondent()
+                                let userList = conversation.updateCorrespondent()
+                                page.pageUser = userList[1]
                                 newConversations.append(conversation)
                             }
                         
@@ -135,6 +109,9 @@ struct ConversationsView: View {
                                 page.conversations = newConversations
                                 if page == pages.last {
                                     print("Updating")
+                                    for conversation in pages[0].conversations {
+                                        print(conversation.correspondent!.username)
+                                    }
                                     self.pages = pages
                                     self.loading = false
                                 }
@@ -159,7 +136,7 @@ struct ConversationsView: View {
                     let messagePointerLen = messagePointerData!.count
                     var indexCounter = 0
                     var newMessages: [Message] = []
-                    var userRegistry: [String: MetaUser] = [:]
+                    
                     for messagePointer in messagePointerData! {
                         let id = messagePointer["id"] as? String
                         let createdTime = messagePointer["created_time"] as? String
@@ -175,25 +152,38 @@ struct ConversationsView: View {
                                 
                                 if toDictList != nil {
                                     let toDict = toDictList!["data"] as? [[String: AnyObject]]
-                                
-                                    // TODO: Support for group chats?
-                                    if toDict!.count <= 1 {
+    
+                                    // TODO: Support for group chats? Probably not
+                                    if toDict!.count == 1 {
                                         if fromDict != nil && toDict != nil && message != nil {
                                             let fromUsername = fromDict!["username"] as? String
                                             let fromId = fromDict!["id"] as? String
                                             let toUsername = toDict![0]["username"] as? String
                                             let toId = toDict![0]["id"] as? String
-                                    
+                            
                                             if fromUsername != nil && fromId != nil && toUsername != nil && toId != nil {
-                                                // TODO: Need to make this user creation wayyyyy more efficient
-                                            
-                                                let toUser = MetaUser(id: toId!, username: toUsername!)
+                                                let registeredUsernames = userRegistry.keys
                                                 
-                                                fromUser.getProfilePicture(access_token: page.accessToken) {
-                                                    toUser.getProfilePicture(access_token: page.accessToken) {
-                                                        newMessages.append(Message(id: id!, message: message!, to: toUser, from: fromUser, createdTime: createdTime!))
-                                                    }
+                                                var fromUser: MetaUser? = nil
+                                                if registeredUsernames.contains(fromId!) {
+                                                    fromUser = userRegistry[fromId!]
                                                 }
+                                                else {
+                                                    fromUser = MetaUser(id: fromId!, username: fromUsername!)
+                                                    userRegistry[fromId!] = fromUser
+                                                }
+                                                
+                                                var toUser: MetaUser? = nil
+                                                if registeredUsernames.contains(toId!) {
+                                                    toUser = userRegistry[toId!]
+                                                }
+                                                else {
+                                                    toUser = MetaUser(id: toId!, username: toUsername!)
+                                                    userRegistry[toId!] = toUser
+                                                }
+                                                
+                                                newMessages.append(Message(id: id!, message: message!, to: toUser!, from: fromUser!, createdTime: createdTime!))
+                                                
                                             }
                                         }
                                     }
@@ -201,6 +191,13 @@ struct ConversationsView: View {
                             
                                 indexCounter = indexCounter + 1
                                 if indexCounter == messagePointerLen {
+                                    
+                                    // Start of the async get of profile pic url
+                                    for user in userRegistry.values {
+                                        if user.profilePicURL == nil {
+                                            user.getProfilePicture(access_token: page.accessToken)
+                                        }
+                                    }
                                     completion(newMessages)
                                 }
                             }
@@ -310,16 +307,24 @@ struct ConversationsView: View {
 
 
 struct ConversationNavigationView: View {
-    let conversation: Conversation
+    var conversation: Conversation
     let width: CGFloat
     let page: Page
     @Environment(\.colorScheme) var colorScheme
+    @ObservedObject var correspondent: MetaUser
+    
+    init(conversation: Conversation, width: CGFloat, page: Page) {
+        self.conversation = conversation
+        self.width = width
+        self.page = page
+        self.correspondent = conversation.correspondent!
+    }
     
     var body: some View {
         VStack {
             NavigationLink(destination: ConversationView(conversation: conversation, page: page).navigationTitle(conversation.correspondent!.username)) {
                 HStack {
-                    AsyncImage(url: URL(string: self.conversation.correspondent!.profilePicURL!)) { image in image.resizable() } placeholder: { Color.red } .frame(width: 55, height: 55) .clipShape(Circle())
+                    AsyncImage(url: URL(string: self.correspondent.profilePicURL ?? "")) { image in image.resizable() } placeholder: { Color.gray } .frame(width: 55, height: 55) .clipShape(Circle()).offset(y: conversation.messages.last!.message == "" ? -6 : 0)
                     VStack {
                         Text(conversation.correspondent!.username).foregroundColor(self.colorScheme == .dark ? .white : .black).font(.system(size: 23)).frame(width: width * 0.85, alignment: .leading)
                         Text((conversation.messages.last!).message).foregroundColor(.gray).font(.system(size: 23)).frame(width: width * 0.85, alignment: .leading)
@@ -371,134 +376,9 @@ struct FacebookAuthenticateView: View {
     }
 }
 
-extension Date {
-    func facebookStringToDate(fbString: String) -> Date {
-        let dateFormatter = DateFormatter()
-        dateFormatter.locale = Locale(identifier: "en_US_POSIX")
-        dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ssZ"
-        return dateFormatter.date(from: fbString) ?? Date()
-    }
-}
-
-class Message: Hashable, Equatable {
-    let id: String
-    let message: String
-    let to: MetaUser
-    let from: MetaUser
-    let createdTime: Date
-    
-    init (id: String, message: String, to: MetaUser, from: MetaUser, createdTime: String) {
-        self.id = id
-        self.message = message
-        self.to = to
-        self.from = from
-        self.createdTime = Date().facebookStringToDate(fbString: createdTime)
-    }
-
-    func hash(into hasher: inout Hasher) {
-        hasher.combine(self.id)
-    }
-
-    static func ==(lhs: Message, rhs: Message) -> Bool {
-        return lhs.id == rhs.id
-    }
-}
-
-class Conversation: Hashable, Equatable {
-    let id: String
-    let updatedTime: Date?
-    let page: Page
-    var correspondent: MetaUser? = nil
-    var messages: [Message] = []
-    
-    init(id: String, updatedTime: String, page: Page) {
-        self.id = id
-        self.page = page
-        self.updatedTime = Date().facebookStringToDate(fbString: updatedTime)
-    }
-
-    func hash(into hasher: inout Hasher) {
-        hasher.combine(self.id)
-    }
-
-    static func ==(lhs: Conversation, rhs: Conversation) -> Bool {
-        return lhs.id == rhs.id
-    }
-    
-    func updateCorrespondent() {
-        for message in self.messages {
-            if message.from.id != page.businessAccountId {
-                self.correspondent = message.from
-                return
-            }
-        }
-    }
-}
-
-class Page: Hashable, Equatable {
-    let id: String
-    let name: String
-    let accessToken: String
-    let category: String
-    var conversations: [Conversation] = []
-    var businessAccountId: String? = nil
-    
-    init(id: String, name: String, accessToken: String, category: String) {
-        self.id = id
-        self.name = name
-        self.accessToken = accessToken
-        self.category = category
-    }
-
-    func hash(into hasher: inout Hasher) {
-        hasher.combine(self.id)
-    }
-
-    static func ==(lhs: Page, rhs: Page) -> Bool {
-        return lhs.id == rhs.id
-    }
-    
-    func sortConversations() {
-        self.conversations = self.conversations.sorted {$0.messages.last!.createdTime > $1.messages.last!.createdTime}
-    }
-    
-}
-
-
-class MetaUser: Hashable, Equatable {
-    let id: String
-    let username: String
-    var profilePicURL: String? = nil
-    
-    init(id: String, username: String) {
-        self.id = id
-        self.username = username
-    }
-    
-    func hash(into hasher: inout Hasher) {
-        hasher.combine(self.id)
-    }
-
-    static func ==(lhs: MetaUser, rhs: MetaUser) -> Bool {
-        return lhs.id == rhs.id
-    }
-    
-    func getProfilePicture(access_token: String, completion: @escaping () -> Void) {
-        let urlString = "https://graph.facebook.com/v16.0/\(self.id)?access_token=\(access_token)"
-        getRequest(urlString: urlString) {
-            profileData in
-            let profilePicURL = profileData["profile_pic"] as? String
-            if profilePicURL != nil {
-                self.profilePicURL = profilePicURL?.replacingOccurrences(of: "\\", with: "")
-                completion()
-            }
-        }
-    }
-}
-
 
 struct ConversationView: View {
-    let conversation: Conversation
+    @ObservedObject var conversation: Conversation
     let page: Page
     @State var typingMessage: String = ""
     @State var placeholder: Bool = true
@@ -570,7 +450,9 @@ struct ConversationView: View {
                     .focused($messageIsFocused)
 
                     // Send message button
-                    Button(action: sendMessage) {
+                    Button(
+                        action: {sendMessage(message: self.typingMessage, to: conversation.correspondent!)}
+                    ) {
                        Image(systemName: "paperplane.circle.fill").font(.system(size: 35))
                    }.frame(width: geometry.size.width * 0.20, alignment: .leading)
                     
@@ -587,9 +469,31 @@ struct ConversationView: View {
             self.session.showMenu = true
         })
     }
-
-    func sendMessage() {
-
+        
+    func sendMessage(message: String, to: MetaUser) {
+        /// API Reference: https://developers.facebook.com/docs/messenger-platform/reference/send-api/
+        let urlString = "https://graph.facebook.com/v16.0/\(page.id)/messages?access_token=\(page.accessToken)"
+        let data: [String: Any] = ["recipient": ["id": to.id], "message": ["text": message]]
+        let jsonData = try? JSONSerialization.data(withJSONObject: data)
+        
+        if jsonData != nil {
+            postRequest(urlString: urlString, data: jsonData!) {
+                sentMessageData in
+                print(sentMessageData)
+                let messageId = sentMessageData["message_id"] as? String
+                
+                if messageId != nil {
+                    DispatchQueue.main.async {
+                        let createdDate = Date().dateToFacebookString(date: Date(timeIntervalSince1970: NSDate().timeIntervalSince1970))
+                        self.conversation.messages.append(Message(id: messageId!, message: message, to: to, from: page.pageUser!, createdTime: createdDate))
+                        self.typingMessage = ""
+                    }
+                }
+            }
+        }
+        else {
+            // TODO: Show the user there was an issue
+        }
     }
 
     func rectReader(_ binding: Binding<CGFloat>, _ space: CoordinateSpace = .global) -> some View {
@@ -606,19 +510,23 @@ struct ConversationView: View {
 struct MessageView : View {
     let width: CGFloat
     var currentMessage: Message
-    let conversation: Conversation
+    var conversation: Conversation
     let page: Page
-        
+    @ObservedObject var correspondent: MetaUser
+    
+    init(width: CGFloat, currentMessage: Message, conversation: Conversation, page: Page) {
+        self.conversation = conversation
+        self.width = width
+        self.page = page
+        self.currentMessage = currentMessage
+        self.correspondent = conversation.correspondent!
+    }
+    
     var body: some View {
         let isCurrentUser = page.businessAccountId == currentMessage.from.id
         if !isCurrentUser {
             HStack {
-                AsyncImage(url: URL(string: conversation.correspondent!.profilePicURL!)) { image in image.resizable() } placeholder: { Color.red } .frame(width: 45, height: 45) .clipShape(Circle())
-                //Image(systemName: "person.circle")
-                //.resizable()
-                
-                //.cornerRadius(20)
-
+                AsyncImage(url: URL(string: self.correspondent.profilePicURL ?? "")) { image in image.resizable() } placeholder: { Color.red } .frame(width: 45, height: 45) .clipShape(Circle())
                 MessageBlurbView(contentMessage: currentMessage.message,
                                    isCurrentUser: isCurrentUser)
             }.frame(width: width, alignment: .leading).padding(.leading)
@@ -678,12 +586,6 @@ struct PullToRefresh: View {
                 Spacer()
             }
         }.padding(.top, -50)
-    }
-}
-
-extension Notification {
-    var keyboardHeight: CGFloat {
-        return (userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect)?.height ?? 0
     }
 }
 
@@ -781,6 +683,218 @@ struct ViewHeightKey: PreferenceKey {
     }
 }
 
+
+class Message: Hashable, Equatable {
+    let id: String
+    let message: String
+    let to: MetaUser
+    let from: MetaUser
+    let createdTime: Date
+    
+    init (id: String, message: String, to: MetaUser, from: MetaUser, createdTime: String) {
+        self.id = id
+        self.message = message
+        self.to = to
+        self.from = from
+        self.createdTime = Date().facebookStringToDate(fbString: createdTime)
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(self.id)
+    }
+
+    static func ==(lhs: Message, rhs: Message) -> Bool {
+        return lhs.id == rhs.id
+    }
+}
+
+class Conversation: Hashable, Equatable, ObservableObject {
+    let id: String
+    let updatedTime: Date?
+    let page: Page
+    var correspondent: MetaUser? = nil
+    @Published var messages: [Message] = []
+    
+    init(id: String, updatedTime: String, page: Page) {
+        self.id = id
+        self.page = page
+        self.updatedTime = Date().facebookStringToDate(fbString: updatedTime)
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(self.id)
+    }
+
+    static func ==(lhs: Conversation, rhs: Conversation) -> Bool {
+        return lhs.id == rhs.id
+    }
+    
+    func updateCorrespondent() -> [MetaUser] {
+        var rList: [MetaUser] = []
+        for message in self.messages {
+            if message.from.id != page.businessAccountId {
+                self.correspondent = message.from
+                rList = [message.from, message.to]
+            }
+        }
+        return rList
+    }
+}
+
+class Page: Hashable, Equatable {
+    let id: String
+    let name: String
+    let accessToken: String
+    let category: String
+    var conversations: [Conversation] = []
+    var businessAccountId: String? = nil
+    var pageUser: MetaUser? = nil
+    
+    init(id: String, name: String, accessToken: String, category: String) {
+        self.id = id
+        self.name = name
+        self.accessToken = accessToken
+        self.category = category
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(self.id)
+    }
+
+    static func ==(lhs: Page, rhs: Page) -> Bool {
+        return lhs.id == rhs.id
+    }
+    
+    func sortConversations() {
+        self.conversations = self.conversations.sorted {$0.messages.last!.createdTime > $1.messages.last!.createdTime}
+    }
+    
+}
+
+
+class MetaUser: Hashable, Equatable, ObservableObject {
+    let id: String
+    let username: String
+    @Published var profilePicURL: String? = nil
+    
+    init(id: String, username: String) {
+        self.id = id
+        self.username = username
+    }
+    
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(self.id)
+    }
+
+    static func ==(lhs: MetaUser, rhs: MetaUser) -> Bool {
+        return lhs.id == rhs.id
+    }
+    
+    func getProfilePicture(access_token: String) {
+        let urlString = "https://graph.facebook.com/v16.0/\(self.id)?access_token=\(access_token)"
+        getRequest(urlString: urlString) {
+            profileData in
+            let profilePicURL = profileData["profile_pic"] as? String
+            if profilePicURL != nil {
+                DispatchQueue.main.async {
+                    self.profilePicURL = profilePicURL?.replacingOccurrences(of: "\\", with: "")
+                }
+            }
+        }
+    }
+}
+
+
+func getRequest(urlString: String, completion: @escaping ([String: AnyObject]) -> Void) {
+    let url = URL(string: urlString)!
+    let request = URLRequest(url: url)
+    
+    let dataTask = URLSession.shared.dataTask(with: request) {(data, response, error) in
+        if let error = error {
+            print("Request error:", error)
+            return
+        }
+        
+        guard let data = data else {
+            print("Couldn't get data")
+            return
+        }
+
+        do {
+            if let jsonDataDict = try JSONSerialization.jsonObject(with: data, options: JSONSerialization.ReadingOptions.allowFragments) as? [String: AnyObject] {
+                completion(jsonDataDict)
+            }
+            else {
+                print("Couldn't deserialize data")
+            }
+        }
+        
+        catch let error as NSError {
+            print(error)
+        }
+        
+    }
+    dataTask.resume()
+}
+
+func postRequest(urlString: String, data: Data, completion: @escaping ([String: AnyObject]) -> Void) {
+    let url = URL(string: urlString)!
+    var request = URLRequest(url: url)
+    
+    request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+    request.httpMethod = "POST"
+    request.httpBody = data
+    
+    let dataTask = URLSession.shared.dataTask(with: request) {(data, response, error) in
+        if let error = error {
+            print("Request error:", error)
+            return
+        }
+        
+        guard let data = data else {
+            print("Couldn't get data")
+            return
+        }
+
+        do {
+            if let jsonDataDict = try JSONSerialization.jsonObject(with: data, options: JSONSerialization.ReadingOptions.allowFragments) as? [String: AnyObject] {
+                completion(jsonDataDict)
+            }
+            else {
+                print("Couldn't deserialize data")
+            }
+        }
+        
+        catch let error as NSError {
+            print(error)
+        }
+        
+    }
+    dataTask.resume()
+}
+
+
+extension Notification {
+    var keyboardHeight: CGFloat {
+        return (userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect)?.height ?? 0
+    }
+}
+
+extension Date {
+    func facebookStringToDate(fbString: String) -> Date {
+        let dateFormatter = DateFormatter()
+        dateFormatter.locale = Locale(identifier: "en_US_POSIX")
+        dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ssZ"
+        return dateFormatter.date(from: fbString) ?? Date()
+    }
+    
+    func dateToFacebookString(date: Date) -> String {
+        let dateFormatter = DateFormatter()
+        dateFormatter.locale = Locale(identifier: "en_US_POSIX")
+        dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ssZ"
+        return dateFormatter.string(from: date) ?? ""
+    }
+}
 
 
 //{"data":[{"access_token":"EAAPjZCIdKOzEBAKGE99Oci5Sz7h09X5a4SDrn3pZA8PV6ZCvlbmcpsiXwNMgCJ0oWkP75ouJBGvcmLyMKA1fv1Dur9F1ewUSDay9MtMkTyaPnOEQvzxDmQUQT6e5MWHr4e4ZCibJWyX6OlbvrncRpHxFCSSTwzZBksYakDIlpm2DkLkoN1jZBf","category":"Information Technology Company","category_list":[{"id":"1130035050388269","name":"Information Technology Company"}],"name":"MessageMate","id":"110824595249562","tasks":["ADVERTISE","ANALYZE","CREATE_CONTENT","MESSAGING","MODERATE","MANAGE"]},{"access_token":"EAAPjZCIdKOzEBAKMbZBTeEpVAfLfZBkqIkNpysACCqsEosMXjOajJ2CxfIVuBfTi2R2oxQCbnOtTjSZBsP6wJRR9Tylnj0Tnky1nk84eYv2wIs3oUpxpB4e2LuyQwHDc2WFlEcTBmCoR0C2Lp8ok7NBccKUZCgZCvROhHDtc8NF21FkrDp8iOP","category":"Software Company","category_list":[{"id":"1065597503495311","name":"Software Company"}],"name":"Axon","id":"102113192797755","tasks":["ADVERTISE","ANALYZE","CREATE_CONTENT","MESSAGING","MODERATE","MANAGE"]}],"paging":{"cursors":{"before":"QVFIUlh5Y1dnNk1vREFnOGN5ME9GLVlvMWROc0xJMS1vTWlYeEJGdFJySmdYblVESXI0OGhLcU9pSncxNkszek9qdlpYcHh6WWxEVnM3OXF1dm41SlcxX29B","after":"QVFIUkpqWndZAUEtzc0x2b3lwanlILXRPTWVDXzE5LUwxTVhSYWZA0dG56QlBLdDRqMlR3bkluYUxhZAUhkTTBpWlV3Y0FLX3N4czBqNjZASNFBpSnU3aUcyZA0Vn"}}
