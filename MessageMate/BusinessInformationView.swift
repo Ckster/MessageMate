@@ -11,12 +11,14 @@ struct BusinessInformationView: View {
     @EnvironmentObject var session: SessionStore
     @Environment(\.colorScheme) var colorScheme
 
-    let subViewDict: Dictionary<String, some View> = [
-        "Business Info": BusinessInfoSubView(),
-        "Messager Characteristics": BusinessInfoSubView(),
-        "Services & Pricing": BusinessInfoSubView(),
-        "Frequently Changing": BusinessInfoSubView(),
-        "Specific Respsonses": BusinessInfoSubView()
+    let subViewDict: Dictionary<String, AnyView> = [
+        "General": AnyView(BusinessInfoSubView()),
+//        "Business Info": BusinessInfoSubView(),
+        "Links": AnyView(BusinessLinksSubView()),
+//        "Services": BusinessInfoSubView(),
+//        "FAQs": BusinessInfoSubView(),
+//        "Do Not": BusinessInfoSubView(),
+//        "Frequently Changing": BusinessInfoSubView()
     ]
 
     var body: some View {
@@ -46,7 +48,8 @@ struct BusinessInformationView: View {
 struct BusinessInfoSubView: View {
     @Environment(\.colorScheme) var colorScheme
     @State var businessName: String = ""
-    @State var location: String = ""
+    @State var address: String = ""
+    @State var industry: String = ""
     
     var body: some View {
         let textColor = colorScheme == .dark ? Color.white : Color.black
@@ -54,14 +57,57 @@ struct BusinessInfoSubView: View {
             VStack {
                 Text("Business Info").bold().foregroundColor(textColor).font(.system(size: 25)).frame(width: geometry.size.width, alignment: .leading)
                 Text("Please input the following information about your business:").font(.system(size: 18)).frame(width: geometry.size.width, alignment: .leading).padding()
+                
+                InputBoxView(heading: "Address", input: $address, width: geometry.size.width, height: geometry.size.height).padding(.bottom)
                 InputBoxView(heading: "Business Name", input: $businessName, width: geometry.size.width, height: geometry.size.height, autoCorrect: false).padding(.bottom)
-                InputBoxView(heading: "Location", input: $location, width: geometry.size.width, height: geometry.size.height)
+                InputBoxView(heading: "Industry", input: $industry, width: geometry.size.width, height: geometry.size.height, autoCorrect: false)
+            }
+        }
+    }
+}
+
+struct BusinessLinksSubView: View {
+    @Environment(\.colorScheme) var colorScheme
+    @State var links: [DoubleInputBoxView] = [DoubleInputBoxView()]
+    @State var businessName: String = ""
+    @State var location: String = ""
+    
+    var body: some View {
+        let textColor = colorScheme == .dark ? Color.white : Color.black
+        GeometryReader { geometry in
+            VStack {
+                Text("Links").bold().foregroundColor(textColor).font(.system(size: 25)).frame(width: geometry.size.width, alignment: .leading)
+                Text("Please add links to your businesse's web services:").font(.system(size: 18)).frame(width: geometry.size.width, alignment: .leading).padding()
+                ForEach(self.links, id:\.self.id) {
+                    link in
+                    link
+                }
+                Text("+").onTapGesture {
+                    self.links.append(DoubleInputBoxView())
+                }
+            }.frame(height: geometry.size.height)
+        }
+    }
+}
+
+struct DoubleInputBoxView: View {
+    let id = UUID()
+    @State var type: String = ""
+    @State var value: String = ""
+    
+    var body: some View {
+        GeometryReader {
+            geometry in
+            HStack {
+                InputBoxView(input: $type, width: geometry.size.width * 0.4, height: geometry.size.height)
+                InputBoxView(input: $value, width: geometry.size.width * 0.5, height: geometry.size.height)
             }
         }
     }
 }
 
 struct InputBoxView: View {
+    
     var heading: String = ""
     @Binding var input: String
     
