@@ -427,27 +427,28 @@ struct ConversationView: View {
                 HStack {
                     
                     // Input text box
-                    ZStack(alignment: .leading) {
-                        Text(typingMessage)
-                            .font(.system(.body))
-                            .foregroundColor(.clear)
-                            .padding(15)
-                            .background(GeometryReader {
-                                Color.clear.preference(key: ViewHeightKey.self,
-                                                       value: $0.frame(in: .local).size.height)
-                            })
-
-                        TextEditor(text: $typingMessage)
-                            .font(.system(.body))
-                            .padding(7)
-                            .frame(height: min(textEditorHeight, maxHeight))
-                            .background(self.colorScheme == .dark ? Color.black : Color.white)
-                    }
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 5, style: .continuous)
-                            .strokeBorder(Color.gray, lineWidth: 1)
-                    )
-                    .focused($messageIsFocused)
+                    DynamicHeightTextBox(typingMessage: self.$typingMessage)
+//                    ZStack(alignment: .leading) {
+//                        Text(typingMessage)
+//                            .font(.system(.body))
+//                            .foregroundColor(.clear)
+//                            .padding(15)
+//                            .background(GeometryReader {
+//                                Color.clear.preference(key: ViewHeightKey.self,
+//                                                       value: $0.frame(in: .local).size.height)
+//                            })
+//
+//                        TextEditor(text: $typingMessage)
+//                            .font(.system(.body))
+//                            .padding(7)
+//                            .frame(height: min(textEditorHeight, maxHeight))
+//                            .background(self.colorScheme == .dark ? Color.black : Color.white)
+//                    }
+//                    .overlay(
+//                        RoundedRectangle(cornerRadius: 5, style: .continuous)
+//                            .strokeBorder(Color.gray, lineWidth: 1)
+//                    )
+//                    .focused($messageIsFocused)
 
                     // Send message button
                     Button(
@@ -457,7 +458,8 @@ struct ConversationView: View {
                    }.frame(width: geometry.size.width * 0.20, alignment: .leading)
                     
                     
-                }.onPreferenceChange(ViewHeightKey.self) { textEditorHeight = $0 }
+                }
+//                .onPreferenceChange(ViewHeightKey.self) { textEditorHeight = $0 }
                     .padding(.bottom)
                     .padding(.top)
 
@@ -506,6 +508,43 @@ struct ConversationView: View {
         }
     }
 }
+
+
+struct DynamicHeightTextBox: View {
+    @FocusState var messageIsFocused: Bool
+    @Binding var typingMessage: String
+    @State var textEditorHeight : CGFloat = 100
+    @Environment(\.colorScheme) var colorScheme
+    var maxHeight : CGFloat = 1000
+    
+    var body: some View {
+        ZStack(alignment: .leading) {
+            Text(typingMessage)
+                .lineLimit(5)
+                .font(.system(.body))
+                .foregroundColor(.clear)
+                .padding(15)
+                .background(GeometryReader {
+                    Color.clear.preference(key: ViewHeightKey.self,
+                                           value: $0.frame(in: .local).size.height)
+                })
+
+            TextEditor(text: $typingMessage)
+                .font(.system(.body))
+                .padding(7)
+                .frame(height: min(textEditorHeight, maxHeight))
+                .background(self.colorScheme == .dark ? Color.black : Color.white)
+        }
+        .overlay(
+            RoundedRectangle(cornerRadius: 5, style: .continuous)
+                .strokeBorder(Color.gray, lineWidth: 1)
+        )
+        .focused($messageIsFocused)
+        .onPreferenceChange(ViewHeightKey.self) { textEditorHeight = $0 }
+    }
+    
+}
+
 
 struct MessageView : View {
     let width: CGFloat

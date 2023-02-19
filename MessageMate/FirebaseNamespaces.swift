@@ -71,7 +71,7 @@ struct BusinessInfoFields {
     static let INDUSTRY = "industry"
     static let LINKS = "links"
     static let PRODUCTS_SERVICES = "products_services"
-    static let SENDER_CHARACTERISTICS = "sender_charachteristics"
+    static let SENDER_CHARACTERISTICS = "sender_characteristics"
     static let SENDER_NAME = "sender_name"
     static let SPECIFICS = "specifics"
 }
