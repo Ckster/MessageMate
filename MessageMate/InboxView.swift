@@ -327,7 +327,7 @@ struct ConversationNavigationView: View {
                     AsyncImage(url: URL(string: self.correspondent.profilePicURL ?? "")) { image in image.resizable() } placeholder: { Color.gray } .frame(width: 55, height: 55) .clipShape(Circle()).offset(y: conversation.messages.last!.message == "" ? -6 : 0)
                     VStack {
                         Text(conversation.correspondent!.username).foregroundColor(self.colorScheme == .dark ? .white : .black).font(.system(size: 23)).frame(width: width * 0.85, alignment: .leading)
-                        Text((conversation.messages.last!).message).foregroundColor(.gray).font(.system(size: 23)).frame(width: width * 0.85, alignment: .leading)
+                        Text((conversation.messages.last!).message).lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(.system(size: 23)).frame(width: width * 0.85, alignment: .leading)
                     }
                 }
             }.navigationBarTitleDisplayMode(.inline).navigationTitle(" ")
@@ -424,10 +424,10 @@ struct ConversationView: View {
                     self.placeholder = true
                 }
                     
-                HStack {
+                VStack {
                     
                     // Input text box
-                    DynamicHeightTextBox(typingMessage: self.$typingMessage)
+                    DynamicHeightTextBox(typingMessage: self.$typingMessage).frame(width: geometry.size.width * 0.9, alignment: .leading).padding(.trailing).offset(x: -5)
 //                    ZStack(alignment: .leading) {
 //                        Text(typingMessage)
 //                            .font(.system(.body))
@@ -449,13 +449,22 @@ struct ConversationView: View {
 //                            .strokeBorder(Color.gray, lineWidth: 1)
 //                    )
 //                    .focused($messageIsFocused)
-
-                    // Send message button
-                    Button(
-                        action: {sendMessage(message: self.typingMessage, to: conversation.correspondent!)}
-                    ) {
-                       Image(systemName: "paperplane.circle.fill").font(.system(size: 35))
-                   }.frame(width: geometry.size.width * 0.20, alignment: .leading)
+                    
+                    // Auto Generation buttons and send button
+                    HStack {
+                        AutoGenerateButton(buttonText: "Respond", width: geometry.size.width, height: geometry.size.height).padding(.leading)
+                        AutoGenerateButton(buttonText: "Sell", width: geometry.size.width, height: geometry.size.height)
+                        AutoGenerateButton(buttonText: "Yes", width: geometry.size.width, height: geometry.size.height)
+                        AutoGenerateButton(buttonText: "No", width: geometry.size.width, height: geometry.size.height)
+                        
+                        // Send message button
+                        Button(
+                            action: {sendMessage(message: self.typingMessage, to: conversation.correspondent!)}
+                        ) {
+                           Image(systemName: "paperplane.circle.fill").font(.system(size: 35))
+                       }.frame(width: geometry.size.width * 0.20, alignment: .leading)
+                    }
+                    
                     
                     
                 }
@@ -509,6 +518,20 @@ struct ConversationView: View {
     }
 }
 
+struct AutoGenerateButton: View {
+    let buttonText: String
+    let width: CGFloat
+    let height: CGFloat
+    
+    var body: some View {
+        Button(action: {}) {
+            Text(self.buttonText)
+                .foregroundColor(.white).frame(width: width * 0.18, height: height * 0.07)
+             .background(Color.blue)
+             .clipShape(Rectangle()).cornerRadius(6)
+        }
+    }
+}
 
 struct DynamicHeightTextBox: View {
     @FocusState var messageIsFocused: Bool
@@ -568,11 +591,11 @@ struct MessageView : View {
                 AsyncImage(url: URL(string: self.correspondent.profilePicURL ?? "")) { image in image.resizable() } placeholder: { Color.red } .frame(width: 45, height: 45) .clipShape(Circle())
                 MessageBlurbView(contentMessage: currentMessage.message,
                                    isCurrentUser: isCurrentUser)
-            }.frame(width: width, alignment: .leading).padding(.leading)
+            }.frame(width: width * 0.875, alignment: .leading).padding(.leading).padding(.trailing)
         }
         else {
             MessageBlurbView(contentMessage: currentMessage.message,
-                             isCurrentUser: isCurrentUser).frame(width: width * 0.875, alignment: .trailing).padding(.trailing)
+                             isCurrentUser: isCurrentUser).frame(width: width * 0.875, alignment: .trailing).padding(.leading).padding(.trailing)
         }
     }
 }

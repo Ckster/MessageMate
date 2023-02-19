@@ -57,10 +57,10 @@ struct ContentView: View {
                                         }).frame(width: geometry.size.width, height: geometry.size.height * 0.05, alignment: .leading).padding(.leading)
     
                                         TabView {
-//                                            InboxView().environmentObject(self.session)
-//                                                .tabItem {
-//                                                    Label("Inbox", systemImage: "mail.stack.fill")
-//                                                }
+                                            InboxView().environmentObject(self.session)
+                                                .tabItem {
+                                                    Label("Inbox", systemImage: "mail.stack.fill")
+                                                }
     
                                             TutorialView().environmentObject(self.session)
                                                 .tabItem {
