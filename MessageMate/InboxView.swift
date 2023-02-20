@@ -101,17 +101,15 @@ struct ConversationsView: View {
                             if messages.count > 0 {
                                 conversation.messages = messages.sorted { $0.createdTime < $1.createdTime }
                                 let userList = conversation.updateCorrespondent()
-                                page.pageUser = userList[1]
-                                newConversations.append(conversation)
+                                if userList.count > 0 {
+                                    page.pageUser = userList[1]
+                                    newConversations.append(conversation)
+                                }
                             }
                         
                             if conversation == conversations.last {
                                 page.conversations = newConversations
                                 if page == pages.last {
-                                    print("Updating")
-                                    for conversation in pages[0].conversations {
-                                        print(conversation.correspondent!.username)
-                                    }
                                     self.pages = pages
                                     self.loading = false
                                 }
@@ -145,6 +143,7 @@ struct ConversationsView: View {
                             let messageDataURLString = "https://graph.facebook.com/v9.0/\(id!)?fields=id,created_time,from,to,message&access_token=\(page.accessToken)"
                             getRequest(urlString: messageDataURLString) {
                                 messageDataDict in
+                                print(messageDataDict)
                             
                                 let fromDict = messageDataDict["from"] as? [String: AnyObject]
                                 let toDictList = messageDataDict["to"] as? [String: AnyObject]
@@ -428,27 +427,6 @@ struct ConversationView: View {
                     
                     // Input text box
                     DynamicHeightTextBox(typingMessage: self.$typingMessage).frame(width: geometry.size.width * 0.9, alignment: .leading).padding(.trailing).offset(x: -5)
-//                    ZStack(alignment: .leading) {
-//                        Text(typingMessage)
-//                            .font(.system(.body))
-//                            .foregroundColor(.clear)
-//                            .padding(15)
-//                            .background(GeometryReader {
-//                                Color.clear.preference(key: ViewHeightKey.self,
-//                                                       value: $0.frame(in: .local).size.height)
-//                            })
-//
-//                        TextEditor(text: $typingMessage)
-//                            .font(.system(.body))
-//                            .padding(7)
-//                            .frame(height: min(textEditorHeight, maxHeight))
-//                            .background(self.colorScheme == .dark ? Color.black : Color.white)
-//                    }
-//                    .overlay(
-//                        RoundedRectangle(cornerRadius: 5, style: .continuous)
-//                            .strokeBorder(Color.gray, lineWidth: 1)
-//                    )
-//                    .focused($messageIsFocused)
                     
                     // Auto Generation buttons and send button
                     HStack {
@@ -464,11 +442,7 @@ struct ConversationView: View {
                            Image(systemName: "paperplane.circle.fill").font(.system(size: 35))
                        }.frame(width: geometry.size.width * 0.20, alignment: .leading)
                     }
-                    
-                    
-                    
                 }
-//                .onPreferenceChange(ViewHeightKey.self) { textEditorHeight = $0 }
                     .padding(.bottom)
                     .padding(.top)
 
@@ -794,6 +768,7 @@ class Conversation: Hashable, Equatable, ObservableObject {
     func updateCorrespondent() -> [MetaUser] {
         var rList: [MetaUser] = []
         for message in self.messages {
+            print(message.from, message.to)
             if message.from.id != page.businessAccountId {
                 self.correspondent = message.from
                 rList = [message.from, message.to]

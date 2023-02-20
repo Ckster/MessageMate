@@ -48,7 +48,7 @@ struct BusinessInformationView: View {
             completeBeforeText: "Please fill out all FAQs before adding more",
             firebaseItemsField: Users.collections.BUSINESS_INFO.documents.FIELDS.fields.FAQS)
         ),
-        "Specifics": AnyView(DynamicListSubView(listHeaderText: "Business specifics:", inputText: "Specifics", promptText: "Please add any specfic information about your business", header: "Business Specifics", completeBeforeText: "Please fill out all specifics before adding more", firebaseItemsField: Users.collections.BUSINESS_INFO.documents.FIELDS.fields.SPECIFICS))
+        "Specifics": AnyView(DynamicListSubView(listHeaderText: "Descriptions:", inputText: "Specifics", promptText: "Please add any specfic information about your business", header: "Business Specifics", completeBeforeText: "Please fill out all specifics before adding more", firebaseItemsField: Users.collections.BUSINESS_INFO.documents.FIELDS.fields.SPECIFICS))
     ]
 
     var body: some View {
