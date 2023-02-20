@@ -82,6 +82,7 @@ struct GeneralInfoSubView: View {
     @State var senderName: String = ""
     @State var senderCharacteristics: String = ""
     @State var loading: Bool = true
+    @FocusState var isFieldFocused: Bool
     let db = Firestore.firestore()
     
     var body: some View {
@@ -99,8 +100,22 @@ struct GeneralInfoSubView: View {
                     Text("General Info").bold().foregroundColor(textColor).font(.system(size: 25)).frame(width: geometry.size.width, alignment: .leading).padding(.leading)
                     Text("Please input some general info:").font(.system(size: 18)).frame(width: geometry.size.width, alignment: .leading).padding().padding(.leading)
                     
-                    InputBoxView(heading: "Sender Name", placeholderText: self.senderName, input: $senderName, width: geometry.size.width * 0.9, height: geometry.size.height, fontSize: 15).padding(.bottom)
-                    InputBoxView(heading: "Sender Characterstics", placeholderText: self.senderCharacteristics, input: $senderCharacteristics, width: geometry.size.width * 0.9, height: geometry.size.height, fontSize: 15, autoCorrect: false).padding(.bottom)
+                    ScrollView {
+                        Text("Sender Name").bold().font(.system(size: 20)).frame(width: geometry.size.width, height: geometry.size.height * 0.10, alignment: .leading).padding(.leading)
+                        TextEditor(text: $senderName).frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.35)
+                                .overlay(RoundedRectangle(cornerRadius: 8)
+                                    .stroke(Color.secondary).opacity(0.75))
+                                .focused($isFieldFocused)
+                                .offset(x: -20)
+                        
+                        Text("Sender Characteristics").bold().font(.system(size: 20)).frame(width: geometry.size.width, height: geometry.size.height * 0.10, alignment: .leading).padding(.leading)
+                        TextEditor(text: $senderCharacteristics).frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.35)
+                                .overlay(RoundedRectangle(cornerRadius: 8)
+                                    .stroke(Color.secondary).opacity(0.75))
+                                .focused($isFieldFocused)
+                                .offset(x: -20)
+                    }
+                    
                 }.offset(x: -15)
             }
         }
@@ -134,6 +149,7 @@ struct GeneralInfoSubView: View {
 struct BusinessInfoSubView: View {
     @EnvironmentObject var session: SessionStore
     @Environment(\.colorScheme) var colorScheme
+    @FocusState var isFieldFocused: Bool
     @State var businessName: String = ""
     @State var address: String = ""
     @State var industry: String = ""
@@ -155,9 +171,29 @@ struct BusinessInfoSubView: View {
                     Text("Business Info").bold().foregroundColor(textColor).font(.system(size: 25)).frame(width: geometry.size.width, alignment: .leading).padding(.leading)
                     Text("Please input the following information about your business:").font(.system(size: 18)).frame(width: geometry.size.width, alignment: .leading).padding().padding(.leading)
                     
-                    InputBoxView(heading: "Address", placeholderText: self.address, input: $address, width: geometry.size.width * 0.9, height: geometry.size.height, fontSize: 15).padding(.bottom)
-                    InputBoxView(heading: "Business Name", placeholderText: self.businessName, input: $businessName, width: geometry.size.width * 0.9, height: geometry.size.height, fontSize: 15, autoCorrect: false).padding(.bottom)
-                    InputBoxView(heading: "Industry", placeholderText: self.industry, input: $industry, width: geometry.size.width * 0.9, height: geometry.size.height, fontSize: 15, autoCorrect: false)
+                    ScrollView {
+                        Text("Address").bold().font(.system(size: 20)).frame(width: geometry.size.width, height: geometry.size.height * 0.10, alignment: .leading).padding(.leading)
+                        TextEditor(text: $address).frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.25)
+                                .overlay(RoundedRectangle(cornerRadius: 8)
+                                    .stroke(Color.secondary).opacity(0.75))
+                                .focused($isFieldFocused)
+                                .offset(x: -20)
+                        
+                        Text("Business Name").bold().font(.system(size: 20)).frame(width: geometry.size.width, height: geometry.size.height * 0.10, alignment: .leading).padding(.leading)
+                        TextEditor(text: $businessName).frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.25)
+                                .overlay(RoundedRectangle(cornerRadius: 8)
+                                    .stroke(Color.secondary).opacity(0.75))
+                                .focused($isFieldFocused)
+                                .offset(x: -20)
+                        
+                        Text("Industry").bold().font(.system(size: 20)).frame(width: geometry.size.width, height: geometry.size.height * 0.10, alignment: .leading).padding(.leading)
+                        TextEditor(text: $industry).frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.25)
+                                .overlay(RoundedRectangle(cornerRadius: 8)
+                                    .stroke(Color.secondary).opacity(0.75))
+                                .focused($isFieldFocused)
+                                .offset(x: -20)
+                    }
+                    
                 }.offset(x: -15)
             }
         }

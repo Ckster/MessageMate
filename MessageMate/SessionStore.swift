@@ -235,18 +235,31 @@ class SessionStore : NSObject, ObservableObject {
                         
                     // User's settings need to be initialized in the Firebase
                     else {
-                        print("Creating new User")
-                        let user_settings = self.db.collection(Users.name).document(String(user.uid))
+                        let userSettings = self.db.collection(Users.name).document(String(user.uid))
                         
                         // Update session to show tutorial completed is false
                         self.onboardingCompleted = false
                         
                         // Set the initial datafields
-                        user_settings.setData([
+                        userSettings.setData([
                             // TODO: Get first name of user from the credential here or earlier on in the auth workflow and put it in the database here
                             Users.fields.ONBOARDING_COMPLETED: false,
                             Users.fields.LEGAL_AGREEMENT: Timestamp.init(),
                             Users.fields.TOKENS: [Messaging.messaging().fcmToken ?? ""]
+                        ])
+                        
+                        // Initialize the business information collection, documents, and fields
+                        let businessInformation = userSettings.collection(Users.collections.BUSINESS_INFO.name).document(Users.collections.BUSINESS_INFO.documents.FIELDS.name)
+                        businessInformation.setData([
+                            Users.collections.BUSINESS_INFO.documents.FIELDS.fields.BUSINESS_ADDRESS: nil,
+                            Users.collections.BUSINESS_INFO.documents.FIELDS.fields.BUSINESS_NAME: nil,
+                            Users.collections.BUSINESS_INFO.documents.FIELDS.fields.FAQS: nil,
+                            Users.collections.BUSINESS_INFO.documents.FIELDS.fields.INDUSTRY: nil,
+                            Users.collections.BUSINESS_INFO.documents.FIELDS.fields.LINKS: nil,
+                            Users.collections.BUSINESS_INFO.documents.FIELDS.fields.PRODUCTS_SERVICES: nil,
+                            Users.collections.BUSINESS_INFO.documents.FIELDS.fields.SENDER_CHARACTERISTICS: nil,
+                            Users.collections.BUSINESS_INFO.documents.FIELDS.fields.SENDER_NAME: nil,
+                            Users.collections.BUSINESS_INFO.documents.FIELDS.fields.SPECIFICS: nil
                         ])
         
                         // Finally, show the user the home screen

@@ -78,34 +78,32 @@ struct DynamicListSubView: View {
     func getItems() {
         self.db.collection(Users.name).document("\(self.session.user.uid!)/\(Users.collections.BUSINESS_INFO.name)/\(Users.collections.BUSINESS_INFO.documents.FIELDS.name)").getDocument() {
             doc, error in
-            print("Got Document")
             if error == nil {
-                print("not nil")
                 let data = doc?.data()
                 if data != nil {
-                    print("Data not nil")
-                    let existingItems = data![self.firebaseItemsField] as? [String]
+                    let existingItems = data![self.firebaseItemsField] as? [String] ?? []
                     
-                    if existingItems != nil {
-                        var newExistingItems: [SingleInputBoxView] = []
-                        
-                        for item in existingItems! {
-                            let newItem = SingleInputBoxView(item: item, deletable: true, listHeader: self.listHeaderText, inputToDelete: $itemToDelete, inputStrings: $itemStrings, justAdded: false)
-                            newExistingItems.append(newItem)
-                            self.itemStrings[newItem.id] = newItem.item
-                            if item == existingItems!.last {
-                                self.items = newExistingItems
-                                self.loading = false
-                            }
-                        }
-                        
-                        if existingItems!.count == 0 {
-                            let newItem = SingleInputBoxView(item: "", deletable: false, listHeader: self.listHeaderText, inputToDelete: nil, inputStrings: $itemStrings, justAdded: false)
-                            self.itemStrings[newItem.id] = newItem.item
-                            self.items = [newItem]
+                    var newExistingItems: [SingleInputBoxView] = []
+                    
+                    for item in existingItems {
+                        let newItem = SingleInputBoxView(item: item, deletable: true, listHeader: self.listHeaderText, inputToDelete: $itemToDelete, inputStrings: $itemStrings, justAdded: false)
+                        newExistingItems.append(newItem)
+                        self.itemStrings[newItem.id] = newItem.item
+                        if item == existingItems.last {
+                            self.items = newExistingItems
                             self.loading = false
                         }
                     }
+                    
+                    if existingItems.count == 0 {
+                        let newItem = SingleInputBoxView(item: "", deletable: false, listHeader: self.listHeaderText, inputToDelete: nil, inputStrings: $itemStrings, justAdded: false)
+                        self.itemStrings[newItem.id] = newItem.item
+                        self.items = [newItem]
+                        self.loading = false
+                    }
+                }
+                else {
+                    // TODO: Show the user an error here
                 }
             }
         }

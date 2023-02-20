@@ -326,7 +326,11 @@ struct ConversationNavigationView: View {
                     AsyncImage(url: URL(string: self.correspondent.profilePicURL ?? "")) { image in image.resizable() } placeholder: { Color.gray } .frame(width: 55, height: 55) .clipShape(Circle()).offset(y: conversation.messages.last!.message == "" ? -6 : 0)
                     VStack {
                         Text(conversation.correspondent!.username).foregroundColor(self.colorScheme == .dark ? .white : .black).font(.system(size: 23)).frame(width: width * 0.85, alignment: .leading)
-                        Text((conversation.messages.last!).message).lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(.system(size: 23)).frame(width: width * 0.85, alignment: .leading)
+                        HStack {
+                            Text((conversation.messages.last!).message).lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(.system(size: 23)).frame(width: width * 0.65, alignment: .leading)
+                            Spacer() 
+                            //Color.clear.frame(width: width * 0.20, height: 1, alignment: .leading)
+                        }
                     }
                 }
             }.navigationBarTitleDisplayMode(.inline).navigationTitle(" ")
@@ -426,7 +430,7 @@ struct ConversationView: View {
                 VStack {
                     
                     // Input text box
-                    DynamicHeightTextBox(typingMessage: self.$typingMessage).frame(width: geometry.size.width * 0.9, alignment: .leading).padding(.trailing).offset(x: -5)
+                    DynamicHeightTextBox(typingMessage: self.$typingMessage).frame(width: geometry.size.width * 0.9, alignment: .leading).padding(.trailing).offset(x: -5).focused($messageIsFocused)
                     
                     // Auto Generation buttons and send button
                     HStack {
@@ -508,7 +512,6 @@ struct AutoGenerateButton: View {
 }
 
 struct DynamicHeightTextBox: View {
-    @FocusState var messageIsFocused: Bool
     @Binding var typingMessage: String
     @State var textEditorHeight : CGFloat = 100
     @Environment(\.colorScheme) var colorScheme
@@ -536,7 +539,6 @@ struct DynamicHeightTextBox: View {
             RoundedRectangle(cornerRadius: 5, style: .continuous)
                 .strokeBorder(Color.gray, lineWidth: 1)
         )
-        .focused($messageIsFocused)
         .onPreferenceChange(ViewHeightKey.self) { textEditorHeight = $0 }
     }
     
@@ -565,7 +567,7 @@ struct MessageView : View {
                 AsyncImage(url: URL(string: self.correspondent.profilePicURL ?? "")) { image in image.resizable() } placeholder: { Color.red } .frame(width: 45, height: 45) .clipShape(Circle())
                 MessageBlurbView(contentMessage: currentMessage.message,
                                    isCurrentUser: isCurrentUser)
-            }.frame(width: width * 0.875, alignment: .leading).padding(.leading).padding(.trailing)
+            }.frame(width: width * 0.875, alignment: .leading).padding(.trailing).offset(x: -7)
         }
         else {
             MessageBlurbView(contentMessage: currentMessage.message,
@@ -772,6 +774,12 @@ class Conversation: Hashable, Equatable, ObservableObject {
             if message.from.id != page.businessAccountId {
                 self.correspondent = message.from
                 rList = [message.from, message.to]
+                break
+            }
+            else {
+                self.correspondent = message.to
+                rList = [message.to, message.from]
+                break
             }
         }
         return rList

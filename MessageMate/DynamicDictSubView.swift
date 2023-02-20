@@ -86,29 +86,31 @@ struct DynamicDictSubView: View {
                 let data = doc?.data()
                 if data != nil {
                     print("Data not nil")
-                    let existingItems = data![self.firebaseItemsField] as? [String: String]
+                    let existingItems = data![self.firebaseItemsField] as? [String: String] ?? [:]
                     
-                    if existingItems != nil {
-                        var newExistingItems: [DoubleInputBoxView] = []
-                        let itemTypes = Array(existingItems!.keys)
-                        
-                        for itemType in itemTypes {
-                            let newItem = DoubleInputBoxView(keyType: itemType, value: existingItems![itemType]!, deletable: true, keyHeader: self.keyText, valueHeader: self.valueText, inputToDelete: $itemToDelete, inputStrings: $itemStrings, justAdded: false)
-                            newExistingItems.append(newItem)
-                            self.itemStrings[newItem.id] = [newItem.type, newItem.value]
-                            if itemType == itemTypes.last {
-                                self.items = newExistingItems
-                                self.loading = false
-                            }
-                        }
-                        
-                        if existingItems?.count == 0 {
-                            let newItem = DoubleInputBoxView(keyType: "", value: "", deletable: false, keyHeader: self.keyText, valueHeader: self.valueText, inputToDelete: nil, inputStrings: $itemStrings, justAdded: false)
-                            self.itemStrings[newItem.id] = [newItem.type, newItem.value]
-                            self.items = [newItem]
+                    var newExistingItems: [DoubleInputBoxView] = []
+                    let itemTypes = Array(existingItems.keys)
+                    
+                    for itemType in itemTypes {
+                        let newItem = DoubleInputBoxView(keyType: itemType, value: existingItems[itemType]!, deletable: true, keyHeader: self.keyText, valueHeader: self.valueText, inputToDelete: $itemToDelete, inputStrings: $itemStrings, justAdded: false)
+                        newExistingItems.append(newItem)
+                        self.itemStrings[newItem.id] = [newItem.type, newItem.value]
+                        if itemType == itemTypes.last {
+                            self.items = newExistingItems
                             self.loading = false
                         }
                     }
+                    
+                    if existingItems.count == 0 {
+                        let newItem = DoubleInputBoxView(keyType: "", value: "", deletable: false, keyHeader: self.keyText, valueHeader: self.valueText, inputToDelete: nil, inputStrings: $itemStrings, justAdded: false)
+                        self.itemStrings[newItem.id] = [newItem.type, newItem.value]
+                        self.items = [newItem]
+                        self.loading = false
+                    }
+                    
+                }
+                else {
+                    // TODO: Show the user an error here
                 }
             }
         }

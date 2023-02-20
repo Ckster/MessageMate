@@ -28,15 +28,15 @@ struct TutorialView: View {
     var body: some View {
         GeometryReader { geometry in
             VStack(alignment: .leading) {
-                Text("Instructions").bold().font(.system(size: 30)).multilineTextAlignment(.leading).padding(.leading).padding(.bottom)
-                Text("To begin setting up MessageMate...").bold().font(.system(size: 25)).multilineTextAlignment(.leading).padding(.leading).padding(.bottom)
-                Text("Please input detailed infromation in the other tabs.").font(.system(size: 20)).multilineTextAlignment(.leading).padding(.leading).padding(.bottom)
-                Text("Be sure to only include information specific to your business- MessageMate is smart enough know general information about most businesses.").multilineTextAlignment(.leading).font(.system(size: 20)).padding(.leading).padding(.bottom)
-                Text("For example, if you do landscaping, you can assume MessageMate will be able to explain the process of any landscaping service. MessageMate will not know how long your services take, however.").font(.system(size: 20)).multilineTextAlignment(.leading).padding(.leading).padding(.bottom)
-                Text("Please watch the video below to learn more:").font(.system(size: 20)).multilineTextAlignment(.leading).padding(.leading).padding(.bottom)
+                Text("Instructions").bold().font(.system(size: 30)).multilineTextAlignment(.leading).padding(.leading).padding(.bottom).padding(.trailing)
+                Text("To begin setting up MessageMate...").bold().font(.system(size: 25)).multilineTextAlignment(.leading).padding(.leading).padding(.bottom).padding(.trailing)
+                Text("Please input detailed infromation in the other tabs.").font(.system(size: 18)).multilineTextAlignment(.leading).padding(.leading).padding(.bottom).padding(.trailing)
+                Text("Be sure to only include information specific to your business- MessageMate is smart enough know general information about most businesses.").multilineTextAlignment(.leading).font(.system(size: 18)).padding(.leading).padding(.bottom).padding(.trailing)
+                Text("For example, if you do landscaping, you can assume MessageMate will be able to explain the process of any landscaping service. MessageMate will not know how long your services take, however.").font(.system(size: 18)).multilineTextAlignment(.leading).padding(.leading).padding(.bottom).padding(.trailing)
+                Text("Please watch the video below to learn more:").font(.system(size: 18)).multilineTextAlignment(.leading).padding(.leading).padding(.bottom).padding(.trailing)
                 
                 // TODO: Read in the videoId from the database
-                YouTubeView(videoId: "Zy72pXUXHSI").frame(width: geometry.size.width * 0.90, height: geometry.size.height * 0.33).frame(alignment: .center).padding(.leading)
+                YouTubeView(videoId: "Zy72pXUXHSI").frame(width: geometry.size.width * 0.90, height: geometry.size.height * 0.40).frame(alignment: .center).padding(.leading).padding(.trailing)
                 
             }.frame(height: geometry.size.height, alignment: .top)
         }
