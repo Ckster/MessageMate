@@ -26,7 +26,9 @@ struct BusinessInformationView: View {
             promptText: "Please add links to your businesse's web services:",
             header: "Links",
             completeBeforeText: "Please fill out all links before adding more",
-            firebaseItemsField: Users.collections.BUSINESS_INFO.documents.FIELDS.fields.LINKS)
+            firebaseItemsField: Users.collections.BUSINESS_INFO.documents.FIELDS.fields.LINKS,
+            disableAutoCorrect: true,
+            disableAutoCapitalization: true)
         ),
         "Products and Services": AnyView(DynamicDictSubView(
             keyText: "Product or Service:",
@@ -36,7 +38,9 @@ struct BusinessInformationView: View {
             promptText: "Please add the products and services that your business offers:",
             header: "Products & Services",
             completeBeforeText: "Please fill out all products / services before adding more",
-            firebaseItemsField: Users.collections.BUSINESS_INFO.documents.FIELDS.fields.PRODUCTS_SERVICES)
+            firebaseItemsField: Users.collections.BUSINESS_INFO.documents.FIELDS.fields.PRODUCTS_SERVICES,
+            disableAutoCorrect: false,
+            disableAutoCapitalization: false)
         ),
         "FAQs": AnyView(DynamicDictSubView(
             keyText: "Frequently asked question:",
@@ -46,9 +50,20 @@ struct BusinessInformationView: View {
             promptText: "Please add any frequently asked questions of your business",
             header: "Frequently Asked Questions",
             completeBeforeText: "Please fill out all FAQs before adding more",
-            firebaseItemsField: Users.collections.BUSINESS_INFO.documents.FIELDS.fields.FAQS)
+            firebaseItemsField: Users.collections.BUSINESS_INFO.documents.FIELDS.fields.FAQS,
+            disableAutoCorrect: false,
+            disableAutoCapitalization: false)
         ),
-        "Specifics": AnyView(DynamicListSubView(listHeaderText: "Descriptions:", inputText: "Specifics", promptText: "Please add any specfic information about your business", header: "Business Specifics", completeBeforeText: "Please fill out all specifics before adding more", firebaseItemsField: Users.collections.BUSINESS_INFO.documents.FIELDS.fields.SPECIFICS))
+        "Specifics": AnyView(DynamicListSubView(
+            listHeaderText: "Descriptions:",
+            inputText: "Specifics",
+            promptText: "Please add any specfic information about your business",
+            header: "Business Specifics",
+            completeBeforeText: "Please fill out all specifics before adding more",
+            firebaseItemsField: Users.collections.BUSINESS_INFO.documents.FIELDS.fields.SPECIFICS,
+            disableAutoCorrect: false,
+            disableAutoCapitalization: false)
+        )
     ]
 
     var body: some View {
@@ -116,7 +131,9 @@ struct GeneralInfoSubView: View {
                                 .offset(x: -20)
                     }
                     
-                }.offset(x: -15)
+                }.offset(x: -15).onDisappear(perform: {
+                    self.updateInfo()
+                })
             }
         }
     }
@@ -194,7 +211,9 @@ struct BusinessInfoSubView: View {
                                 .offset(x: -20)
                     }
                     
-                }.offset(x: -15)
+                }.offset(x: -15).onDisappear(perform: {
+                    self.updateInfo()
+                })
             }
         }
     }

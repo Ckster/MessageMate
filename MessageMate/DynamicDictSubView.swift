@@ -26,6 +26,8 @@ struct DynamicDictSubView: View {
     let completeBeforeText: String
     let firebaseItemsField: String
     let db = Firestore.firestore()
+    let disableAutoCorrect: Bool
+    let disableAutoCapitalization: Bool
     
     var body: some View {
         let textColor = colorScheme == .dark ? Color.white : Color.black
@@ -54,7 +56,7 @@ struct DynamicDictSubView: View {
                             }
                         })
                         
-                        DynamicDictScrollView(items: $items, itemStrings: $itemStrings, showFillOutFirst: $showFillOutFirst, itemToDelete: $itemToDelete, width: geometry.size.width, height: geometry.size.height, textColor: textColor, keyText: self.keyText, valueText: self.valueText)
+                        DynamicDictScrollView(items: $items, itemStrings: $itemStrings, showFillOutFirst: $showFillOutFirst, itemToDelete: $itemToDelete, width: geometry.size.width, height: geometry.size.height, textColor: textColor, keyText: self.keyText, valueText: self.valueText, disableAutoCorrect: self.disableAutoCorrect, disableAutoCapitalization: self.disableAutoCorrect)
                         
                     }.onDisappear(perform: {
                         self.updateItems()
@@ -92,7 +94,7 @@ struct DynamicDictSubView: View {
                     let itemTypes = Array(existingItems.keys)
                     
                     for itemType in itemTypes {
-                        let newItem = DoubleInputBoxView(keyType: itemType, value: existingItems[itemType]!, deletable: true, keyHeader: self.keyText, valueHeader: self.valueText, inputToDelete: $itemToDelete, inputStrings: $itemStrings, justAdded: false)
+                        let newItem = DoubleInputBoxView(keyType: itemType, value: existingItems[itemType]!, deletable: true, keyHeader: self.keyText, valueHeader: self.valueText, inputToDelete: $itemToDelete, inputStrings: $itemStrings, justAdded: false, disableAutoCorrect: self.disableAutoCorrect, disableAutoCapitalization: self.disableAutoCorrect)
                         newExistingItems.append(newItem)
                         self.itemStrings[newItem.id] = [newItem.type, newItem.value]
                         if itemType == itemTypes.last {
@@ -102,7 +104,7 @@ struct DynamicDictSubView: View {
                     }
                     
                     if existingItems.count == 0 {
-                        let newItem = DoubleInputBoxView(keyType: "", value: "", deletable: false, keyHeader: self.keyText, valueHeader: self.valueText, inputToDelete: nil, inputStrings: $itemStrings, justAdded: false)
+                        let newItem = DoubleInputBoxView(keyType: "", value: "", deletable: false, keyHeader: self.keyText, valueHeader: self.valueText, inputToDelete: nil, inputStrings: $itemStrings, justAdded: false, disableAutoCorrect: self.disableAutoCorrect, disableAutoCapitalization: self.disableAutoCorrect)
                         self.itemStrings[newItem.id] = [newItem.type, newItem.value]
                         self.items = [newItem]
                         self.loading = false
@@ -140,6 +142,8 @@ struct DynamicDictScrollView: View {
     let textColor: Color
     let keyText: String
     let valueText: String
+    let disableAutoCorrect: Bool
+    let disableAutoCapitalization: Bool
     
     var body: some View {
         ScrollView {
@@ -171,7 +175,7 @@ struct DynamicDictScrollView: View {
                         }
                         
                         if count < 1 {
-                            let newDB = DoubleInputBoxView(keyType: "", value: "", deletable: true, keyHeader: self.keyText, valueHeader: self.valueText, inputToDelete: $itemToDelete, inputStrings: $itemStrings, justAdded: true)
+                            let newDB = DoubleInputBoxView(keyType: "", value: "", deletable: true, keyHeader: self.keyText, valueHeader: self.valueText, inputToDelete: $itemToDelete, inputStrings: $itemStrings, justAdded: true, disableAutoCorrect: self.disableAutoCorrect, disableAutoCapitalization: self.disableAutoCorrect)
                             self.itemStrings[newDB.id] = [newDB.type, newDB.value]
                             self.items.append(newDB)
                             
@@ -231,8 +235,11 @@ struct DoubleInputBoxView: View, Equatable {
     @FocusState var isFieldFocused: Bool
     let db = Firestore.firestore()
     @State var justAdded: Bool
+    let disableAutoCorrect: Bool
+    let disableAutoCapitalization: Bool
     
-    init (keyType: String, value: String, deletable: Bool, keyHeader: String, valueHeader: String, inputToDelete: Binding<UUID?>?, inputStrings: Binding<[UUID: [String]]>, justAdded: Bool) {
+    init (keyType: String, value: String, deletable: Bool, keyHeader: String, valueHeader: String, inputToDelete: Binding<UUID?>?, inputStrings: Binding<[UUID: [String]]>, justAdded: Bool,
+          disableAutoCorrect: Bool, disableAutoCapitalization: Bool) {
         self.keyType = keyType
         self.deletable = deletable
         self.keyHeader = keyHeader
@@ -242,6 +249,8 @@ struct DoubleInputBoxView: View, Equatable {
         self._inputToDelete = inputToDelete ?? Binding.constant(nil)
         self._inputStrings = inputStrings
         _justAdded = State(initialValue: justAdded)
+        self.disableAutoCorrect = disableAutoCorrect
+        self.disableAutoCapitalization = disableAutoCapitalization
     }
     
     var body: some View {
@@ -275,7 +284,7 @@ struct DoubleInputBoxView: View, Equatable {
                         .padding(4)
                             .overlay(RoundedRectangle(cornerRadius: 8)
                                 .stroke(Color.secondary).opacity(0.75))
-                            .focused($isFieldFocused).autocorrectionDisabled().autocapitalization(.none)
+                            .focused($isFieldFocused).autocorrectionDisabled(self.disableAutoCorrect).autocapitalization(self.disableAutoCorrect ? .none : .sentences)
                     }
                 .contentShape(Rectangle())
                     .onTapGesture {

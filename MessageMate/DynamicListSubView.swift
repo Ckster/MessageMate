@@ -24,6 +24,8 @@ struct DynamicListSubView: View {
     let completeBeforeText: String
     let firebaseItemsField: String
     let db = Firestore.firestore()
+    let disableAutoCorrect: Bool
+    let disableAutoCapitalization: Bool
     
     var body: some View {
         let textColor = colorScheme == .dark ? Color.white : Color.black
@@ -52,7 +54,7 @@ struct DynamicListSubView: View {
                             }
                         })
                         
-                        DynamicListScrollView(items: $items, itemStrings: $itemStrings, showFillOutFirst: $showFillOutFirst, itemToDelete: $itemToDelete, width: geometry.size.width, height: geometry.size.height, textColor: textColor, listHeader: self.listHeaderText)
+                        DynamicListScrollView(items: $items, itemStrings: $itemStrings, showFillOutFirst: $showFillOutFirst, itemToDelete: $itemToDelete, width: geometry.size.width, height: geometry.size.height, textColor: textColor, listHeader: self.listHeaderText, disableAutoCorrect: self.disableAutoCorrect, disableAutoCapitalization: self.disableAutoCapitalization)
                         
                     }.onDisappear(perform: {
                         self.updateItems()
@@ -86,7 +88,7 @@ struct DynamicListSubView: View {
                     var newExistingItems: [SingleInputBoxView] = []
                     
                     for item in existingItems {
-                        let newItem = SingleInputBoxView(item: item, deletable: true, listHeader: self.listHeaderText, inputToDelete: $itemToDelete, inputStrings: $itemStrings, justAdded: false)
+                        let newItem = SingleInputBoxView(item: item, deletable: true, listHeader: self.listHeaderText, inputToDelete: $itemToDelete, inputStrings: $itemStrings, justAdded: false, disableAutoCorrect: self.disableAutoCorrect, disableAutoCapitalization: self.disableAutoCapitalization)
                         newExistingItems.append(newItem)
                         self.itemStrings[newItem.id] = newItem.item
                         if item == existingItems.last {
@@ -96,7 +98,7 @@ struct DynamicListSubView: View {
                     }
                     
                     if existingItems.count == 0 {
-                        let newItem = SingleInputBoxView(item: "", deletable: false, listHeader: self.listHeaderText, inputToDelete: nil, inputStrings: $itemStrings, justAdded: false)
+                        let newItem = SingleInputBoxView(item: "", deletable: false, listHeader: self.listHeaderText, inputToDelete: nil, inputStrings: $itemStrings, justAdded: false, disableAutoCorrect: self.disableAutoCorrect, disableAutoCapitalization: self.disableAutoCapitalization)
                         self.itemStrings[newItem.id] = newItem.item
                         self.items = [newItem]
                         self.loading = false
@@ -148,6 +150,8 @@ struct DynamicListScrollView: View {
     let height: CGFloat
     let textColor: Color
     let listHeader: String
+    let disableAutoCorrect: Bool
+    let disableAutoCapitalization: Bool
     
     var body: some View {
         ScrollView {
@@ -178,7 +182,7 @@ struct DynamicListScrollView: View {
                         }
                         
                         if count < 1 {
-                            let newSB = SingleInputBoxView(item: "", deletable: true, listHeader: self.listHeader, inputToDelete: $itemToDelete, inputStrings: $itemStrings, justAdded: true)
+                            let newSB = SingleInputBoxView(item: "", deletable: true, listHeader: self.listHeader, inputToDelete: $itemToDelete, inputStrings: $itemStrings, justAdded: true, disableAutoCorrect: self.disableAutoCorrect, disableAutoCapitalization: self.disableAutoCapitalization)
                             self.itemStrings[newSB.id] = newSB.item
                             self.items.append(newSB)
                             
@@ -216,14 +220,18 @@ struct SingleInputBoxView: View, Equatable {
     @FocusState var isFieldFocused: Bool
     let db = Firestore.firestore()
     @State var justAdded: Bool
+    let disableAutoCorrect: Bool
+    let disableAutoCapitalization: Bool
     
-    init (item: String, deletable: Bool, listHeader: String, inputToDelete: Binding<UUID?>?, inputStrings: Binding<[UUID: String]>, justAdded: Bool) {
+    init (item: String, deletable: Bool, listHeader: String, inputToDelete: Binding<UUID?>?, inputStrings: Binding<[UUID: String]>, justAdded: Bool, disableAutoCorrect: Bool, disableAutoCapitalization: Bool) {
         self.deletable = deletable
         self.listHeader = listHeader
         _item = State(initialValue: keyToType(input: item))
         self._inputToDelete = inputToDelete ?? Binding.constant(nil)
         self._inputStrings = inputStrings
         _justAdded = State(initialValue: justAdded)
+        self.disableAutoCorrect = disableAutoCorrect
+        self.disableAutoCapitalization = disableAutoCapitalization
     }
     
     var body: some View {
@@ -250,7 +258,7 @@ struct SingleInputBoxView: View, Equatable {
                             .overlay(RoundedRectangle(cornerRadius: 8)
                                 .stroke(Color.secondary).opacity(0.75))
                             .focused($isFieldFocused)
-                            .offset(x: -20)
+                            .offset(x: -20).autocorrectionDisabled(self.disableAutoCorrect).autocapitalization(self.disableAutoCorrect ? .none : .sentences)
                     
                     }
                 .contentShape(Rectangle())
