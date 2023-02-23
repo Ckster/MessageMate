@@ -8,6 +8,7 @@
 import SwiftUI
 import FBSDKLoginKit
 import FirebaseFirestore
+import FirebaseAuth
 
 
 var userRegistry: [String: MetaUser] = [:]
@@ -434,10 +435,33 @@ struct ConversationView: View {
                     
                     // Auto Generation buttons and send button
                     HStack {
-                        AutoGenerateButton(buttonText: "Respond", width: geometry.size.width, height: geometry.size.height).padding(.leading)
-                        AutoGenerateButton(buttonText: "Sell", width: geometry.size.width, height: geometry.size.height)
-                        AutoGenerateButton(buttonText: "Yes", width: geometry.size.width, height: geometry.size.height)
-                        AutoGenerateButton(buttonText: "No", width: geometry.size.width, height: geometry.size.height)
+                        Button(action: {self.generateResponse(responseType: "respond")}) {
+                            Text("Respond")
+                                .foregroundColor(.white).frame(width: geometry.size.width * 0.18, height: geometry.size.height * 0.07)
+                                .background(Color.blue)
+                                .clipShape(Rectangle()).cornerRadius(6)
+                        }
+                            
+                        Button(action: {self.generateResponse(responseType: "sell")}) {
+                            Text("Sell")
+                                .foregroundColor(.white).frame(width: geometry.size.width * 0.18, height: geometry.size.height * 0.07)
+                                .background(Color.blue)
+                                .clipShape(Rectangle()).cornerRadius(6)
+                        }
+                        
+                        Button(action: {self.generateResponse(responseType: "yes")}) {
+                            Text("Yes")
+                                .foregroundColor(.white).frame(width: geometry.size.width * 0.18, height: geometry.size.height * 0.07)
+                                .background(Color.blue)
+                                .clipShape(Rectangle()).cornerRadius(6)
+                        }
+                        
+                        Button(action: {self.generateResponse(responseType: "no")}) {
+                            Text("No")
+                                .foregroundColor(.white).frame(width: geometry.size.width * 0.18, height: geometry.size.height * 0.07)
+                                .background(Color.blue)
+                                .clipShape(Rectangle()).cornerRadius(6)
+                        }
                         
                         // Send message button
                         Button(
@@ -482,6 +506,34 @@ struct ConversationView: View {
         }
         else {
             // TODO: Show the user there was an issue
+        }
+    }
+    
+    func generateResponse(responseType: String) {
+        let urlString = "https://us-central1-messagemate-2d9af.cloudfunctions.net/generate_response"
+        let currentUser = Auth.auth().currentUser
+        print("starting")
+        currentUser?.getIDTokenForcingRefresh(true) { idToken, error in
+            if let error = error {
+                // TODO: Tell user there was an issue and to try again
+                print(error, "ERROR")
+                return
+            }
+            
+            let header: [String: String] = [
+                "authorization": idToken!,
+                "responseType": responseType,
+                "conversationId": self.conversation.id,
+                "pageAccessToken": self.page.accessToken,
+                "pageName": self.page.name
+            ]
+            
+            print("sending request")
+            getRequest(urlString: urlString, header: header) {
+                data in
+                print("got data")
+                self.typingMessage = data["message"] as? String ?? "ERROR"
+            }
         }
     }
 
@@ -850,9 +902,15 @@ class MetaUser: Hashable, Equatable, ObservableObject {
 }
 
 
-func getRequest(urlString: String, completion: @escaping ([String: AnyObject]) -> Void) {
+func getRequest(urlString: String, header: [String: String]? = nil, completion: @escaping ([String: AnyObject]) -> Void) {
     let url = URL(string: urlString)!
-    let request = URLRequest(url: url)
+    var request = URLRequest(url: url)
+    
+    if header != nil {
+        for key in header!.keys {
+            request.setValue(header![key]!, forHTTPHeaderField: key)
+        }
+    }
     
     let dataTask = URLSession.shared.dataTask(with: request) {(data, response, error) in
         if let error = error {
