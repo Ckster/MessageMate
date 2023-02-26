@@ -11,12 +11,10 @@ struct Users {
     // type attributes
     static let name = "users"
     static let fields = UsersFields.self
-    static let collections = UsersCollections.self
 
     // instance attributes
     var name: String
     var fields: UsersFields
-    var collections: UsersCollections
     var documentPath: String
 
     init(uid: String) {
@@ -24,8 +22,23 @@ struct Users {
         // This allows you to access the "type attributes" (static let ...) if you are using an instance of the class
         self.name = Users.name
         self.fields = UsersFields()
-        self.collections = UsersCollections()
+
         self.documentPath = "\(Users.name)/\(uid)"
+    }
+}
+
+struct Pages {
+    static let name = "pages"
+    static let collections = PagesCollections.self
+    
+    var name: String
+    var collections: PagesCollections
+    var documentPath: String
+    
+    init(pageId: String) {
+        self.name = Pages.name
+        self.collections = PagesCollections()
+        self.documentPath = "\(Pages.name)/\(pageId)"
     }
 }
 
@@ -38,9 +51,39 @@ struct UsersFields {
     static let FACEBOOK_USER_TOKEN = "facebook_user_token"
 }
 
-struct UsersCollections {
+
+struct PagesCollections {
     static let BUSINESS_INFO = BusinessInfoCollection.self
+    static let CONVERSATIONS = ConversationsCollection.self
 }
+
+
+struct ConversationsCollection {
+    static let name = "conversations"
+    static let documents = ConversationsDocuments.self
+    
+    var name: String
+    
+    init() {
+        self.name = ConversationsCollection.name
+    }
+}
+
+struct ConversationsDocuments {
+    static let fields = ConversationsFields.self
+    
+    var correspondentId: String
+    
+    init(correspondentId: String) {
+        self.correspondentId = correspondentId
+    }
+}
+
+
+struct ConversationsFields {
+    static let TRIGGER = "trigger"
+}
+
 
 struct BusinessInfoCollection {
     static let name = "business_information"
@@ -54,6 +97,7 @@ struct BusinessInfoCollection {
         self.documents = BusinessInfoDocuments()
     }
 }
+
 
 struct BusinessInfoDocuments {
     static let FIELDS = BusinessInfoFieldsDocument.self

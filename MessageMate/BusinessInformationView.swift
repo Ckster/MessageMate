@@ -8,12 +8,14 @@
 import SwiftUI
 import FirebaseFirestore
 
-//"Website: awakenpermanentcosmetics.com. Scheduling appointment link: https://koalendar.com/e/schedule-my-pmu"
-// "All services include 2 appointments and a free completely optional 20-30 minute consultation. Lip blush: Initial Deposit is $150 then First session is $350 and the second session 6 weeks later is $100. Powder brows: booking deposit $150, first session $325 and the second session 6 weeks later $100. Lash line enhancement: booking deposit ($150), first session ($200), and a second session 6 weeks later ($50)"
 
 struct BusinessInformationView: View {
     @EnvironmentObject var session: SessionStore
     @Environment(\.colorScheme) var colorScheme
+    @State var loading: Bool = true
+    let db = Firestore.firestore()
+    
+    // TODO: Make sure users can't delete everything
 
     let subViewDict: Dictionary<String, AnyView> = [
         "General": AnyView(GeneralInfoSubView()),
@@ -26,7 +28,7 @@ struct BusinessInformationView: View {
             promptText: "Please add links to your businesse's web services:",
             header: "Links",
             completeBeforeText: "Please fill out all links before adding more",
-            firebaseItemsField: Users.collections.BUSINESS_INFO.documents.FIELDS.fields.LINKS,
+            firebaseItemsField: Pages.collections.BUSINESS_INFO.documents.FIELDS.fields.LINKS,
             disableAutoCorrect: true,
             disableAutoCapitalization: true)
         ),
@@ -38,7 +40,7 @@ struct BusinessInformationView: View {
             promptText: "Please add the products and services that your business offers:",
             header: "Products & Services",
             completeBeforeText: "Please fill out all products / services before adding more",
-            firebaseItemsField: Users.collections.BUSINESS_INFO.documents.FIELDS.fields.PRODUCTS_SERVICES,
+            firebaseItemsField: Pages.collections.BUSINESS_INFO.documents.FIELDS.fields.PRODUCTS_SERVICES,
             disableAutoCorrect: false,
             disableAutoCapitalization: false)
         ),
@@ -50,7 +52,7 @@ struct BusinessInformationView: View {
             promptText: "Please add any frequently asked questions of your business",
             header: "Frequently Asked Questions",
             completeBeforeText: "Please fill out all FAQs before adding more",
-            firebaseItemsField: Users.collections.BUSINESS_INFO.documents.FIELDS.fields.FAQS,
+            firebaseItemsField: Pages.collections.BUSINESS_INFO.documents.FIELDS.fields.FAQS,
             disableAutoCorrect: false,
             disableAutoCapitalization: false)
         ),
@@ -60,34 +62,140 @@ struct BusinessInformationView: View {
             promptText: "Please add any specfic information about your business",
             header: "Business Specifics",
             completeBeforeText: "Please fill out all specifics before adding more",
-            firebaseItemsField: Users.collections.BUSINESS_INFO.documents.FIELDS.fields.SPECIFICS,
+            firebaseItemsField: Pages.collections.BUSINESS_INFO.documents.FIELDS.fields.SPECIFICS,
             disableAutoCorrect: false,
             disableAutoCapitalization: false)
         )
     ]
 
     var body: some View {
-        NavigationView {
-            GeometryReader { geometry in
-                VStack(alignment: .leading) {
-                    Text("Business Information").bold().font(.system(size: 30)).offset(x: 0).padding(.leading).padding(.bottom)
-                    ScrollView {
-                        ForEach(self.subViewDict.keys.sorted(), id:\.self) { category in
-                            VStack {
-                                NavigationLink(destination: subViewDict[category]) {
-                                    HStack {
-                                        Text(category).foregroundColor(colorScheme == .dark ? Color.white : Color.black).font(.system(size: 23)).frame(width: geometry.size.width * 0.85, alignment: .leading)
-                                        Image(systemName: "chevron.right").foregroundColor(.gray).imageScale(.small).offset(x: -5)
+        
+        if self.loading {
+            LottieView(name: "97952-loading-animation-blue").onAppear(perform: {
+                self.initializePage() {
+                    self.loading = false
+                }
+            })
+        }
+        
+        if self.session.selectedPage == nil {
+            Text("Please go to Inbox view and connect a business page")
+        }
+        
+        else {
+            NavigationView {
+                GeometryReader { geometry in
+                    VStack(alignment: .leading) {
+                        Text("Business Information").bold().font(.system(size: 30)).offset(x: 0).padding(.leading).padding(.bottom)
+                        ScrollView {
+                            ForEach(self.subViewDict.keys.sorted(), id:\.self) { category in
+                                VStack {
+                                    NavigationLink(destination: subViewDict[category]) {
+                                        HStack {
+                                            Text(category).foregroundColor(colorScheme == .dark ? Color.white : Color.black).font(.system(size: 23)).frame(width: geometry.size.width * 0.85, alignment: .leading)
+                                            Image(systemName: "chevron.right").foregroundColor(.gray).imageScale(.small).offset(x: -5)
+                                        }
                                     }
-                                }
-                                HorizontalLine(color: .gray, height: 1.0)
-                            }.padding(.leading).offset(x: -geometry.size.width * 0.03)
+                                    HorizontalLine(color: .gray, height: 1.0)
+                                }.padding(.leading).offset(x: -geometry.size.width * 0.03)
+                            }
                         }
                     }
                 }
-            }
-        }.navigationViewStyle(.stack)
+            }.navigationViewStyle(.stack)
+        }
     }
+    
+    // TODO: Clean this up
+    func initializePage(completion: @escaping () -> Void) {
+        if self.session.selectedPage != nil && self.session.selectedPage!.businessAccountId != nil {
+            let pageDocument = self.db.collection(Pages.name).document(self.session.selectedPage!.businessAccountId!)
+            pageDocument.getDocument {
+                doc, error in
+                if error == nil && doc != nil {
+                    if doc!.exists {
+                        let pageBusinessInformation = self.db.collection("\(Pages.name)/\(self.session.selectedPage!.businessAccountId!)/\(Pages.collections.BUSINESS_INFO.name)").document(Pages.collections.BUSINESS_INFO.documents.FIELDS.name)
+                        
+                        pageBusinessInformation.getDocument {
+                            doc, error in
+                            if error == nil && doc != nil {
+                                if doc!.exists {
+                                    completion()
+                                    // TODO: Do some more granular checks
+                                }
+                                
+                                // Initialize the page
+                                else {
+                                    let pageFields = Pages.collections.BUSINESS_INFO.documents.FIELDS.fields
+                                    
+                                    pageBusinessInformation.setData([
+                                        pageFields.BUSINESS_ADDRESS: nil,
+                                        pageFields.BUSINESS_NAME: nil,
+                                        pageFields.FAQS: nil,
+                                        pageFields.INDUSTRY: nil,
+                                        pageFields.LINKS: nil,
+                                        pageFields.PRODUCTS_SERVICES: nil,
+                                        pageFields.SENDER_CHARACTERISTICS: nil,
+                                        pageFields.SENDER_NAME: nil,
+                                        pageFields.SPECIFICS: nil
+                                    ])
+                                    completion()
+                                }
+                            }
+                            else {
+                                completion()
+                            }
+                        }
+                    }
+                    
+                    else {
+                        pageDocument.setData([:]) {
+                            _ in
+                            let pageBusinessInformation = self.db.collection("\(Pages.name)/\(self.session.selectedPage!.businessAccountId!)/\(Pages.collections.BUSINESS_INFO.name)").document(Pages.collections.BUSINESS_INFO.documents.FIELDS.name)
+                            
+                            pageBusinessInformation.getDocument {
+                                doc, error in
+                                if error == nil && doc != nil {
+                                    if doc!.exists {
+                                        completion()
+                                        // TODO: Do some more granular checks
+                                    }
+                                    
+                                    // Initialize the page
+                                    else {
+                                        let pageFields = Pages.collections.BUSINESS_INFO.documents.FIELDS.fields
+                                        
+                                        pageBusinessInformation.setData([
+                                            pageFields.BUSINESS_ADDRESS: nil,
+                                            pageFields.BUSINESS_NAME: nil,
+                                            pageFields.FAQS: nil,
+                                            pageFields.INDUSTRY: nil,
+                                            pageFields.LINKS: nil,
+                                            pageFields.PRODUCTS_SERVICES: nil,
+                                            pageFields.SENDER_CHARACTERISTICS: nil,
+                                            pageFields.SENDER_NAME: nil,
+                                            pageFields.SPECIFICS: nil
+                                        ])
+                                        completion()
+                                    }
+                                }
+                                else {
+                                    completion()
+                                }
+                            }
+                        }
+                    }
+                }
+                else {
+                    completion()
+                }
+            }
+        }
+        else {
+            completion()
+        }
+    }
+        
 }
 
 
@@ -139,26 +247,30 @@ struct GeneralInfoSubView: View {
     }
     
     func getInfo() {
-        self.db.collection(Users.name).document("\(self.session.user.uid!)/\(Users.collections.BUSINESS_INFO.name)/\(Users.collections.BUSINESS_INFO.documents.FIELDS.name)").getDocument() {
-            doc, error in
-            if error == nil {
-                let data = doc?.data()
-                if data != nil {
-                    self.senderName = data![Users.collections.BUSINESS_INFO.documents.FIELDS.fields.SENDER_NAME] as? String ?? ""
-                    self.senderCharacteristics = data![Users.collections.BUSINESS_INFO.documents.FIELDS.fields.SENDER_CHARACTERISTICS] as? String ?? ""
-                    self.loading = false
+        if self.session.selectedPage != nil && self.session.selectedPage!.businessAccountId != nil {
+            self.db.collection(Pages.name).document("\(self.session.selectedPage!.businessAccountId!)/\(Pages.collections.BUSINESS_INFO.name)/\(Pages.collections.BUSINESS_INFO.documents.FIELDS.name)").getDocument() {
+                doc, error in
+                if error == nil {
+                    let data = doc?.data()
+                    if data != nil {
+                        self.senderName = data![Pages.collections.BUSINESS_INFO.documents.FIELDS.fields.SENDER_NAME] as? String ?? ""
+                        self.senderCharacteristics = data![Pages.collections.BUSINESS_INFO.documents.FIELDS.fields.SENDER_CHARACTERISTICS] as? String ?? ""
+                        self.loading = false
+                    }
                 }
             }
         }
     }
     
     func updateInfo() {
-        self.db.collection(Users.name).document("\(self.session.user.uid!)/\(Users.collections.BUSINESS_INFO.name)/\(Users.collections.BUSINESS_INFO.documents.FIELDS.name)").updateData(
-        [
-            Users.collections.BUSINESS_INFO.documents.FIELDS.fields.SENDER_NAME: self.senderName,
-            Users.collections.BUSINESS_INFO.documents.FIELDS.fields.SENDER_CHARACTERISTICS: self.senderCharacteristics
-        ]
-        )
+        if self.session.selectedPage != nil && self.session.selectedPage!.businessAccountId != nil {
+            self.db.collection(Pages.name).document("\(self.session.selectedPage!.businessAccountId!)/\(Pages.collections.BUSINESS_INFO.name)/\(Pages.collections.BUSINESS_INFO.documents.FIELDS.name)").updateData(
+            [
+                Pages.collections.BUSINESS_INFO.documents.FIELDS.fields.SENDER_NAME: self.senderName,
+                Pages.collections.BUSINESS_INFO.documents.FIELDS.fields.SENDER_CHARACTERISTICS: self.senderCharacteristics
+            ]
+            )
+        }
     }
 }
 
@@ -219,28 +331,32 @@ struct BusinessInfoSubView: View {
     }
     
     func getInfo() {
-        self.db.collection(Users.name).document("\(self.session.user.uid!)/\(Users.collections.BUSINESS_INFO.name)/\(Users.collections.BUSINESS_INFO.documents.FIELDS.name)").getDocument() {
-            doc, error in
-            if error == nil {
-                let data = doc?.data()
-                if data != nil {
-                    self.address = data![Users.collections.BUSINESS_INFO.documents.FIELDS.fields.BUSINESS_ADDRESS] as? String ?? ""
-                    self.businessName = data![Users.collections.BUSINESS_INFO.documents.FIELDS.fields.BUSINESS_NAME] as? String ?? ""
-                    self.industry = data![Users.collections.BUSINESS_INFO.documents.FIELDS.fields.INDUSTRY] as? String ?? ""
-                    self.loading = false
+        if self.session.selectedPage != nil && self.session.selectedPage!.businessAccountId != nil {
+            self.db.collection(Pages.name).document("\(self.session.selectedPage!.businessAccountId!)/\(Pages.collections.BUSINESS_INFO.name)/\(Pages.collections.BUSINESS_INFO.documents.FIELDS.name)").getDocument() {
+                doc, error in
+                if error == nil {
+                    let data = doc?.data()
+                    if data != nil {
+                        self.address = data![Pages.collections.BUSINESS_INFO.documents.FIELDS.fields.BUSINESS_ADDRESS] as? String ?? ""
+                        self.businessName = data![Pages.collections.BUSINESS_INFO.documents.FIELDS.fields.BUSINESS_NAME] as? String ?? ""
+                        self.industry = data![Pages.collections.BUSINESS_INFO.documents.FIELDS.fields.INDUSTRY] as? String ?? ""
+                        self.loading = false
+                    }
                 }
             }
         }
     }
     
     func updateInfo() {
-        self.db.collection(Users.name).document("\(self.session.user.uid!)/\(Users.collections.BUSINESS_INFO.name)/\(Users.collections.BUSINESS_INFO.documents.FIELDS.name)").updateData(
-        [
-            Users.collections.BUSINESS_INFO.documents.FIELDS.fields.BUSINESS_ADDRESS: self.address,
-            Users.collections.BUSINESS_INFO.documents.FIELDS.fields.BUSINESS_NAME: self.businessName,
-            Users.collections.BUSINESS_INFO.documents.FIELDS.fields.INDUSTRY: self.industry
-        ]
-        )
+        if self.session.selectedPage != nil && self.session.selectedPage!.businessAccountId != nil {
+            self.db.collection(Pages.name).document("\(self.session.selectedPage!.businessAccountId!)/\(Pages.collections.BUSINESS_INFO.name)/\(Pages.collections.BUSINESS_INFO.documents.FIELDS.name)").updateData(
+                [
+                    Pages.collections.BUSINESS_INFO.documents.FIELDS.fields.BUSINESS_ADDRESS: self.address,
+                    Pages.collections.BUSINESS_INFO.documents.FIELDS.fields.BUSINESS_NAME: self.businessName,
+                    Pages.collections.BUSINESS_INFO.documents.FIELDS.fields.INDUSTRY: self.industry
+                ]
+            )
+        }
     }
 }
 

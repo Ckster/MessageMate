@@ -40,6 +40,8 @@ class SessionStore : NSObject, ObservableObject {
     @Published var isLoggedIn: SignInState = .loading
     @Published var showMenu: Bool = true
     @Published var facebookUserToken: String? = nil
+    @Published var selectedPage: MetaPage?
+    @Published var availablePages: [MetaPage] = []
     
     // TODO: Add in actual workflow to make this false when it needs to be
     @Published var onboardingCompleted: Bool? = nil
@@ -246,20 +248,6 @@ class SessionStore : NSObject, ObservableObject {
                             Users.fields.ONBOARDING_COMPLETED: false,
                             Users.fields.LEGAL_AGREEMENT: Timestamp.init(),
                             Users.fields.TOKENS: [Messaging.messaging().fcmToken ?? ""]
-                        ])
-                        
-                        // Initialize the business information collection, documents, and fields
-                        let businessInformation = userSettings.collection(Users.collections.BUSINESS_INFO.name).document(Users.collections.BUSINESS_INFO.documents.FIELDS.name)
-                        businessInformation.setData([
-                            Users.collections.BUSINESS_INFO.documents.FIELDS.fields.BUSINESS_ADDRESS: nil,
-                            Users.collections.BUSINESS_INFO.documents.FIELDS.fields.BUSINESS_NAME: nil,
-                            Users.collections.BUSINESS_INFO.documents.FIELDS.fields.FAQS: nil,
-                            Users.collections.BUSINESS_INFO.documents.FIELDS.fields.INDUSTRY: nil,
-                            Users.collections.BUSINESS_INFO.documents.FIELDS.fields.LINKS: nil,
-                            Users.collections.BUSINESS_INFO.documents.FIELDS.fields.PRODUCTS_SERVICES: nil,
-                            Users.collections.BUSINESS_INFO.documents.FIELDS.fields.SENDER_CHARACTERISTICS: nil,
-                            Users.collections.BUSINESS_INFO.documents.FIELDS.fields.SENDER_NAME: nil,
-                            Users.collections.BUSINESS_INFO.documents.FIELDS.fields.SPECIFICS: nil
                         ])
         
                         // Finally, show the user the home screen

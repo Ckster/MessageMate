@@ -34,10 +34,9 @@ struct InboxView: View {
 struct ConversationsView: View {
     @EnvironmentObject var session: SessionStore
     @Environment(\.colorScheme) var colorScheme
-    @State var pages: [Page] = []
     @State var loading: Bool = true
     @State var firstAppear: Bool = true
-    @State var selectedPageIndex: Int = 0
+    let db = Firestore.firestore()
     
     var body: some View {
         NavigationView {
@@ -49,24 +48,22 @@ struct ConversationsView: View {
                         LottieView(name: "9844-loading-40-paperplane")
                     }
                     else {
-                        
                         ScrollView {
                             PullToRefresh(coordinateSpaceName: "pullToRefresh") {
                                 self.loading = true
-                                self.updatePages()
+                                Task {
+                                    await self.updatePages()
+                                }
                             }
                             
-                            if self.pages.count > 0 {
-                                if self.pages[self.selectedPageIndex].conversations.count == 0 {
+                            if self.session.selectedPage != nil {
+                                if self.session.selectedPage!.conversations.count == 0 {
                                     Text("No conversations. Pull down to refresh")
                                 }
                                 else {
-                                    ForEach(self.pages[self.selectedPageIndex].conversations, id:\.self) { conversation in
+                                    ForEach(self.session.selectedPage!.conversations, id:\.self) { conversation in
                                         if conversation.messages.count > 0 {
-                                            ConversationNavigationView(conversation: conversation, width: geometry.size.width, page: self.pages[self.selectedPageIndex])
-                                        }
-                                        else {
-                                            Text("ZERO")
+                                            ConversationNavigationView(conversation: conversation, width: geometry.size.width, page: self.session.selectedPage!)
                                         }
                                     }
                                 }
@@ -75,6 +72,7 @@ struct ConversationsView: View {
                             else {
                                 Text("There are no business accounts linked to you. Add a business account to your Messenger account to see it here.")
                             }
+                            
                         }.coordinateSpace(name: "pullToRefresh")
                     }
                 }
@@ -82,37 +80,139 @@ struct ConversationsView: View {
         }
         .onAppear(perform: {
             if self.firstAppear {
-                print("ON_APPEAR")
                 self.firstAppear = false
-                self.updatePages()
+                Task {
+                    await self.updatePages()
+                }
+            }
+        })
+        .onChange(of: self.session.selectedPage ?? MetaPage(id: "", name: "", accessToken: "", category: ""), perform: {
+            newPage in
+            if newPage.businessAccountId != nil {
+                self.addConversationListeners(page: newPage)
             }
         })
     }
     
-    func updatePages() {
-        self.getPages() { pages in
-            for page in pages {
-                self.getConversations(page: page) {
-                    conversations in
-                    var newConversations: [Conversation] = []
-                    
-                    for conversation in conversations {
-                        self.getMessages(page: page, conversation: conversation) {
-                            messages in
-                            if messages.count > 0 {
-                                conversation.messages = messages.sorted { $0.createdTime < $1.createdTime }
-                                let userList = conversation.updateCorrespondent()
-                                if userList.count > 0 {
-                                    page.pageUser = userList[1]
-                                    newConversations.append(conversation)
+    // TODO: Add an implement a listener remover
+    func addConversationListeners(page: MetaPage) {
+        if page.businessAccountId != nil {
+            self.db.collection(Pages.name).document(page.businessAccountId!).collection(Pages.collections.CONVERSATIONS.name).addSnapshotListener {
+                querySnapshot, error in
+                guard let snapshot = querySnapshot else {
+                    print("Error listening for conversations: \(error!)")
+                    return
+                }
+
+                querySnapshot?.documentChanges.forEach { diff in
+                    if (diff.type == .modified) {
+                        let data = diff.document.data()
+                        self.updateConversation(correspondentId: diff.document.documentID)
+                    }
+                }
+            }
+        }
+    }
+    
+    @MainActor
+    func updateConversation(correspondentId: String) {
+        if self.session.selectedPage != nil {
+            for conversation in self.session.selectedPage!.conversations {
+                if conversation.correspondent != nil && conversation.correspondent!.id == correspondentId{
+                    Task {
+                        let newConversationInfo = await self.getMessages(page: self.session.selectedPage!, conversation: conversation, cursor: conversation.pagination?.afterCursor)
+                        conversation.messages = conversation.messages + newConversationInfo.0
+                        conversation.pagination = newConversationInfo.1
+                    }
+                }
+            }
+        }
+    }
+    
+    @MainActor
+    func updatePages() async {
+        let pages = await self.getPages()
+        for page in pages {
+            let conversations = await self.getConversations(page: page)
+            var newConversations: [Conversation] = []
+            for conversation in conversations {
+                let conversationTuple = await self.getMessages(page: page, conversation: conversation)
+                let messages = conversationTuple.0
+                let pagination = conversationTuple.1
+                if messages.count > 0 {
+                    conversation.messages = messages.sorted { $0.createdTime < $1.createdTime }
+                    conversation.pagination = pagination
+                    let userList = conversation.updateCorrespondent()
+                    if userList.count > 0 {
+                        page.pageUser = userList[1]
+                        self.initializePageConversations(page: page, correspondentId: conversation.correspondent!.id)
+                        newConversations.append(conversation)
+                    }
+                }
+            
+                if conversation == conversations.last {
+                    page.conversations = newConversations
+                    if page == pages.last {
+                        self.session.availablePages = pages
+                        if self.session.selectedPage == nil && self.session.availablePages.count > 0 {
+                            self.session.selectedPage = self.session.availablePages[0]
+                        }
+                        
+                        self.loading = false
+                    }
+                }
+            }
+        }
+    }
+    
+    // TODO: Clean this up
+    func initializePageConversations(page: MetaPage, correspondentId: String) {
+        if page.businessAccountId != nil {
+            let pageDoc = self.db.collection(Pages.name).document(page.businessAccountId!)
+            pageDoc.getDocument() {
+                doc, error in
+                if error == nil && doc != nil {
+                    if doc!.exists {
+                        let pageDocument = Pages(pageId: page.businessAccountId!)
+                        let pageConversations = self.db.collection("\(pageDocument.documentPath)/\(Pages.collections.CONVERSATIONS.name)").document(correspondentId)
+                        
+                        pageConversations.getDocument {
+                            doc, error in
+                            if error == nil && doc != nil {
+                                if doc!.exists {
+                                    // TODO: Do some more granular checks
+                                }
+                                
+                                // Initialize the page
+                                else {
+                                    let pageFields = Pages.collections.CONVERSATIONS.documents.fields
+                                    pageConversations.setData([
+                                        pageFields.TRIGGER: nil
+                                    ])
                                 }
                             }
-                        
-                            if conversation == conversations.last {
-                                page.conversations = newConversations
-                                if page == pages.last {
-                                    self.pages = pages
-                                    self.loading = false
+                        }
+                    }
+                    else {
+                        self.db.collection(Pages.name).document(page.businessAccountId!).setData([:]) {
+                            _ in
+                            let pageDocument = Pages(pageId: page.businessAccountId!)
+                            let pageConversations = self.db.collection("\(pageDocument.documentPath)/\(Pages.collections.CONVERSATIONS.name)").document(correspondentId)
+                            
+                            pageConversations.getDocument {
+                                doc, error in
+                                if error == nil && doc != nil {
+                                    if doc!.exists {
+                                        // TODO: Do some more granular checks
+                                    }
+                                    
+                                    // Initialize the page
+                                    else {
+                                        let pageFields = Pages.collections.CONVERSATIONS.documents.fields
+                                        pageConversations.setData([
+                                            pageFields.TRIGGER: nil
+                                        ])
+                                    }
                                 }
                             }
                         }
@@ -122,33 +222,46 @@ struct ConversationsView: View {
         }
     }
     
-    func getMessages(page: Page, conversation: Conversation, completion: @escaping ([Message]) -> Void) {
-        // TODO: Only look for details on 20 most recent messages
+    func getMessages(page: MetaPage, conversation: Conversation, cursor: String? = nil) async -> ([Message], PagingInfo?) {
+        var urlString = "https://graph.facebook.com/v16.0/\(conversation.id)?fields=messages&access_token=\(page.accessToken)"
+        if cursor != nil {
+            urlString = urlString + "&after=\(String(describing: cursor))"
+        }
         
-        let urlString = "https://graph.facebook.com/v16.0/\(conversation.id)?fields=messages&access_token=\(page.accessToken)"
-        getRequest(urlString: urlString) {
-            jsonDataDict in
-            let messagePointers = jsonDataDict["messages"] as? [String: AnyObject]
-            if messagePointers != nil {
-                let messagePointerData = messagePointers!["data"] as? [[String: AnyObject]]
-                if messagePointerData != nil {
-                    let messagePointerLen = messagePointerData!.count
+        var conversationInfo: ([Message], PagingInfo?) = ([], nil)
+        let jsonDataDict = await getRequest(urlString: urlString)
+        if jsonDataDict != nil {
+            let conversationData = jsonDataDict!["messages"] as? [String: AnyObject]
+    
+            if conversationData != nil {
+                var pagingInfo: PagingInfo? = nil
+                let pointerData = conversationData!["paging"] as? [String: AnyObject]
+                if pointerData != nil {
+                    let cursorData = pointerData!["cursor"] as? [String: String]
+                    if cursorData != nil {
+                        pagingInfo = PagingInfo(beforeCursor: cursorData!["before"], afterCursor: cursorData!["after"])
+                    }
+                }
+            
+                let messageData = conversationData!["data"] as? [[String: AnyObject]]
+                
+                if messageData != nil {
+                    let messagesLen = messageData!.count
                     var indexCounter = 0
                     var newMessages: [Message] = []
                     
-                    for messagePointer in messagePointerData! {
-                        let id = messagePointer["id"] as? String
-                        let createdTime = messagePointer["created_time"] as? String
+                    for message in messageData! {
+                        let id = message["id"] as? String
+                        let createdTime = message["created_time"] as? String
                         
                         if id != nil {
                             let messageDataURLString = "https://graph.facebook.com/v9.0/\(id!)?fields=id,created_time,from,to,message&access_token=\(page.accessToken)"
-                            getRequest(urlString: messageDataURLString) {
-                                messageDataDict in
-                                print(messageDataDict)
                             
-                                let fromDict = messageDataDict["from"] as? [String: AnyObject]
-                                let toDictList = messageDataDict["to"] as? [String: AnyObject]
-                                let message = messageDataDict["message"] as? String
+                            let messageDataDict = await getRequest(urlString: messageDataURLString)
+                            if messageDataDict != nil {
+                                let fromDict = messageDataDict!["from"] as? [String: AnyObject]
+                                let toDictList = messageDataDict!["to"] as? [String: AnyObject]
+                                let message = messageDataDict!["message"] as? String
                                 
                                 if toDictList != nil {
                                     let toDict = toDictList!["data"] as? [[String: AnyObject]]
@@ -190,60 +303,57 @@ struct ConversationsView: View {
                                 }
                             
                                 indexCounter = indexCounter + 1
-                                if indexCounter == messagePointerLen {
+                                if indexCounter == messagesLen {
                                     
                                     // Start of the async get of profile pic url
                                     for user in userRegistry.values {
                                         if user.profilePicURL == nil {
-                                            user.getProfilePicture(access_token: page.accessToken)
+                                            await user.getProfilePicture(access_token: page.accessToken)
                                         }
                                     }
-                                    completion(newMessages)
+                                    conversationInfo = (newMessages, pagingInfo)
                                 }
                             }
                         }
                     }
-                    
-                    if messagePointerLen == 0 {
-                        completion([])
-                    }
                 }
             }
         }
+        return conversationInfo
     }
     
-    func getConversations(page: Page, completion: @escaping ([Conversation]) -> Void) {
+    func getConversations(page: MetaPage) async -> [Conversation] {
         let urlString = "https://graph.facebook.com/v16.0/\(page.id)/conversations?platform=instagram&access_token=\(page.accessToken)"
-        getRequest(urlString: urlString) {
-            jsonDataDict in
-            let conversations = jsonDataDict["data"] as? [[String: AnyObject]]
-            var newConversations: [Conversation] = []
+        
+        var newConversations: [Conversation] = []
+        let jsonDataDict = await getRequest(urlString: urlString)
+        if jsonDataDict != nil {
+            let conversations = jsonDataDict!["data"] as? [[String: AnyObject]]
             if conversations != nil {
                 for conversation in conversations! {
                     let id = conversation["id"] as? String
                     let updatedTime = conversation["updated_time"] as? String
                     
                     if id != nil && updatedTime != nil {
-                        newConversations.append(Conversation(id: id!, updatedTime: updatedTime!, page: page))
+                        newConversations.append(Conversation(id: id!, updatedTime: updatedTime!, page: page, pagination: nil))
                     }
                 }
-                completion(newConversations)
-            }
-            else {
-                completion([])
             }
         }
+        return newConversations
     }
     
-    func getPages(completion: @escaping ([Page]) -> Void) {
+    @MainActor
+    func getPages() async -> [MetaPage] {
+        var newPagesReturn: [MetaPage] = []
         if self.session.facebookUserToken != nil {
             let urlString = "https://graph.facebook.com/v16.0/me/accounts?access_token=\(self.session.facebookUserToken!)"
-            getRequest(urlString: urlString) {
-                jsonDataDict in
-                NSLog("Received data:\n\(jsonDataDict))")
-                let pages = jsonDataDict["data"] as? [[String: AnyObject]]
+            
+            let jsonDataDict = await getRequest(urlString: urlString)
+            if jsonDataDict != nil {
+                let pages = jsonDataDict!["data"] as? [[String: AnyObject]]
                 if pages != nil {
-                    var newPages: [Page] = []
+                    var newPages: [MetaPage] = []
                     let pageCount = pages!.count
                     var pageIndex = 0
                     
@@ -253,55 +363,54 @@ struct ConversationsView: View {
                         let category = page["category"] as? String
                         let name = page["name"] as? String
                         let id = page["id"] as? String
-                    
+                        
                         if pageAccessToken != nil && category != nil && name != nil && id != nil {
-                            let newPage = Page(id: id!, name: name!, accessToken: pageAccessToken!, category: category!)
-                            self.getPageBusinessAccountId(page: newPage) {
-                                busAccountId in
-                                if busAccountId != nil {
-                                    newPage.businessAccountId = busAccountId!
-                                    newPages.append(newPage)
-                                    if pageIndex == pageCount {
-                                        completion(newPages)
-                                    }
+                            let newPage = MetaPage(id: id!, name: name!, accessToken: pageAccessToken!, category: category!)
+                            let busAccountId = await self.getPageBusinessAccountId(page: newPage)
+                            
+                            if busAccountId != nil {
+                                newPage.businessAccountId = busAccountId!
+                                await newPage.getProfilePicture(accountId: id!)
+                              
+                                newPages.append(newPage)
+                                if pageIndex == pageCount {
+                                    newPagesReturn = newPages
                                 }
                             }
                         }
                     }
-                    
-                    if pageCount == 0 {
-                        completion([])
-                    }
-                    
-                }
-                else {
-                    completion([])
                 }
             }
         }
-        else {
-            print("Token was nil")
-        }
+        return newPagesReturn
     }
     
-    func getPageBusinessAccountId(page: Page, completion: @escaping (String?) -> Void) {
+    func getPageBusinessAccountId(page: MetaPage) async -> String? {
         let urlString = "https://graph.facebook.com/v16.0/\(page.id)?fields=instagram_business_account&access_token=\(page.accessToken)"
-        getRequest(urlString: urlString) {
-            jsonDataDict in
-            let instaData = jsonDataDict["instagram_business_account"] as? [String: String]
+        
+        let jsonDataDict = await getRequest(urlString: urlString)
+        var returnId: String? = nil
+        if jsonDataDict != nil {
+            let instaData = jsonDataDict!["instagram_business_account"] as? [String: String]
             if instaData != nil {
                 let id = instaData!["id"]
                 if id != nil {
-                    completion(id!)
+                    returnId = id!
                 }
-                else {
-                    completion(nil)
-                }
-            }
-            else {
-                completion(nil)
             }
         }
+        return returnId
+    }
+}
+
+
+class PagingInfo {
+    var beforeCursor: String?
+    var afterCursor: String?
+    
+    init(beforeCursor: String?, afterCursor: String?) {
+        self.beforeCursor = beforeCursor
+        self.afterCursor = afterCursor
     }
 }
 
@@ -309,11 +418,11 @@ struct ConversationsView: View {
 struct ConversationNavigationView: View {
     var conversation: Conversation
     let width: CGFloat
-    let page: Page
+    let page: MetaPage
     @Environment(\.colorScheme) var colorScheme
     @ObservedObject var correspondent: MetaUser
     
-    init(conversation: Conversation, width: CGFloat, page: Page) {
+    init(conversation: Conversation, width: CGFloat, page: MetaPage) {
         self.conversation = conversation
         self.width = width
         self.page = page
@@ -324,7 +433,7 @@ struct ConversationNavigationView: View {
         VStack {
             NavigationLink(destination: ConversationView(conversation: conversation, page: page).navigationTitle(conversation.correspondent!.username)) {
                 HStack {
-                    AsyncImage(url: URL(string: self.correspondent.profilePicURL ?? "")) { image in image.resizable() } placeholder: { Color.gray } .frame(width: 55, height: 55) .clipShape(Circle()).offset(y: conversation.messages.last!.message == "" ? -6 : 0)
+                    AsyncImage(url: URL(string: self.correspondent.profilePicURL ?? "")) { image in image.resizable() } placeholder: { Image(systemName: "person.circle") } .frame(width: 55, height: 55) .clipShape(Circle()).offset(y: conversation.messages.last!.message == "" ? -6 : 0)
                     VStack {
                         Text(conversation.correspondent!.username).foregroundColor(self.colorScheme == .dark ? .white : .black).font(.system(size: 23)).frame(width: width * 0.85, alignment: .leading)
                         HStack {
@@ -383,7 +492,7 @@ struct FacebookAuthenticateView: View {
 
 struct ConversationView: View {
     @ObservedObject var conversation: Conversation
-    let page: Page
+    let page: MetaPage
     @State var typingMessage: String = ""
     @State var placeholder: Bool = true
     @State var scrollDown: Bool = false
@@ -393,7 +502,7 @@ struct ConversationView: View {
     @EnvironmentObject var session: SessionStore
     @Environment(\.colorScheme) var colorScheme
 
-    init(conversation: Conversation, page: Page) {
+    init(conversation: Conversation, page: MetaPage) {
         self.conversation = conversation
         self.page = page
         let appearance = UINavigationBarAppearance()
@@ -401,7 +510,8 @@ struct ConversationView: View {
             appearance.backgroundColor = UIColor.systemBackground
             UINavigationBar.appearance().standardAppearance = appearance
     }
-
+    
+    // TODO: Make sure message goes away when send button is pressed
     var body: some View {
         GeometryReader {
             geometry in
@@ -434,31 +544,35 @@ struct ConversationView: View {
                     DynamicHeightTextBox(typingMessage: self.$typingMessage).frame(width: geometry.size.width * 0.9, alignment: .leading).padding(.trailing).offset(x: -5).focused($messageIsFocused)
                     
                     // Auto Generation buttons and send button
-                    HStack {
+                    HStack(spacing: 2) {
                         Button(action: {self.generateResponse(responseType: "respond")}) {
                             Text("Respond")
-                                .foregroundColor(.white).frame(width: geometry.size.width * 0.18, height: geometry.size.height * 0.07)
+                                .foregroundColor(.white)
+                                //.frame(width: geometry.size.width * 0.18, height: geometry.size.height * 0.07)
                                 .background(Color.blue)
                                 .clipShape(Rectangle()).cornerRadius(6)
                         }
                             
                         Button(action: {self.generateResponse(responseType: "sell")}) {
                             Text("Sell")
-                                .foregroundColor(.white).frame(width: geometry.size.width * 0.18, height: geometry.size.height * 0.07)
+                                .foregroundColor(.white)
+                                //.frame(width: geometry.size.width * 0.18, height: geometry.size.height * 0.07)
                                 .background(Color.blue)
                                 .clipShape(Rectangle()).cornerRadius(6)
                         }
                         
                         Button(action: {self.generateResponse(responseType: "yes")}) {
                             Text("Yes")
-                                .foregroundColor(.white).frame(width: geometry.size.width * 0.18, height: geometry.size.height * 0.07)
+                                .foregroundColor(.white)
+                                //.frame(width: geometry.size.width * 0.18, height: geometry.size.height * 0.07)
                                 .background(Color.blue)
                                 .clipShape(Rectangle()).cornerRadius(6)
                         }
                         
                         Button(action: {self.generateResponse(responseType: "no")}) {
                             Text("No")
-                                .foregroundColor(.white).frame(width: geometry.size.width * 0.18, height: geometry.size.height * 0.07)
+                                .foregroundColor(.white)
+                                //.frame(width: geometry.size.width * 0.18, height: geometry.size.height * 0.07)
                                 .background(Color.blue)
                                 .clipShape(Rectangle()).cornerRadius(6)
                         }
@@ -468,8 +582,8 @@ struct ConversationView: View {
                             action: {sendMessage(message: self.typingMessage, to: conversation.correspondent!)}
                         ) {
                            Image(systemName: "paperplane.circle.fill").font(.system(size: 35))
-                       }.frame(width: geometry.size.width * 0.20, alignment: .leading)
-                    }
+                       }.frame(width: geometry.size.width * 0.18, alignment: .leading)
+                    }.frame(width: geometry.size.width)
                 }
                     .padding(.bottom)
                     .padding(.top)
@@ -482,7 +596,7 @@ struct ConversationView: View {
             self.session.showMenu = true
         })
     }
-        
+    
     func sendMessage(message: String, to: MetaUser) {
         /// API Reference: https://developers.facebook.com/docs/messenger-platform/reference/send-api/
         let urlString = "https://graph.facebook.com/v16.0/\(page.id)/messages?access_token=\(page.accessToken)"
@@ -492,7 +606,6 @@ struct ConversationView: View {
         if jsonData != nil {
             postRequest(urlString: urlString, data: jsonData!) {
                 sentMessageData in
-                print(sentMessageData)
                 let messageId = sentMessageData["message_id"] as? String
                 
                 if messageId != nil {
@@ -509,10 +622,11 @@ struct ConversationView: View {
         }
     }
     
+    @MainActor
     func generateResponse(responseType: String) {
         let urlString = "https://us-central1-messagemate-2d9af.cloudfunctions.net/generate_response"
         let currentUser = Auth.auth().currentUser
-        print("starting")
+        
         currentUser?.getIDTokenForcingRefresh(true) { idToken, error in
             if let error = error {
                 // TODO: Tell user there was an issue and to try again
@@ -525,16 +639,18 @@ struct ConversationView: View {
                 "responseType": responseType,
                 "conversationId": self.conversation.id,
                 "pageAccessToken": self.page.accessToken,
-                "pageName": self.page.name
+                "pageName": self.page.name,
+                "pageId": self.page.id
             ]
             
-            print("sending request")
-            getRequest(urlString: urlString, header: header) {
-                data in
-                print("got data")
-                self.typingMessage = data["message"] as? String ?? "ERROR"
+            Task {
+                let data = await getRequest(urlString: urlString, header: header)
+                if data != nil {
+                    self.typingMessage = data!["message"] as? String ?? "ERROR"
+                }
             }
         }
+
     }
 
     func rectReader(_ binding: Binding<CGFloat>, _ space: CoordinateSpace = .global) -> some View {
@@ -601,10 +717,10 @@ struct MessageView : View {
     let width: CGFloat
     var currentMessage: Message
     var conversation: Conversation
-    let page: Page
+    let page: MetaPage
     @ObservedObject var correspondent: MetaUser
     
-    init(width: CGFloat, currentMessage: Message, conversation: Conversation, page: Page) {
+    init(width: CGFloat, currentMessage: Message, conversation: Conversation, page: MetaPage) {
         self.conversation = conversation
         self.width = width
         self.page = page
@@ -616,7 +732,7 @@ struct MessageView : View {
         let isCurrentUser = page.businessAccountId == currentMessage.from.id
         if !isCurrentUser {
             HStack {
-                AsyncImage(url: URL(string: self.correspondent.profilePicURL ?? "")) { image in image.resizable() } placeholder: { Color.red } .frame(width: 45, height: 45) .clipShape(Circle())
+                AsyncImage(url: URL(string: self.correspondent.profilePicURL ?? "")) { image in image.resizable() } placeholder: { Image(systemName: "person.circle") } .frame(width: 45, height: 45) .clipShape(Circle())
                 MessageBlurbView(contentMessage: currentMessage.message,
                                    isCurrentUser: isCurrentUser)
             }.frame(width: width * 0.875, alignment: .leading).padding(.trailing).offset(x: -7)
@@ -801,14 +917,16 @@ class Message: Hashable, Equatable {
 class Conversation: Hashable, Equatable, ObservableObject {
     let id: String
     let updatedTime: Date?
-    let page: Page
+    let page: MetaPage
     var correspondent: MetaUser? = nil
+    var pagination: PagingInfo?
     @Published var messages: [Message] = []
     
-    init(id: String, updatedTime: String, page: Page) {
+    init(id: String, updatedTime: String, page: MetaPage, pagination: PagingInfo?) {
         self.id = id
         self.page = page
         self.updatedTime = Date().facebookStringToDate(fbString: updatedTime)
+        self.pagination = pagination
     }
 
     func hash(into hasher: inout Hasher) {
@@ -822,7 +940,6 @@ class Conversation: Hashable, Equatable, ObservableObject {
     func updateCorrespondent() -> [MetaUser] {
         var rList: [MetaUser] = []
         for message in self.messages {
-            print(message.from, message.to)
             if message.from.id != page.businessAccountId {
                 self.correspondent = message.from
                 rList = [message.from, message.to]
@@ -838,7 +955,7 @@ class Conversation: Hashable, Equatable, ObservableObject {
     }
 }
 
-class Page: Hashable, Equatable {
+class MetaPage: Hashable, Equatable {
     let id: String
     let name: String
     let accessToken: String
@@ -846,19 +963,22 @@ class Page: Hashable, Equatable {
     var conversations: [Conversation] = []
     var businessAccountId: String? = nil
     var pageUser: MetaUser? = nil
+    var photoURL: String?
     
-    init(id: String, name: String, accessToken: String, category: String) {
+    init(id: String, name: String, accessToken: String, category: String, photoURL: String? = nil, businessAccountId: String? = nil) {
         self.id = id
         self.name = name
         self.accessToken = accessToken
         self.category = category
+        self.photoURL = photoURL
+        self.businessAccountId = businessAccountId
     }
 
     func hash(into hasher: inout Hasher) {
         hasher.combine(self.id)
     }
 
-    static func ==(lhs: Page, rhs: Page) -> Bool {
+    static func ==(lhs: MetaPage, rhs: MetaPage) -> Bool {
         return lhs.id == rhs.id
     }
     
@@ -866,6 +986,19 @@ class Page: Hashable, Equatable {
         self.conversations = self.conversations.sorted {$0.messages.last!.createdTime > $1.messages.last!.createdTime}
     }
     
+    @MainActor
+    func getProfilePicture(accountId: String) async {
+        let urlString = "https://graph.facebook.com/v16.0/\(accountId)/picture?redirect=0"
+
+        let profileData = await getRequest(urlString: urlString)
+        if profileData != nil {
+            let data = profileData!["data"] as? [String: AnyObject]
+            if data != nil {
+                let profilePicURL = data!["url"] as? String
+                self.photoURL = profilePicURL?.replacingOccurrences(of: "\\", with: "")
+            }
+        }
+    }
 }
 
 
@@ -887,22 +1020,20 @@ class MetaUser: Hashable, Equatable, ObservableObject {
         return lhs.id == rhs.id
     }
     
-    func getProfilePicture(access_token: String) {
+    @MainActor
+    func getProfilePicture(access_token: String) async {
         let urlString = "https://graph.facebook.com/v16.0/\(self.id)?access_token=\(access_token)"
-        getRequest(urlString: urlString) {
-            profileData in
-            let profilePicURL = profileData["profile_pic"] as? String
-            if profilePicURL != nil {
-                DispatchQueue.main.async {
-                    self.profilePicURL = profilePicURL?.replacingOccurrences(of: "\\", with: "")
-                }
-            }
+        
+        let profileData = await getRequest(urlString: urlString)
+        if profileData != nil {
+            let profilePicURL = profileData!["profile_pic"] as? String
+            self.profilePicURL = profilePicURL?.replacingOccurrences(of: "\\", with: "")
         }
     }
 }
 
 
-func getRequest(urlString: String, header: [String: String]? = nil, completion: @escaping ([String: AnyObject]) -> Void) {
+func getRequest(urlString: String, header: [String: String]? = nil) async -> [String: AnyObject]? {
     let url = URL(string: urlString)!
     var request = URLRequest(url: url)
     
@@ -911,33 +1042,50 @@ func getRequest(urlString: String, header: [String: String]? = nil, completion: 
             request.setValue(header![key]!, forHTTPHeaderField: key)
         }
     }
-    
-    let dataTask = URLSession.shared.dataTask(with: request) {(data, response, error) in
-        if let error = error {
-            print("Request error:", error)
-            return
-        }
-        
-        guard let data = data else {
-            print("Couldn't get data")
-            return
-        }
 
-        do {
-            if let jsonDataDict = try JSONSerialization.jsonObject(with: data, options: JSONSerialization.ReadingOptions.allowFragments) as? [String: AnyObject] {
-                completion(jsonDataDict)
-            }
-            else {
-                print("Couldn't deserialize data")
-            }
+    do {
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            return nil
         }
-        
-        catch let error as NSError {
-            print(error)
+        if let jsonDataDict = try JSONSerialization.jsonObject(with: data, options: JSONSerialization.ReadingOptions.allowFragments) as? [String: AnyObject] {
+            return jsonDataDict
         }
-        
-    }
-    dataTask.resume()
+        else {
+            return nil
+        }
+      }
+      catch {
+          return nil
+      }
+    
+//    {(data, response, error) in
+//        if let error = error {
+//            print("Request error:", error)
+//            return
+//        }
+//
+//        guard let data = data else {
+//            print("Couldn't get data")
+//            return
+//        }
+//
+//        do {
+//            if let jsonDataDict = try JSONSerialization.jsonObject(with: data, options: JSONSerialization.ReadingOptions.allowFragments) as? [String: AnyObject] {
+//                completion(jsonDataDict)
+//            }
+//            else {
+//                print("Couldn't deserialize data")
+//            }
+//        }
+//
+//        catch let error as NSError {
+//            print(error)
+//        }
+//
+//    }
+    
+    
 }
 
 func postRequest(urlString: String, data: Data, completion: @escaping ([String: AnyObject]) -> Void) {
@@ -998,28 +1146,3 @@ extension Date {
         return dateFormatter.string(from: date) ?? ""
     }
 }
-
-
-//{"data":[{"access_token":"EAAPjZCIdKOzEBAKGE99Oci5Sz7h09X5a4SDrn3pZA8PV6ZCvlbmcpsiXwNMgCJ0oWkP75ouJBGvcmLyMKA1fv1Dur9F1ewUSDay9MtMkTyaPnOEQvzxDmQUQT6e5MWHr4e4ZCibJWyX6OlbvrncRpHxFCSSTwzZBksYakDIlpm2DkLkoN1jZBf","category":"Information Technology Company","category_list":[{"id":"1130035050388269","name":"Information Technology Company"}],"name":"MessageMate","id":"110824595249562","tasks":["ADVERTISE","ANALYZE","CREATE_CONTENT","MESSAGING","MODERATE","MANAGE"]},{"access_token":"EAAPjZCIdKOzEBAKMbZBTeEpVAfLfZBkqIkNpysACCqsEosMXjOajJ2CxfIVuBfTi2R2oxQCbnOtTjSZBsP6wJRR9Tylnj0Tnky1nk84eYv2wIs3oUpxpB4e2LuyQwHDc2WFlEcTBmCoR0C2Lp8ok7NBccKUZCgZCvROhHDtc8NF21FkrDp8iOP","category":"Software Company","category_list":[{"id":"1065597503495311","name":"Software Company"}],"name":"Axon","id":"102113192797755","tasks":["ADVERTISE","ANALYZE","CREATE_CONTENT","MESSAGING","MODERATE","MANAGE"]}],"paging":{"cursors":{"before":"QVFIUlh5Y1dnNk1vREFnOGN5ME9GLVlvMWROc0xJMS1vTWlYeEJGdFJySmdYblVESXI0OGhLcU9pSncxNkszek9qdlpYcHh6WWxEVnM3OXF1dm41SlcxX29B","after":"QVFIUkpqWndZAUEtzc0x2b3lwanlILXRPTWVDXzE5LUwxTVhSYWZA0dG56QlBLdDRqMlR3bkluYUxhZAUhkTTBpWlV3Y0FLX3N4czBqNjZASNFBpSnU3aUcyZA0Vn"}}
-//
-//
-//    {"data":[{"id":"aWdfZAG06MTpJR01lc3NhZA2VUaHJlYWQ6MTc4NDE0NTQ2MDQxNDU4MTQ6MzQwMjgyMzY2ODQxNzEwMzAwOTQ5MTI4MTczMjI5OTEzOTU4NzQ3","updated_time":"2023-01-27T23:38:06+0000"},{"id":"aWdfZAG06MTpJR01lc3NhZA2VUaHJlYWQ6MTc4NDE0NTQ2MDQxNDU4MTQ6MzQwMjgyMzY2ODQxNzEwMzAwOTQ5MTI4MjEzMjYzMjMwNjY1MjI0","updated_time":"2023-01-27T23:29:47+0000"}]
-//
-//
-//        {"messages":{"data":[{"id":"aWdfZAG1faXRlbToxOklHTWVzc2FnZAUlEOjE3ODQxNDU0NjA0MTQ1ODE0OjM0MDI4MjM2Njg0MTcxMDMwMDk0OTEyODE3MzIyOTkxMzk1ODc0NzozMDg5NTc2MzM0NTU3MzczNDg0MzY4ODM3NTc1NzU3MDA0OAZDZD","created_time":"2023-01-27T23:38:06+0000"},{"id":"aWdfZAG1faXRlbToxOklHTWVzc2FnZAUlEOjE3ODQxNDU0NjA0MTQ1ODE0OjM0MDI4MjM2Njg0MTcxMDMwMDk0OTEyODE3MzIyOTkxMzk1ODc0NzozMDg5NTcxODAzNDc0OTE2MTA2NTQwMDY4NDg3NDAzOTI5NgZDZD","created_time":"2023-01-27T22:57:10+0000"},{"id":"aWdfZAG1faXRlbToxOklHTWVzc2FnZAUlEOjE3ODQxNDU0NjA0MTQ1ODE0OjM0MDI4MjM2Njg0MTcxMDMwMDk0OTEyODE3MzIyOTkxMzk1ODc0NzozMDg5NTY5NzMzNjYyMzM3ODM0ODQwMzczMjcxNjE5MTc0NAZDZD","created_time":"2023-01-27T22:38:28+0000"},{"id":"aWdfZAG1faXRlbToxOklHTWVzc2FnZAUlEOjE3ODQxNDU0NjA0MTQ1ODE0OjM0MDI4MjM2Njg0MTcxMDMwMDk0OTEyODE3MzIyOTkxMzk1ODc0NzozMDg5NTY5MjMxOTg0MTkzNDc4MTY4NjM5NDc3ODU1MDI3MgZDZD","created_time":"2023-01-27T22:33:56+0000"},{"id":"aWdfZAG1faXRlbToxOklHTWVzc2FnZAUlEOjE3ODQxNDU0NjA0MTQ1ODE0OjM0MDI4MjM2Njg0MTcxMDMwMDk0OTEyODE3MzIyOTkxMzk1ODc0NzozMDgyOTIzMDY5NzMyMTA2MzY1ODA1MzU3MTUzOTEwNzg0MAZDZD","created_time":"2022-12-17T05:45:44+0000"},{"id":"aWdfZAG1faXRlbToxOklHTWVzc2FnZAUlEOjE3ODQxNDU0NjA0MTQ1ODE0OjM0MDI4MjM2Njg0MTcxMDMwMDk0OTEyODE3MzIyOTkxMzk1ODc0NzozMDgyOTE3OTA2NTgzNTE2NDk4MTMyMTY2MjM1NDk0ODA5NgZDZD","created_time":"2022-12-17T04:59:05+0000"},{"id":"aWdfZAG1faXRlbToxOklHTWVzc2FnZAUlEOjE3ODQxNDU0NjA0MTQ1ODE0OjM0MDI4MjM2Njg0MTcxMDMwMDk0OTEyODE3MzIyOTkxMzk1ODc0NzozMDgyOTE3Njg5Njc0ODE0NDQyMjQ4NTY3MjcwNDYwNjIwOAZDZD","created_time":"2022-12-17T04:57:08+0000"}]},"id":"aWdfZAG06MTpJR01lc3NhZA2VUaHJlYWQ6MTc4NDE0NTQ2MDQxNDU4MTQ6MzQwMjgyMzY2ODQxNzEwMzAwOTQ5MTI4MTczMjI5OTEzOTU4NzQ3"}
-//
-//
-//        curl -i -X GET "https://graph.facebook.com/v9.0/aWdfZAG1faXRlbToxOklHTWVzc2FnZAUlEOjE3ODQxNDU0NjA0MTQ1ODE0OjM0MDI4MjM2Njg0MTcxMDMwMDk0OTEyODE3MzIyOTkxMzk1ODc0NzozMDg5NTcxODAzNDc0OTE2MTA2NTQwMDY4NDg3NDAzOTI5NgZDZD?fields=id,created_time,from,to,message&access_token=EAAPjZCIdKOzEBAKMbZBTeEpVAfLfZBkqIkNpysACCqsEosMXjOajJ2CxfIVuBfTi2R2oxQCbnOtTjSZBsP6wJRR9Tylnj0Tnky1nk84eYv2wIs3oUpxpB4e2LuyQwHDc2WFlEcTBmCoR0C2Lp8ok7NBccKUZCgZCvROhHDtc8NF21FkrDp8iOP"
-//
-//
-//        {"id":"aWdfZAG1faXRlbToxOklHTWVzc2FnZAUlEOjE3ODQxNDU0NjA0MTQ1ODE0OjM0MDI4MjM2Njg0MTcxMDMwMDk0OTEyODE3MzIyOTkxMzk1ODc0NzozMDg5NTc2MzM0NTU3MzczNDg0MzY4ODM3NTc1NzU3MDA0OAZDZD","created_time":"2023-01-27T23:38:06+0000","from":{"username":"axon.messaging","id":"17841454604145814"},"to":{"data":[{"username":"evan.marrone","id":"6521113831237472"}]},"message":""}
-
-
-//curl -i -X GET "https://graph.facebook.com/v9.0/aWdfZAG1faXRlbToxOklHTWVzc2FnZAUlEOjE3ODQxNDU0NjA0MTQ1ODE0OjM0MDI4MjM2Njg0MTcxMDMwMDk0OTEyODE3MzIyOTkxMzk1ODc0NzozMDgyOTE3OTA2NTgzNTE2NDk4MTMyMTY2MjM1NDk0ODA5NgZDZD?fields=id,created_time,from,to,message&access_token=EAAPjZCIdKOzEBAKMbZBTeEpVAfLfZBkqIkNpysACCqsEosMXjOajJ2CxfIVuBfTi2R2oxQCbnOtTjSZBsP6wJRR9Tylnj0Tnky1nk84eYv2wIs3oUpxpB4e2LuyQwHDc2WFlEcTBmCoR0C2Lp8ok7NBccKUZCgZCvROhHDtc8NF21FkrDp8iOP"
-//
-//
-//curl -i -X GET \
-// "https://graph.facebook.com/v16.0/6521113831237472/picture"
-
-
-//"https://scontent-den4-1.cdninstagram.com/v/t51.2885-19/147454587_483650809463544_8013518899283133287_n.jpg?stp=dst-jpg_s200x200&_nc_cat=107&ccb=1-7&_nc_sid=8ae9d6&_nc_ohc=Q3zKGTK6HHQAX-C_mcR&_nc_ht=scontent-den4-1.cdninstagram.com&edm=ALmAK4EEAAAA&oh=00_AfDXOH3hYHcNc-d6fsE-_udK11cGdpZbGq-oOvLopJwh6Q&oe=640AA2EB"

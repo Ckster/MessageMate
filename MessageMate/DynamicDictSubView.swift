@@ -80,54 +80,56 @@ struct DynamicDictSubView: View {
     }
     
     func getItems() {
-        self.db.collection(Users.name).document("\(self.session.user.uid!)/\(Users.collections.BUSINESS_INFO.name)/\(Users.collections.BUSINESS_INFO.documents.FIELDS.name)").getDocument() {
-            doc, error in
-            print("Got Document")
-            if error == nil {
-                print("not nil")
-                let data = doc?.data()
-                if data != nil {
-                    print("Data not nil")
-                    let existingItems = data![self.firebaseItemsField] as? [String: String] ?? [:]
-                    
-                    var newExistingItems: [DoubleInputBoxView] = []
-                    let itemTypes = Array(existingItems.keys)
-                    
-                    for itemType in itemTypes {
-                        let newItem = DoubleInputBoxView(keyType: itemType, value: existingItems[itemType]!, deletable: true, keyHeader: self.keyText, valueHeader: self.valueText, inputToDelete: $itemToDelete, inputStrings: $itemStrings, justAdded: false, disableAutoCorrect: self.disableAutoCorrect, disableAutoCapitalization: self.disableAutoCorrect)
-                        newExistingItems.append(newItem)
-                        self.itemStrings[newItem.id] = [newItem.type, newItem.value]
-                        if itemType == itemTypes.last {
-                            self.items = newExistingItems
+        if self.session.selectedPage != nil && self.session.selectedPage!.businessAccountId != nil {
+            self.db.collection(Pages.name).document("\(self.session.selectedPage!.businessAccountId!)/\(Pages.collections.BUSINESS_INFO.name)/\(Pages.collections.BUSINESS_INFO.documents.FIELDS.name)").getDocument() {
+                doc, error in
+                if error == nil {
+                    let data = doc?.data()
+                    if data != nil {
+                        let existingItems = data![self.firebaseItemsField] as? [String: String] ?? [:]
+                        
+                        var newExistingItems: [DoubleInputBoxView] = []
+                        let itemTypes = Array(existingItems.keys)
+                        
+                        for itemType in itemTypes {
+                            let newItem = DoubleInputBoxView(keyType: itemType, value: existingItems[itemType]!, deletable: true, keyHeader: self.keyText, valueHeader: self.valueText, inputToDelete: $itemToDelete, inputStrings: $itemStrings, justAdded: false, disableAutoCorrect: self.disableAutoCorrect, disableAutoCapitalization: self.disableAutoCorrect)
+                            newExistingItems.append(newItem)
+                            self.itemStrings[newItem.id] = [newItem.type, newItem.value]
+                            if itemType == itemTypes.last {
+                                self.items = newExistingItems
+                                self.loading = false
+                            }
+                        }
+                        
+                        if existingItems.count == 0 {
+                            let newItem = DoubleInputBoxView(keyType: "", value: "", deletable: false, keyHeader: self.keyText, valueHeader: self.valueText, inputToDelete: nil, inputStrings: $itemStrings, justAdded: false, disableAutoCorrect: self.disableAutoCorrect, disableAutoCapitalization: self.disableAutoCorrect)
+                            self.itemStrings[newItem.id] = [newItem.type, newItem.value]
+                            self.items = [newItem]
                             self.loading = false
                         }
+                        
                     }
-                    
-                    if existingItems.count == 0 {
-                        let newItem = DoubleInputBoxView(keyType: "", value: "", deletable: false, keyHeader: self.keyText, valueHeader: self.valueText, inputToDelete: nil, inputStrings: $itemStrings, justAdded: false, disableAutoCorrect: self.disableAutoCorrect, disableAutoCapitalization: self.disableAutoCorrect)
-                        self.itemStrings[newItem.id] = [newItem.type, newItem.value]
-                        self.items = [newItem]
-                        self.loading = false
+                    else {
+                        // TODO: Show the user an error here
                     }
-                    
-                }
-                else {
-                    // TODO: Show the user an error here
                 }
             }
         }
     }
     
     func updateItems() {
-        var newItems: [String: String] = [:]
-        for newItem in self.itemStrings.values {
-            if newItem[0] != "" {
-                newItems[typeToKey(input: newItem[0])] = newItem[1]
+        if self.session.selectedPage != nil && self.session.selectedPage!.businessAccountId != nil {
+            var newItems: [String: String] = [:]
+            for newItem in self.itemStrings.values {
+                if newItem[0] != "" {
+                    newItems[typeToKey(input: newItem[0])] = newItem[1]
+                }
             }
+            self.db.collection(Pages.name).document("\(self.session.selectedPage!.businessAccountId!)/\(Pages.collections.BUSINESS_INFO.name)/\(Pages.collections.BUSINESS_INFO.documents.FIELDS.name)").updateData(
+                [self.firebaseItemsField: newItems]
+            )
         }
-        self.db.collection(Users.name).document("\(self.session.user.uid!)/\(Users.collections.BUSINESS_INFO.name)/\(Users.collections.BUSINESS_INFO.documents.FIELDS.name)").updateData(
-            [self.firebaseItemsField: newItems]
-        )
+        
     }
 }
 
