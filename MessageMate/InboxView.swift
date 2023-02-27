@@ -19,6 +19,7 @@ struct InboxView: View {
     
     var body: some View {
         
+        // TODO: Implement loading while facebook Token is being discerned
         if self.session.facebookUserToken == nil {
             FacebookAuthenticateView().environmentObject(self.session)
         }
@@ -46,6 +47,15 @@ struct ConversationsView: View {
                     
                     if self.loading {
                         LottieView(name: "9844-loading-40-paperplane")
+                            .onAppear(perform: {
+                                if self.firstAppear {
+                                    self.firstAppear = false
+                                    Task {
+                                        print("Firing")
+                                        await self.updatePages()
+                                    }
+                                }
+                            })
                     }
                     else {
                         ScrollView {
@@ -78,14 +88,6 @@ struct ConversationsView: View {
                 }
             }
         }
-        .onAppear(perform: {
-            if self.firstAppear {
-                self.firstAppear = false
-                Task {
-                    await self.updatePages()
-                }
-            }
-        })
         .onChange(of: self.session.selectedPage ?? MetaPage(id: "", name: "", accessToken: "", category: ""), perform: {
             newPage in
             if newPage.businessAccountId != nil {
@@ -114,51 +116,70 @@ struct ConversationsView: View {
         }
     }
     
-    @MainActor
+    //@MainActor
     func updateConversation(correspondentId: String) {
         if self.session.selectedPage != nil {
             for conversation in self.session.selectedPage!.conversations {
                 if conversation.correspondent != nil && conversation.correspondent!.id == correspondentId{
                     Task {
-                        let newConversationInfo = await self.getMessages(page: self.session.selectedPage!, conversation: conversation, cursor: conversation.pagination?.afterCursor)
-                        conversation.messages = conversation.messages + newConversationInfo.0
-                        conversation.pagination = newConversationInfo.1
+                        print("Updating conversation \(correspondentId)")
+                        self.getMessages(page: self.session.selectedPage!, conversation: conversation, cursor: conversation.pagination?.beforeCursor) {
+                            newConversationInfo in
+                            conversation.messages = conversation.messages + newConversationInfo.0
+                            conversation.pagination = newConversationInfo.1
+                        }
                     }
                 }
             }
         }
     }
     
-    @MainActor
+    //@MainActor
     func updatePages() async {
         let pages = await self.getPages()
         for page in pages {
             let conversations = await self.getConversations(page: page)
+            
             var newConversations: [Conversation] = []
+            // Do this asynchronously
             for conversation in conversations {
-                let conversationTuple = await self.getMessages(page: page, conversation: conversation)
-                let messages = conversationTuple.0
-                let pagination = conversationTuple.1
-                if messages.count > 0 {
-                    conversation.messages = messages.sorted { $0.createdTime < $1.createdTime }
-                    conversation.pagination = pagination
-                    let userList = conversation.updateCorrespondent()
-                    if userList.count > 0 {
-                        page.pageUser = userList[1]
-                        self.initializePageConversations(page: page, correspondentId: conversation.correspondent!.id)
+                print("Starting to get messages for conversation \(conversation.id)")
+                self.getMessages(page: page, conversation: conversation) {
+                    conversationTuple in
+                    print("Got messages for \(conversation.id)")
+                    let messages = conversationTuple.0
+                    let pagination = conversationTuple.1
+                    if messages.count > 0 {
+                        conversation.messages = messages.sorted { $0.createdTime < $1.createdTime }
+                        conversation.pagination = pagination
+                        let userList = conversation.updateCorrespondent()
+                        if userList.count > 0 {
+                            page.pageUser = userList[1]
+                            self.initializePageConversations(page: page, correspondentId: conversation.correspondent!.id)
+                        }
                         newConversations.append(conversation)
                     }
-                }
-            
-                if conversation == conversations.last {
-                    page.conversations = newConversations
-                    if page == pages.last {
-                        self.session.availablePages = pages
-                        if self.session.selectedPage == nil && self.session.availablePages.count > 0 {
-                            self.session.selectedPage = self.session.availablePages[0]
+                    
+                    conversation.messagesInitialized = true
+                    
+                    var allConversationsLoaded: Bool = true
+                    for conversation in conversations {
+                        if !conversation.messagesInitialized {
+                            allConversationsLoaded = false
                         }
-                        
-                        self.loading = false
+                    }
+                    if allConversationsLoaded {
+                        page.conversations = newConversations
+                        DispatchQueue.main.async {
+                            if page == pages.last {
+                                self.session.availablePages = pages
+                                if self.session.selectedPage == nil && self.session.availablePages.count > 0 {
+                                    self.session.selectedPage = self.session.availablePages[0]
+                                }
+
+                                self.loading = false
+                            }
+                        }
                     }
                 }
             }
@@ -222,104 +243,111 @@ struct ConversationsView: View {
         }
     }
     
-    func getMessages(page: MetaPage, conversation: Conversation, cursor: String? = nil) async -> ([Message], PagingInfo?) {
+    func getMessages(page: MetaPage, conversation: Conversation, cursor: String? = nil, completion: @escaping (([Message], PagingInfo?)) -> Void) {
         var urlString = "https://graph.facebook.com/v16.0/\(conversation.id)?fields=messages&access_token=\(page.accessToken)"
+        
         if cursor != nil {
             urlString = urlString + "&after=\(String(describing: cursor))"
         }
         
-        var conversationInfo: ([Message], PagingInfo?) = ([], nil)
-        let jsonDataDict = await getRequest(urlString: urlString)
-        if jsonDataDict != nil {
-            let conversationData = jsonDataDict!["messages"] as? [String: AnyObject]
-    
+        completionGetRequest(urlString: urlString) {
+            jsonDataDict in
+           
+            let conversationData = jsonDataDict["messages"] as? [String: AnyObject]
             if conversationData != nil {
+                
+                // Get paging information
                 var pagingInfo: PagingInfo? = nil
                 let pointerData = conversationData!["paging"] as? [String: AnyObject]
                 if pointerData != nil {
-                    let cursorData = pointerData!["cursor"] as? [String: String]
+                    let cursorData = pointerData!["cursors"] as? [String: String]
                     if cursorData != nil {
+                        print("Getting cursor")
                         pagingInfo = PagingInfo(beforeCursor: cursorData!["before"], afterCursor: cursorData!["after"])
                     }
                 }
-            
-                let messageData = conversationData!["data"] as? [[String: AnyObject]]
                 
-                if messageData != nil {
-                    let messagesLen = messageData!.count
-                    var indexCounter = 0
-                    var newMessages: [Message] = []
+                let messageData = conversationData!["data"] as? [[String: AnyObject]]
+                print("Number of messages returned for \(conversation.id): \(messageData?.count)")
                     
-                    for message in messageData! {
-                        let id = message["id"] as? String
-                        let createdTime = message["created_time"] as? String
+                    if messageData != nil {
+                        let messagesLen = messageData!.count
+                        var indexCounter = 0
+                        var newMessages: [Message] = []
                         
-                        if id != nil {
-                            let messageDataURLString = "https://graph.facebook.com/v9.0/\(id!)?fields=id,created_time,from,to,message&access_token=\(page.accessToken)"
+                        for message in messageData! {
+                            let id = message["id"] as? String
+                            let createdTime = message["created_time"] as? String
                             
-                            let messageDataDict = await getRequest(urlString: messageDataURLString)
-                            if messageDataDict != nil {
-                                let fromDict = messageDataDict!["from"] as? [String: AnyObject]
-                                let toDictList = messageDataDict!["to"] as? [String: AnyObject]
-                                let message = messageDataDict!["message"] as? String
+                            if id != nil {
+                                let messageDataURLString = "https://graph.facebook.com/v9.0/\(id!)?fields=id,created_time,from,to,message&access_token=\(page.accessToken)"
                                 
-                                if toDictList != nil {
-                                    let toDict = toDictList!["data"] as? [[String: AnyObject]]
-    
-                                    // TODO: Support for group chats? Probably not
-                                    if toDict!.count == 1 {
-                                        if fromDict != nil && toDict != nil && message != nil {
-                                            let fromUsername = fromDict!["username"] as? String
-                                            let fromId = fromDict!["id"] as? String
-                                            let toUsername = toDict![0]["username"] as? String
-                                            let toId = toDict![0]["id"] as? String
-                            
-                                            if fromUsername != nil && fromId != nil && toUsername != nil && toId != nil {
-                                                let registeredUsernames = userRegistry.keys
-                                                
-                                                var fromUser: MetaUser? = nil
-                                                if registeredUsernames.contains(fromId!) {
-                                                    fromUser = userRegistry[fromId!]
+                                print("Awaiting messages for \(conversation.id)")
+                                
+                                completionGetRequest(urlString: messageDataURLString) {
+                                    messageDataDict in
+                                    print("API messages for \(conversation.id)")
+                                    if messageDataDict != nil {
+                                        let fromDict = messageDataDict["from"] as? [String: AnyObject]
+                                        let toDictList = messageDataDict["to"] as? [String: AnyObject]
+                                        let message = messageDataDict["message"] as? String
+
+                                        if toDictList != nil {
+                                            let toDict = toDictList!["data"] as? [[String: AnyObject]]
+
+                                            if toDict!.count == 1 {
+                                                if fromDict != nil && toDict != nil && message != nil {
+                                                    let fromUsername = fromDict!["username"] as? String
+                                                    let fromId = fromDict!["id"] as? String
+                                                    let toUsername = toDict![0]["username"] as? String
+                                                    let toId = toDict![0]["id"] as? String
+
+                                                    if fromUsername != nil && fromId != nil && toUsername != nil && toId != nil {
+                                                        let registeredUsernames = userRegistry.keys
+
+                                                        var fromUser: MetaUser? = nil
+                                                        if registeredUsernames.contains(fromId!) {
+                                                            fromUser = userRegistry[fromId!]
+                                                        }
+                                                        else {
+                                                            fromUser = MetaUser(id: fromId!, username: fromUsername!)
+                                                            userRegistry[fromId!] = fromUser
+                                                        }
+
+                                                        var toUser: MetaUser? = nil
+                                                        if registeredUsernames.contains(toId!) {
+                                                            toUser = userRegistry[toId!]
+                                                        }
+                                                        else {
+                                                            toUser = MetaUser(id: toId!, username: toUsername!)
+                                                            userRegistry[toId!] = toUser
+                                                        }
+
+                                                        newMessages.append(Message(id: id!, message: message!, to: toUser!, from: fromUser!, createdTime: createdTime!))
+
+                                                    }
                                                 }
-                                                else {
-                                                    fromUser = MetaUser(id: fromId!, username: fromUsername!)
-                                                    userRegistry[fromId!] = fromUser
-                                                }
-                                                
-                                                var toUser: MetaUser? = nil
-                                                if registeredUsernames.contains(toId!) {
-                                                    toUser = userRegistry[toId!]
-                                                }
-                                                else {
-                                                    toUser = MetaUser(id: toId!, username: toUsername!)
-                                                    userRegistry[toId!] = toUser
-                                                }
-                                                
-                                                newMessages.append(Message(id: id!, message: message!, to: toUser!, from: fromUser!, createdTime: createdTime!))
-                                                
                                             }
                                         }
-                                    }
-                                }
-                            
-                                indexCounter = indexCounter + 1
-                                if indexCounter == messagesLen {
-                                    
-                                    // Start of the async get of profile pic url
-                                    for user in userRegistry.values {
-                                        if user.profilePicURL == nil {
-                                            await user.getProfilePicture(access_token: page.accessToken)
+
+                                        indexCounter = indexCounter + 1
+                                        if indexCounter == messagesLen {
+
+                                            // Start of the async get of profile pic url
+                                            for user in userRegistry.values {
+                                                if user.profilePicURL == nil {
+                                                    user.getProfilePicture(access_token: page.accessToken)
+                                                }
+                                            }
+                                            completion((newMessages, pagingInfo))
                                         }
                                     }
-                                    conversationInfo = (newMessages, pagingInfo)
                                 }
                             }
                         }
                     }
                 }
             }
-        }
-        return conversationInfo
     }
     
     func getConversations(page: MetaPage) async -> [Conversation] {
@@ -343,7 +371,7 @@ struct ConversationsView: View {
         return newConversations
     }
     
-    @MainActor
+    //@MainActor
     func getPages() async -> [MetaPage] {
         var newPagesReturn: [MetaPage] = []
         if self.session.facebookUserToken != nil {
@@ -501,6 +529,8 @@ struct ConversationView: View {
     var maxHeight : CGFloat = 250
     @EnvironmentObject var session: SessionStore
     @Environment(\.colorScheme) var colorScheme
+    @State var loading: Bool = false
+    @State var showCouldNotGenerateResponse: Bool = false
 
     init(conversation: Conversation, page: MetaPage) {
         self.conversation = conversation
@@ -515,79 +545,78 @@ struct ConversationView: View {
     var body: some View {
         GeometryReader {
             geometry in
-            VStack {
-                
-                // The message thread
-                ScrollView {
-                    ScrollViewReader {
-                        value in
-                        VStack {
-                            ForEach(conversation.messages, id: \.self.id) { msg in
-                                MessageView(width: geometry.size.width, currentMessage: msg, conversation: conversation, page: page).id(msg.id)
-                            }
-                        }.onChange(of: scrollDown) { _ in
-                            value.scrollTo(conversation.messages.last?.id)
-                        }.onChange(of: typingMessage) { _ in
-                            value.scrollTo(conversation.messages.last?.id)
-                        }.onAppear(perform: {
-                            value.scrollTo(conversation.messages.last?.id)
-                        })
-                    }
-                }.onTapGesture {
-                    self.messageIsFocused = false
-                    self.placeholder = true
-                }
-                    
+            
+            ZStack {
                 VStack {
                     
-                    // Input text box
-                    DynamicHeightTextBox(typingMessage: self.$typingMessage).frame(width: geometry.size.width * 0.9, alignment: .leading).padding(.trailing).offset(x: -5).focused($messageIsFocused)
+                    // The message thread
+                    ScrollView {
+                        ScrollViewReader {
+                            value in
+                            VStack {
+                                ForEach(conversation.messages, id: \.self.id) { msg in
+                                    MessageView(width: geometry.size.width, currentMessage: msg, conversation: conversation, page: page).id(msg.id)
+                                }
+                            }.onChange(of: scrollDown) { _ in
+                                value.scrollTo(conversation.messages.last?.id)
+                            }.onChange(of: typingMessage) { _ in
+                                value.scrollTo(conversation.messages.last?.id)
+                            }.onAppear(perform: {
+                                value.scrollTo(conversation.messages.last?.id)
+                            })
+                        }
+                    }.onTapGesture {
+                        self.messageIsFocused = false
+                        self.placeholder = true
+                    }
                     
-                    // Auto Generation buttons and send button
-                    HStack(spacing: 2) {
-                        Button(action: {self.generateResponse(responseType: "respond")}) {
-                            Text("Respond")
-                                .foregroundColor(.white)
-                                //.frame(width: geometry.size.width * 0.18, height: geometry.size.height * 0.07)
-                                .background(Color.blue)
-                                .clipShape(Rectangle()).cornerRadius(6)
+                    VStack {
+                        
+                        // Input text box / loading when message is being generated
+                        if self.loading {
+                            LottieView(name: "97952-loading-animation-blue").frame(width: geometry.size.width, height: geometry.size.height * 0.10, alignment: .leading)
                         }
+                        
+                        else {
+                            DynamicHeightTextBox(typingMessage: self.$typingMessage).frame(width: geometry.size.width * 0.9, alignment: .leading).padding(.trailing).offset(x: -5).focused($messageIsFocused)
+                        }
+                        
+                        HStack(spacing: 2) {
                             
-                        Button(action: {self.generateResponse(responseType: "sell")}) {
-                            Text("Sell")
-                                .foregroundColor(.white)
-                                //.frame(width: geometry.size.width * 0.18, height: geometry.size.height * 0.07)
-                                .background(Color.blue)
-                                .clipShape(Rectangle()).cornerRadius(6)
-                        }
-                        
-                        Button(action: {self.generateResponse(responseType: "yes")}) {
-                            Text("Yes")
-                                .foregroundColor(.white)
-                                //.frame(width: geometry.size.width * 0.18, height: geometry.size.height * 0.07)
-                                .background(Color.blue)
-                                .clipShape(Rectangle()).cornerRadius(6)
-                        }
-                        
-                        Button(action: {self.generateResponse(responseType: "no")}) {
-                            Text("No")
-                                .foregroundColor(.white)
-                                //.frame(width: geometry.size.width * 0.18, height: geometry.size.height * 0.07)
-                                .background(Color.blue)
-                                .clipShape(Rectangle()).cornerRadius(6)
-                        }
-                        
-                        // Send message button
-                        Button(
-                            action: {sendMessage(message: self.typingMessage, to: conversation.correspondent!)}
-                        ) {
-                           Image(systemName: "paperplane.circle.fill").font(.system(size: 35))
-                       }.frame(width: geometry.size.width * 0.18, alignment: .leading)
-                    }.frame(width: geometry.size.width)
-                }
+                            // Auto Generation buttons
+                            AutoGenerateButton(buttonText: "Respond", width: geometry.size.width, height: geometry.size.height, conversationId: self.conversation.id, pageAccessToken: self.page.accessToken, pageName: self.page.name, businessAccountId: self.page.businessAccountId ?? "", loading: self.$loading, typingText: self.$typingMessage, showCouldNotGenerateResponse: self.$showCouldNotGenerateResponse)
+                            
+                            AutoGenerateButton(buttonText: "Sell", width: geometry.size.width, height: geometry.size.height, conversationId: self.conversation.id, pageAccessToken: self.page.accessToken, pageName: self.page.name, businessAccountId: self.page.businessAccountId ?? "", loading: self.$loading, typingText: self.$typingMessage, showCouldNotGenerateResponse: self.$showCouldNotGenerateResponse)
+                            
+                            AutoGenerateButton(buttonText: "Yes", width: geometry.size.width, height: geometry.size.height, conversationId: self.conversation.id, pageAccessToken: self.page.accessToken, pageName: self.page.name, businessAccountId: self.page.businessAccountId ?? "", loading: self.$loading, typingText: self.$typingMessage, showCouldNotGenerateResponse: self.$showCouldNotGenerateResponse)
+                            
+                            AutoGenerateButton(buttonText: "No", width: geometry.size.width, height: geometry.size.height, conversationId: self.conversation.id, pageAccessToken: self.page.accessToken, pageName: self.page.name, businessAccountId: self.page.businessAccountId ?? "", loading: self.$loading, typingText: self.$typingMessage, showCouldNotGenerateResponse: self.$showCouldNotGenerateResponse)
+                            
+                            // Send message button
+                            Button(
+                                action: {
+                                    self.sendMessage(message: self.typingMessage, to: conversation.correspondent!)
+                                }
+                            ) {
+                                Image(systemName: "paperplane.circle.fill").font(.system(size: 35))
+                            }.frame(width: geometry.size.width * 0.215, height: geometry.size.height * 0.10, alignment: .center)
+                            
+                        }.frame(width: geometry.size.width)
+                    }
                     .padding(.bottom)
                     .padding(.top)
-
+                    
+                }
+                if self.showCouldNotGenerateResponse {
+                    RoundedRectangle(cornerRadius: 16)
+                        .foregroundColor(Color.gray)
+                        .frame(width: geometry.size.width * 0.80, height: 100, alignment: .center).offset(x: -20, y: 140).padding()
+                        .overlay(
+                            VStack {
+                                Text("Could not generate a response").font(.body).offset(x: -20, y: 140)
+                            }
+                        )
+                }
             }
         }
         .onAppear(perform: {
@@ -598,12 +627,14 @@ struct ConversationView: View {
     }
     
     func sendMessage(message: String, to: MetaUser) {
+        // TODO: Add an error alert if the message cannot send
         /// API Reference: https://developers.facebook.com/docs/messenger-platform/reference/send-api/
         let urlString = "https://graph.facebook.com/v16.0/\(page.id)/messages?access_token=\(page.accessToken)"
         let data: [String: Any] = ["recipient": ["id": to.id], "message": ["text": message]]
         let jsonData = try? JSONSerialization.data(withJSONObject: data)
         
         if jsonData != nil {
+            print("Message Data not Nil")
             postRequest(urlString: urlString, data: jsonData!) {
                 sentMessageData in
                 let messageId = sentMessageData["message_id"] as? String
@@ -622,37 +653,6 @@ struct ConversationView: View {
         }
     }
     
-    @MainActor
-    func generateResponse(responseType: String) {
-        let urlString = "https://us-central1-messagemate-2d9af.cloudfunctions.net/generate_response"
-        let currentUser = Auth.auth().currentUser
-        
-        currentUser?.getIDTokenForcingRefresh(true) { idToken, error in
-            if let error = error {
-                // TODO: Tell user there was an issue and to try again
-                print(error, "ERROR")
-                return
-            }
-            
-            let header: [String: String] = [
-                "authorization": idToken!,
-                "responseType": responseType,
-                "conversationId": self.conversation.id,
-                "pageAccessToken": self.page.accessToken,
-                "pageName": self.page.name,
-                "pageId": self.page.id
-            ]
-            
-            Task {
-                let data = await getRequest(urlString: urlString, header: header)
-                if data != nil {
-                    self.typingMessage = data!["message"] as? String ?? "ERROR"
-                }
-            }
-        }
-
-    }
-
     func rectReader(_ binding: Binding<CGFloat>, _ space: CoordinateSpace = .global) -> some View {
         GeometryReader { (geometry) -> Color in
             let rect = geometry.frame(in: space)
@@ -662,22 +662,80 @@ struct ConversationView: View {
             return .clear
         }
     }
+    
 }
 
 struct AutoGenerateButton: View {
     let buttonText: String
     let width: CGFloat
     let height: CGFloat
+    let conversationId: String
+    let pageAccessToken: String
+    let pageName: String
+    let businessAccountId: String
+    @Binding var loading: Bool
+    @Binding var typingText: String
+    @Binding var showCouldNotGenerateResponse: Bool
     
     var body: some View {
-        Button(action: {}) {
+        Button(action: {
+            self.loading = true
+            generateResponse(responseType: self.buttonText.lowercased(), conversationId: conversationId, pageAccessToken: pageAccessToken, pageName: pageName, businessAccountId: businessAccountId) {
+                message in
+                
+                if message != "" {
+                    self.typingText = message
+                    self.loading = false
+                }
+                else {
+                    self.loading = false
+                    self.showCouldNotGenerateResponse = true
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+                        self.showCouldNotGenerateResponse = false
+                    }
+                }
+            }
+        }) {
             Text(self.buttonText)
                 .foregroundColor(.white).frame(width: width * 0.18, height: height * 0.07)
              .background(Color.blue)
              .clipShape(Rectangle()).cornerRadius(6)
+            }
+   }
+}
+
+
+func generateResponse(responseType: String, conversationId: String, pageAccessToken: String, pageName: String, businessAccountId: String, completion: @escaping (String) -> Void) {
+    let urlString = "https://us-central1-messagemate-2d9af.cloudfunctions.net/generate_response"
+    let currentUser = Auth.auth().currentUser
+    
+    currentUser?.getIDTokenForcingRefresh(true) { idToken, error in
+        if let error = error {
+            // TODO: Tell user there was an issue and to try again
+            print(error, "ERROR")
+            return
         }
+        
+        let header: [String: String] = [
+            "authorization": idToken!,
+            "responseType": responseType,
+            "conversationId": conversationId,
+            "pageAccessToken": pageAccessToken,
+            "pageName": pageName,
+            "pageId": businessAccountId
+        ]
+        
+        Task {
+            let data = await getRequest(urlString: urlString, header: header)
+            if data != nil {
+                completion(data!["message"] as? String ?? "ERROR")
+            }
+        }
+        
+        
     }
 }
+
 
 struct DynamicHeightTextBox: View {
     @Binding var typingMessage: String
@@ -920,6 +978,7 @@ class Conversation: Hashable, Equatable, ObservableObject {
     let page: MetaPage
     var correspondent: MetaUser? = nil
     var pagination: PagingInfo?
+    var messagesInitialized: Bool = false
     @Published var messages: [Message] = []
     
     init(id: String, updatedTime: String, page: MetaPage, pagination: PagingInfo?) {
@@ -986,7 +1045,7 @@ class MetaPage: Hashable, Equatable {
         self.conversations = self.conversations.sorted {$0.messages.last!.createdTime > $1.messages.last!.createdTime}
     }
     
-    @MainActor
+    //@MainActor
     func getProfilePicture(accountId: String) async {
         let urlString = "https://graph.facebook.com/v16.0/\(accountId)/picture?redirect=0"
 
@@ -1020,14 +1079,16 @@ class MetaUser: Hashable, Equatable, ObservableObject {
         return lhs.id == rhs.id
     }
     
-    @MainActor
-    func getProfilePicture(access_token: String) async {
+    //@MainActor
+    func getProfilePicture(access_token: String) {
         let urlString = "https://graph.facebook.com/v16.0/\(self.id)?access_token=\(access_token)"
-        
-        let profileData = await getRequest(urlString: urlString)
-        if profileData != nil {
-            let profilePicURL = profileData!["profile_pic"] as? String
-            self.profilePicURL = profilePicURL?.replacingOccurrences(of: "\\", with: "")
+        completionGetRequest(urlString: urlString) {
+            profileData in
+            
+            let profilePicURL = profileData["profile_pic"] as? String
+            DispatchQueue.main.async {
+                self.profilePicURL = profilePicURL?.replacingOccurrences(of: "\\", with: "")
+            }
         }
     }
 }
@@ -1058,35 +1119,41 @@ func getRequest(urlString: String, header: [String: String]? = nil) async -> [St
       catch {
           return nil
       }
-    
-//    {(data, response, error) in
-//        if let error = error {
-//            print("Request error:", error)
-//            return
-//        }
-//
-//        guard let data = data else {
-//            print("Couldn't get data")
-//            return
-//        }
-//
-//        do {
-//            if let jsonDataDict = try JSONSerialization.jsonObject(with: data, options: JSONSerialization.ReadingOptions.allowFragments) as? [String: AnyObject] {
-//                completion(jsonDataDict)
-//            }
-//            else {
-//                print("Couldn't deserialize data")
-//            }
-//        }
-//
-//        catch let error as NSError {
-//            print(error)
-//        }
-//
-//    }
-    
-    
 }
+
+
+func completionGetRequest(urlString: String, completion: @escaping ([String: AnyObject]) -> Void) {
+    let url = URL(string: urlString)!
+    let request = URLRequest(url: url)
+    
+    let dataTask = URLSession.shared.dataTask(with: request) {(data, response, error) in
+        if let error = error {
+            print("Request error:", error)
+            return
+        }
+        
+        guard let data = data else {
+            print("Couldn't get data")
+            return
+        }
+
+        do {
+            if let jsonDataDict = try JSONSerialization.jsonObject(with: data, options: JSONSerialization.ReadingOptions.allowFragments) as? [String: AnyObject] {
+                completion(jsonDataDict)
+            }
+            else {
+                print("Couldn't deserialize data")
+            }
+        }
+        
+        catch let error as NSError {
+            print(error)
+        }
+        
+    }
+    dataTask.resume()
+}
+
 
 func postRequest(urlString: String, data: Data, completion: @escaping ([String: AnyObject]) -> Void) {
     let url = URL(string: urlString)!

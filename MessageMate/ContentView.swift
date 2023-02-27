@@ -79,18 +79,15 @@ struct ContentView: View {
                                         HStack {
                                             MenuView(width: geometry.size.width, height: geometry.size.height)
                                             .frame(width: geometry.size.width * 0.65, height: geometry.size.height).transition(.move(edge: .leading))
-                                            //.offset(x: geometry.size.width * -0.175)
-    
+                
                                             Color.black.opacity(0.00001).frame(width: geometry.size.width * 0.35, height: geometry.size.height).transition(.move(edge: .leading)).onTapGesture {
                                                 if self.showingMenu {
-                                                    print(3)
                                                     withAnimation {
                                                         self.showingMenu = false
                                                     }
                                                 }
                                             }
                                         }
-    
                                     }
                                 }.gesture(drag)
     

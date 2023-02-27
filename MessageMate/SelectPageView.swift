@@ -24,7 +24,7 @@ struct SelectPageView: View {
                             self.session.selectedPage = page
                         }.padding(.leading)
                         if page == self.session.selectedPage {
-                            Image(systemName: "checkmark.circle").font(.system(size: 25)).frame(width: width * 0.20, alignment: .center)
+                            Image(systemName: "checkmark.circle").font(.system(size: 25)).frame(width: width * 0.20, alignment: .leading)
                         }
                         else {
                             Spacer()
