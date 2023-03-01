@@ -68,10 +68,10 @@ struct ConversationsView: View {
                             
                             if self.session.selectedPage != nil {
                                 if self.session.selectedPage!.conversations.count == 0 {
-                                    Text("No conversations. Pull down to refresh")
+                                    Text("No conversations. Pull down to refresh.")
                                 }
                                 else {
-                                    ForEach(self.session.selectedPage!.conversations, id:\.self) { conversation in
+                                    ForEach(self.session.selectedPage!.conversations.sorted {$0.messages.last?.createdTime ?? Date() > $1.messages.last?.createdTime ?? Date()}, id:\.self) { conversation in
                                         if conversation.messages.count > 0 {
                                             ConversationNavigationView(conversation: conversation, width: geometry.size.width, page: self.session.selectedPage!)
                                         }
@@ -107,26 +107,32 @@ struct ConversationsView: View {
                 }
 
                 querySnapshot?.documentChanges.forEach { diff in
-                    if (diff.type == .modified) {
+                    if (diff.type == .modified || diff.type == .added) {
                         let data = diff.document.data()
-                        self.updateConversation(correspondentId: diff.document.documentID)
-                    }
-                }
-            }
-        }
-    }
-    
-    //@MainActor
-    func updateConversation(correspondentId: String) {
-        if self.session.selectedPage != nil {
-            for conversation in self.session.selectedPage!.conversations {
-                if conversation.correspondent != nil && conversation.correspondent!.id == correspondentId{
-                    Task {
-                        print("Updating conversation \(correspondentId)")
-                        self.getMessages(page: self.session.selectedPage!, conversation: conversation, cursor: conversation.pagination?.beforeCursor) {
-                            newConversationInfo in
-                            conversation.messages = conversation.messages + newConversationInfo.0
-                            conversation.pagination = newConversationInfo.1
+                        let messageText = data["message"] as? String
+                        let pageId = data["page_id"] as? String
+                        let recipientId = data["recipient_id"] as? String
+                        let senderId = data["sender_id"] as? String
+                        let createdTime = data["created_time"] as? Double
+                        let messageId = data["message_id"] as? String
+                        
+                        // TODO: Get this to refresh the conversation sorting when a new message is received
+                        if messageText != nil && pageId != nil && recipientId != nil && senderId != nil && createdTime != nil && messageId != nil {
+                            if self.session.selectedPage != nil {
+                                for conversation in self.session.selectedPage!.conversations {
+                                    if conversation.correspondent != nil && conversation.correspondent!.id == senderId {
+                                        let messageDate = Date(timeIntervalSince1970: createdTime! / 1000)
+                                        print(Date().dateToFacebookString(date: messageDate), "received", createdTime!)
+                                        let newMessage = Message(id: messageId!, message: messageText!, to: page.pageUser!, from: conversation.correspondent!, createdTimeDate: messageDate)
+                                        if !conversation.messages.contains(newMessage) {
+                                            print("Updating conversation \(senderId)")
+                                            var newMessages = conversation.messages
+                                            newMessages.append(newMessage)
+                                            conversation.messages = sortMessages(messages: newMessages)
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -143,11 +149,15 @@ struct ConversationsView: View {
             var newConversations: [Conversation] = []
             // Do this asynchronously
             for conversation in conversations {
-                print("Starting to get messages for conversation \(conversation.id)")
                 self.getMessages(page: page, conversation: conversation) {
                     conversationTuple in
-                    print("Got messages for \(conversation.id)")
                     let messages = conversationTuple.0
+                    
+                    // TODO: Unless there is info on opened status from API I have to assume message has been viewed or we keep some sort of on disk record
+                    for message in messages {
+                        message.opened = true
+                    }
+                    
                     let pagination = conversationTuple.1
                     if messages.count > 0 {
                         conversation.messages = messages.sorted { $0.createdTime < $1.createdTime }
@@ -208,7 +218,7 @@ struct ConversationsView: View {
                                 else {
                                     let pageFields = Pages.collections.CONVERSATIONS.documents.fields
                                     pageConversations.setData([
-                                        pageFields.TRIGGER: nil
+                                        pageFields.MESSAGE: nil
                                     ])
                                 }
                             }
@@ -231,7 +241,7 @@ struct ConversationsView: View {
                                     else {
                                         let pageFields = Pages.collections.CONVERSATIONS.documents.fields
                                         pageConversations.setData([
-                                            pageFields.TRIGGER: nil
+                                            pageFields.MESSAGE: nil
                                         ])
                                     }
                                 }
@@ -262,13 +272,11 @@ struct ConversationsView: View {
                 if pointerData != nil {
                     let cursorData = pointerData!["cursors"] as? [String: String]
                     if cursorData != nil {
-                        print("Getting cursor")
                         pagingInfo = PagingInfo(beforeCursor: cursorData!["before"], afterCursor: cursorData!["after"])
                     }
                 }
                 
                 let messageData = conversationData!["data"] as? [[String: AnyObject]]
-                print("Number of messages returned for \(conversation.id): \(messageData?.count)")
                     
                     if messageData != nil {
                         let messagesLen = messageData!.count
@@ -281,12 +289,9 @@ struct ConversationsView: View {
                             
                             if id != nil {
                                 let messageDataURLString = "https://graph.facebook.com/v9.0/\(id!)?fields=id,created_time,from,to,message&access_token=\(page.accessToken)"
-                                
-                                print("Awaiting messages for \(conversation.id)")
-                                
+                            
                                 completionGetRequest(urlString: messageDataURLString) {
                                     messageDataDict in
-                                    print("API messages for \(conversation.id)")
                                     if messageDataDict != nil {
                                         let fromDict = messageDataDict["from"] as? [String: AnyObject]
                                         let toDictList = messageDataDict["to"] as? [String: AnyObject]
@@ -323,7 +328,7 @@ struct ConversationsView: View {
                                                             userRegistry[toId!] = toUser
                                                         }
 
-                                                        newMessages.append(Message(id: id!, message: message!, to: toUser!, from: fromUser!, createdTime: createdTime!))
+                                                        newMessages.append(Message(id: id!, message: message!, to: toUser!, from: fromUser!, createdTimeString: createdTime!))
 
                                                     }
                                                 }
@@ -444,11 +449,12 @@ class PagingInfo {
 
 
 struct ConversationNavigationView: View {
-    var conversation: Conversation
+    @ObservedObject var conversation: Conversation
     let width: CGFloat
     let page: MetaPage
     @Environment(\.colorScheme) var colorScheme
     @ObservedObject var correspondent: MetaUser
+    @State var openMessages: Bool = false
     
     init(conversation: Conversation, width: CGFloat, page: MetaPage) {
         self.conversation = conversation
@@ -459,59 +465,44 @@ struct ConversationNavigationView: View {
     
     var body: some View {
         VStack {
-            NavigationLink(destination: ConversationView(conversation: conversation, page: page).navigationTitle(conversation.correspondent!.username)) {
+            NavigationLink(destination: ConversationView(conversation: conversation, page: page, openMessages: self.$openMessages).navigationTitle(conversation.correspondent!.username)) {
                 HStack {
                     AsyncImage(url: URL(string: self.correspondent.profilePicURL ?? "")) { image in image.resizable() } placeholder: { Image(systemName: "person.circle") } .frame(width: 55, height: 55) .clipShape(Circle()).offset(y: conversation.messages.last!.message == "" ? -6 : 0)
-                    VStack {
+                    VStack(spacing: 0.5) {
                         Text(conversation.correspondent!.username).foregroundColor(self.colorScheme == .dark ? .white : .black).font(.system(size: 23)).frame(width: width * 0.85, alignment: .leading)
                         HStack {
                             Text((conversation.messages.last!).message).lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(.system(size: 23)).frame(width: width * 0.65, alignment: .leading)
-                            Spacer() 
-                            //Color.clear.frame(width: width * 0.20, height: 1, alignment: .leading)
+                            if !conversation.messages.last!.opened {
+                                Circle().foregroundColor(.blue).frame(width: 14)
+                            }
+                            Spacer()
                         }
                     }
                 }
             }.navigationBarTitleDisplayMode(.inline).navigationTitle(" ")
             HorizontalLine(color: .gray, height: 0.75)
-        }.padding(.leading).offset(x: width * 0.03)
+        }.padding(.leading).offset(x: width * 0.03).onChange(of: self.openMessages) {
+            _ in
+            for message in self.conversation.messages {
+                message.opened = true
+            }
+        }
     }
 }
 
 
 struct FacebookAuthenticateView: View {
     @EnvironmentObject var session: SessionStore
-    let loginManager = LoginManager()
-    let db = Firestore.firestore()
     
     var body: some View {
         GeometryReader {
             geometry in
             VStack {
                 Text("Please log in with Facebook to link your Messenger conversations").frame(height: geometry.size.height * 0.35, alignment: .center).padding()
-                Button(action: {self.facebookLogin(authWorkflow: false)}) {
+                Button(action: {self.session.facebookLogin(authWorkflow: false)}) {
                     Image("facebook_login").resizable().cornerRadius(3.0).aspectRatio(contentMode: .fit)
                         .frame(width: geometry.size.width * 0.80, height: geometry.size.height * 0.65, alignment: .center)
                 }
-            }
-        }
-    }
-    
-    func facebookLogin(authWorkflow: Bool) {
-        self.loginManager.logIn(permissions: ["instagram_basic", "instagram_manage_messages", "pages_manage_metadata"], from: nil) { (loginResult, error) in
-            if error == nil {
-                if loginResult?.isCancelled == false {
-                    let userAccessToken = AccessToken.current!.tokenString
-                    self.session.facebookUserToken = userAccessToken
-                    
-                    // Add to the database
-                    if self.session.user.uid != nil {
-                        self.db.collection(Users.name).document(self.session.user.uid!).updateData([Users.fields.FACEBOOK_USER_TOKEN: userAccessToken])
-                    }
-                }
-            }
-            else {
-                print(error)
-                // TODO: There was an error signing in, show something to the user
             }
         }
     }
@@ -527,14 +518,15 @@ struct ConversationView: View {
     @State var textEditorHeight : CGFloat = 100
     @FocusState var messageIsFocused: Bool
     var maxHeight : CGFloat = 250
-    @EnvironmentObject var session: SessionStore
     @Environment(\.colorScheme) var colorScheme
     @State var loading: Bool = false
     @State var showCouldNotGenerateResponse: Bool = false
+    @Binding var openMessages: Bool
 
-    init(conversation: Conversation, page: MetaPage) {
+    init(conversation: Conversation, page: MetaPage, openMessages: Binding<Bool>) {
         self.conversation = conversation
         self.page = page
+        self._openMessages = openMessages
         let appearance = UINavigationBarAppearance()
         appearance.configureWithOpaqueBackground()
             appearance.backgroundColor = UIColor.systemBackground
@@ -554,12 +546,14 @@ struct ConversationView: View {
                         ScrollViewReader {
                             value in
                             VStack {
-                                ForEach(conversation.messages, id: \.self.id) { msg in
+                                ForEach(conversation.messages, id: \.self.uid) { msg in
                                     MessageView(width: geometry.size.width, currentMessage: msg, conversation: conversation, page: page).id(msg.id)
                                 }
                             }.onChange(of: scrollDown) { _ in
                                 value.scrollTo(conversation.messages.last?.id)
                             }.onChange(of: typingMessage) { _ in
+                                value.scrollTo(conversation.messages.last?.id)
+                            }.onChange(of: conversation) { _ in
                                 value.scrollTo(conversation.messages.last?.id)
                             }.onAppear(perform: {
                                 value.scrollTo(conversation.messages.last?.id)
@@ -620,9 +614,9 @@ struct ConversationView: View {
             }
         }
         .onAppear(perform: {
-            self.session.showMenu = false
+            self.openMessages.toggle()
         }).onDisappear(perform: {
-            self.session.showMenu = true
+            self.openMessages.toggle()
         })
     }
     
@@ -641,8 +635,11 @@ struct ConversationView: View {
                 
                 if messageId != nil {
                     DispatchQueue.main.async {
-                        let createdDate = Date().dateToFacebookString(date: Date(timeIntervalSince1970: NSDate().timeIntervalSince1970))
-                        self.conversation.messages.append(Message(id: messageId!, message: message, to: to, from: page.pageUser!, createdTime: createdDate))
+                        let createdDate = Date(timeIntervalSince1970: NSDate().timeIntervalSince1970)
+                        print(Date().dateToFacebookString(date: createdDate), "sent", NSDate().timeIntervalSince1970)
+                        var newMesssage = Message(id: messageId!, message: message, to: to, from: page.pageUser!, createdTimeDate: createdDate)
+                        newMesssage.opened = true
+                        self.conversation.messages.append(newMesssage)
                         self.typingMessage = ""
                     }
                 }
@@ -741,7 +738,7 @@ struct DynamicHeightTextBox: View {
     @Binding var typingMessage: String
     @State var textEditorHeight : CGFloat = 100
     @Environment(\.colorScheme) var colorScheme
-    var maxHeight : CGFloat = 1000
+    var maxHeight : CGFloat = 3000
     
     var body: some View {
         ZStack(alignment: .leading) {
@@ -801,6 +798,7 @@ struct MessageView : View {
         }
     }
 }
+
 
 struct MessageBlurbView: View {
     var contentMessage: String
@@ -897,48 +895,6 @@ struct TextView: UIViewRepresentable {
 }
 
 
-struct MessagingUI: View {
-    @State private var textEditorHeight : CGFloat = 100
-    @State private var text = "Testing text. Hit a few returns to see what happens"
-
-    private var maxHeight : CGFloat = 250
-
-    var body: some View {
-        VStack {
-            VStack {
-                Text("Messages")
-                Spacer()
-            }
-            Divider()
-            HStack {
-                ZStack(alignment: .leading) {
-                    Text(text)
-                        .font(.system(.body))
-                        .foregroundColor(.clear)
-                        .padding(14)
-                        .background(GeometryReader {
-                            Color.clear.preference(key: ViewHeightKey.self,
-                                                   value: $0.frame(in: .local).size.height)
-                        })
-
-                    TextEditor(text: $text)
-                        .font(.system(.body))
-                        .padding(6)
-                        .frame(height: min(textEditorHeight, maxHeight))
-                        .background(Color.black)
-                }
-                .padding(20)
-                Button(action: {}) {
-                    Image(systemName: "plus.circle")
-                        .imageScale(.large)
-                        .foregroundColor(.primary)
-                        .font(.title)
-                }.padding(15).foregroundColor(.primary)
-            }.onPreferenceChange(ViewHeightKey.self) { textEditorHeight = $0 }
-        }
-    }
-}
-
 
 struct ViewHeightKey: PreferenceKey {
     static var defaultValue: CGFloat { 0 }
@@ -950,17 +906,24 @@ struct ViewHeightKey: PreferenceKey {
 
 class Message: Hashable, Equatable {
     let id: String
+    let uid: UUID = UUID()
     let message: String
     let to: MetaUser
     let from: MetaUser
     let createdTime: Date
+    var opened: Bool = false
     
-    init (id: String, message: String, to: MetaUser, from: MetaUser, createdTime: String) {
+    init (id: String, message: String, to: MetaUser, from: MetaUser, createdTimeString: String? = nil, createdTimeDate: Date? = nil) {
         self.id = id
         self.message = message
         self.to = to
         self.from = from
-        self.createdTime = Date().facebookStringToDate(fbString: createdTime)
+        if createdTimeString != nil {
+            self.createdTime = Date().facebookStringToDate(fbString: createdTimeString!)
+        }
+        else {
+            self.createdTime = createdTimeDate!
+        }
     }
 
     func hash(into hasher: inout Hasher) {
@@ -1013,6 +976,13 @@ class Conversation: Hashable, Equatable, ObservableObject {
         return rList
     }
 }
+
+
+func sortMessages(messages: [Message]) -> [Message] {
+    return messages.sorted {$0.createdTime < $1.createdTime}
+}
+
+
 
 class MetaPage: Hashable, Equatable {
     let id: String

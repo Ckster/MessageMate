@@ -167,25 +167,62 @@ class SessionStore : NSObject, ObservableObject {
         }
     }
     
+//    func facebookLogin(authWorkflow: Bool) {
+//        let permissions = authWorkflow ? [] : []
+//        self.loginManager.logIn(permissions: [], from: nil) { (loginResult, error) in
+//            self.signInError = error?.localizedDescription ?? ""
+//            if error == nil {
+//                if loginResult?.isCancelled == false {
+//                    let credential = FacebookAuthProvider.credential(withAccessToken: AccessToken.current!.tokenString)
+//                    print(AccessToken.current!.tokenString)
+//                    if authWorkflow {
+//                        self.firebaseAuthWorkflow(credential: credential)
+//                    }
+//                }
+//            }
+//            else {
+//                print(error)
+//                // There was an error signing in
+//            }
+//        }
+//    }
+    
     func facebookLogin(authWorkflow: Bool) {
-        let permissions = authWorkflow ? [] : []
-        self.loginManager.logIn(permissions: [], from: nil) { (loginResult, error) in
+        let loginManager = LoginManager()
+        
+        loginManager.logIn(permissions: ["instagram_basic", "instagram_manage_messages", "pages_manage_metadata"], from: nil) { (loginResult, error) in
             self.signInError = error?.localizedDescription ?? ""
             if error == nil {
                 if loginResult?.isCancelled == false {
-                    let credential = FacebookAuthProvider.credential(withAccessToken: AccessToken.current!.tokenString)
-                    print(AccessToken.current!.tokenString)
+                    
+                    let userAccessToken = AccessToken.current!.tokenString
+                    self.facebookUserToken = userAccessToken
+                    
                     if authWorkflow {
-                        self.firebaseAuthWorkflow(credential: credential)
+                        let credential = FacebookAuthProvider.credential(withAccessToken: AccessToken.current!.tokenString)
+                        self.firebaseAuthWorkflow(credential: credential) {
+                            self.uploadFBToken(userAccessToken: userAccessToken)
+                        }
+                    }
+                    else {
+                        self.uploadFBToken(userAccessToken: userAccessToken)
                     }
                 }
             }
             else {
                 print(error)
-                // There was an error signing in
+                // TODO: There was an error signing in, show something to the user
             }
         }
     }
+    
+    func uploadFBToken(userAccessToken: String) {
+        // Add to the database
+        if self.user.uid != nil {
+            self.db.collection(Users.name).document(self.user.uid!).updateData([Users.fields.FACEBOOK_USER_TOKEN: userAccessToken])
+        }
+    }
+    
     
 //    func googleLogin(authWorkflow: Bool) {
 //        guard let clientID = FirebaseApp.app()?.options.clientID else { return }
@@ -218,7 +255,7 @@ class SessionStore : NSObject, ObservableObject {
 //        }
 //    }
         
-    func firebaseAuthWorkflow(credential: FirebaseAuth.AuthCredential) {
+    func firebaseAuthWorkflow(credential: FirebaseAuth.AuthCredential, completion: @escaping () -> Void) {
         Auth.auth().signIn(with: credential) { (authResult, error) in
             if error == nil && authResult != nil {
                     UIApplication.shared.registerForRemoteNotifications()
@@ -233,6 +270,7 @@ class SessionStore : NSObject, ObservableObject {
                         // Show the user the home screen
                         self.isLoggedIn = .signedIn
                         self.addToken()
+                        completion()
                     }
                         
                     // User's settings need to be initialized in the Firebase
@@ -252,9 +290,12 @@ class SessionStore : NSObject, ObservableObject {
         
                         // Finally, show the user the home screen
                         self.isLoggedIn = .signedIn
-                    
+                        completion()
                     }
                 }
+            }
+            else {
+                completion()
             }
         }
     }

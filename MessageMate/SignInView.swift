@@ -35,6 +35,7 @@ struct SignInView: View {
                 
                 // Show the sign up options
                 BottomScreen(width: geometry.size.width, height: geometry.size.height).environmentObject(self.session).frame(height: geometry.size.height * 0.30)
+
             }
         }
         }.navigationViewStyle(StackNavigationViewStyle()).onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification), perform: { _ in
@@ -81,10 +82,10 @@ struct BottomScreen: View {
     var body: some View {
         
         // Alert the user of legal info before they proceed
-//        let FBlegalAlert =
-//            Alert(title: Text(TERMS_AND_PRIVACY_POLICY), message: Text(USER_AGREEMENT_TEXT), primaryButton: .default(Text(CANCEL)), secondaryButton: .default(Text(CONTINUE), action: {
-//                self.session.facebookLogin(authWorkflow: true)
-//            }))
+        let FBlegalAlert =
+            Alert(title: Text(TERMS_AND_PRIVACY_POLICY), message: Text(USER_AGREEMENT_TEXT), primaryButton: .default(Text(CANCEL)), secondaryButton: .default(Text(CONTINUE), action: {
+                self.session.facebookLogin(authWorkflow: true)
+            }))
         
         // Alert the user of legal info before they proceed
         let AlegalAlert =
@@ -108,6 +109,13 @@ struct BottomScreen: View {
                         SignInWithApple(style: self.colorScheme == .light ? .black : .white).aspectRatio(contentMode: .fit).frame(width: self.width * 0.80, height: self.height * 0.10, alignment: .center).id(self.colorScheme)
                     }.alert(isPresented: $showingALegalAlert) {
                         AlegalAlert
+                    }
+                
+                    Button(action: {self.showingFBLegalAlert = true}) {
+                        Image("facebook_login").resizable().cornerRadius(3.0)
+                                .frame(width: self.width * 0.80, height: self.height * 0.08, alignment: .center)
+                    }.alert(isPresented: $showingFBLegalAlert) {
+                        FBlegalAlert
                     }
                     
     //                // Sign in with Google
@@ -247,7 +255,7 @@ extension SignInWithAppleDelegates: ASAuthorizationControllerDelegate {
           let credential = OAuthProvider.credential(withProviderID: "apple.com",
                                                     idToken: idTokenString,
                                                     rawNonce: nonce)
-          self.session.firebaseAuthWorkflow(credential: credential)
+          self.session.firebaseAuthWorkflow(credential: credential) {}
         }
       }
 

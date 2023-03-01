@@ -81,7 +81,7 @@ struct ConversationsDocuments {
 
 
 struct ConversationsFields {
-    static let TRIGGER = "trigger"
+    static let MESSAGE = "message"
 }
 
 
