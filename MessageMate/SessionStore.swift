@@ -190,7 +190,8 @@ class SessionStore : NSObject, ObservableObject {
     func facebookLogin(authWorkflow: Bool) {
         let loginManager = LoginManager()
         
-        loginManager.logIn(permissions: ["instagram_basic", "instagram_manage_messages", "pages_manage_metadata"], from: nil) { (loginResult, error) in
+        // TODO: Try to make this a database record that is somehow accesible
+        loginManager.logIn(permissions: ["instagram_basic", "instagram_manage_messages", "pages_manage_metadata", "pages_read_engagement", "pages_messaging"], from: nil) { (loginResult, error) in
             self.signInError = error?.localizedDescription ?? ""
             if error == nil {
                 if loginResult?.isCancelled == false {

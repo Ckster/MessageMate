@@ -14,6 +14,12 @@ import FirebaseAuth
 var userRegistry: [String: MetaUser] = [:]
 
 
+enum MessagingPlatform: CaseIterable {
+    case instagram
+    case facebook
+}
+
+
 struct InboxView: View {
     @EnvironmentObject var session: SessionStore
     
@@ -59,14 +65,13 @@ struct ConversationsView: View {
                     }
                     else {
                         ScrollView {
-                            PullToRefresh(coordinateSpaceName: "pullToRefresh") {
-                                self.loading = true
-                                Task {
-                                    await self.updatePages()
-                                }
-                            }
-                            
                             if self.session.selectedPage != nil {
+                                PullToRefresh(coordinateSpaceName: "pullToRefresh") {
+                                    self.loading = true
+                                    Task {
+                                        await self.updateConversations(page: self.session.selectedPage!)
+                                    }
+                                }
                                 if self.session.selectedPage!.conversations.count == 0 {
                                     Text("No conversations. Pull down to refresh.")
                                 }
@@ -80,9 +85,14 @@ struct ConversationsView: View {
                             }
                             
                             else {
+                                PullToRefresh(coordinateSpaceName: "pullToRefresh") {
+                                    self.loading = true
+                                    Task {
+                                        await self.updatePages()
+                                    }
+                                }
                                 Text("There are no business accounts linked to you. Add a business account to your Messenger account to see it here.")
                             }
-                            
                         }.coordinateSpace(name: "pullToRefresh")
                     }
                 }
@@ -144,12 +154,17 @@ struct ConversationsView: View {
     func updatePages() async {
         let pages = await self.getPages()
         for page in pages {
-            let conversations = await self.getConversations(page: page)
-            
             var newConversations: [Conversation] = []
+            for platform in MessagingPlatform.allCases {
+                var conversations = await self.getConversations(page: page, platform: platform)
+                print(platform, conversations.count, "Count")
+                newConversations = newConversations + conversations
+            }
+            page.conversations = newConversations
+            
             // Do this asynchronously
-            for conversation in conversations {
-                self.getMessages(page: page, conversation: conversation) {
+            for conversation in page.conversations {
+                self.getMessages(page: page, conversation: conversation, platform: conversation.platform) {
                     conversationTuple in
                     let messages = conversationTuple.0
                     
@@ -167,19 +182,19 @@ struct ConversationsView: View {
                             page.pageUser = userList[1]
                             self.initializePageConversations(page: page, correspondentId: conversation.correspondent!.id)
                         }
-                        newConversations.append(conversation)
                     }
                     
                     conversation.messagesInitialized = true
                     
                     var allConversationsLoaded: Bool = true
-                    for conversation in conversations {
+                    for conversation in page.conversations {
                         if !conversation.messagesInitialized {
                             allConversationsLoaded = false
                         }
                     }
+                    
                     if allConversationsLoaded {
-                        page.conversations = newConversations
+                       // page.conversations = newConversations
                         DispatchQueue.main.async {
                             if page == pages.last {
                                 self.session.availablePages = pages
@@ -193,11 +208,62 @@ struct ConversationsView: View {
                     }
                 }
             }
+            
         }
+    }
+    
+    func updateConversations(page: MetaPage) async {
+        var newConversations: [Conversation] = []
+        // Do this asynchronously
+        
+        for conversation in page.conversations {
+            self.getMessages(page: page, conversation: conversation, platform: conversation.platform) {
+                conversationTuple in
+                let messages = conversationTuple.0
+                
+                // TODO: Unless there is info on opened status from API I have to assume message has been viewed or we keep some sort of on disk record
+                for message in messages {
+                    message.opened = true
+                }
+                
+                let pagination = conversationTuple.1
+                if messages.count > 0 {
+                    conversation.messages = messages.sorted { $0.createdTime < $1.createdTime }
+                    conversation.pagination = pagination
+                    let userList = conversation.updateCorrespondent()
+                    if userList.count > 0 {
+                        page.pageUser = userList[1]
+                        self.initializePageConversations(page: page, correspondentId: conversation.correspondent!.id)
+                    }
+                    newConversations.append(conversation)
+                }
+                
+                conversation.messagesInitialized = true
+                
+                var allConversationsLoaded: Bool = true
+                for conversation in page.conversations {
+                    if !conversation.messagesInitialized {
+                        allConversationsLoaded = false
+                    }
+                }
+                if allConversationsLoaded {
+                    
+                    // reset for the next reload
+                    for conversation in page.conversations {
+                        conversation.messagesInitialized = false
+                    }
+                    
+                    page.conversations = newConversations
+                    self.loading = false
+                }
+            }
+        }
+        
     }
     
     // TODO: Clean this up
     func initializePageConversations(page: MetaPage, correspondentId: String) {
+        // TODO: Don't use the business account, or at least incorporate the actual page ID
         if page.businessAccountId != nil {
             let pageDoc = self.db.collection(Pages.name).document(page.businessAccountId!)
             pageDoc.getDocument() {
@@ -253,7 +319,7 @@ struct ConversationsView: View {
         }
     }
     
-    func getMessages(page: MetaPage, conversation: Conversation, cursor: String? = nil, completion: @escaping (([Message], PagingInfo?)) -> Void) {
+    func getMessages(page: MetaPage, conversation: Conversation, cursor: String? = nil, platform: MessagingPlatform, completion: @escaping (([Message], PagingInfo?)) -> Void) {
         var urlString = "https://graph.facebook.com/v16.0/\(conversation.id)?fields=messages&access_token=\(page.accessToken)"
         
         if cursor != nil {
@@ -262,6 +328,7 @@ struct ConversationsView: View {
         
         completionGetRequest(urlString: urlString) {
             jsonDataDict in
+            print("Message", jsonDataDict)
            
             let conversationData = jsonDataDict["messages"] as? [String: AnyObject]
             if conversationData != nil {
@@ -287,54 +354,25 @@ struct ConversationsView: View {
                             let id = message["id"] as? String
                             let createdTime = message["created_time"] as? String
                             
-                            if id != nil {
+                            if id != nil && createdTime != nil {
                                 let messageDataURLString = "https://graph.facebook.com/v9.0/\(id!)?fields=id,created_time,from,to,message&access_token=\(page.accessToken)"
                             
                                 completionGetRequest(urlString: messageDataURLString) {
                                     messageDataDict in
+                                    print("MessageData", messageDataDict)
                                     if messageDataDict != nil {
-                                        let fromDict = messageDataDict["from"] as? [String: AnyObject]
-                                        let toDictList = messageDataDict["to"] as? [String: AnyObject]
-                                        let message = messageDataDict["message"] as? String
-
-                                        if toDictList != nil {
-                                            let toDict = toDictList!["data"] as? [[String: AnyObject]]
-
-                                            if toDict!.count == 1 {
-                                                if fromDict != nil && toDict != nil && message != nil {
-                                                    let fromUsername = fromDict!["username"] as? String
-                                                    let fromId = fromDict!["id"] as? String
-                                                    let toUsername = toDict![0]["username"] as? String
-                                                    let toId = toDict![0]["id"] as? String
-
-                                                    if fromUsername != nil && fromId != nil && toUsername != nil && toId != nil {
-                                                        let registeredUsernames = userRegistry.keys
-
-                                                        var fromUser: MetaUser? = nil
-                                                        if registeredUsernames.contains(fromId!) {
-                                                            fromUser = userRegistry[fromId!]
-                                                        }
-                                                        else {
-                                                            fromUser = MetaUser(id: fromId!, username: fromUsername!)
-                                                            userRegistry[fromId!] = fromUser
-                                                        }
-
-                                                        var toUser: MetaUser? = nil
-                                                        if registeredUsernames.contains(toId!) {
-                                                            toUser = userRegistry[toId!]
-                                                        }
-                                                        else {
-                                                            toUser = MetaUser(id: toId!, username: toUsername!)
-                                                            userRegistry[toId!] = toUser
-                                                        }
-
-                                                        newMessages.append(Message(id: id!, message: message!, to: toUser!, from: fromUser!, createdTimeString: createdTime!))
-
-                                                    }
-                                                }
-                                            }
+                                        var message: Message?
+                                        switch platform {
+                                        case .instagram:
+                                            message = parseInstagramMessage(messageDataDict: messageDataDict, message_id: id!, createdTime: createdTime!)
+                                        case .facebook:
+                                            message = parseFacebookMessage(messageDataDict: messageDataDict, message_id: id!, createdTime: createdTime!)
                                         }
-
+                                        
+                                        if message != nil {
+                                            newMessages.append(message!)
+                                        }
+                                
                                         indexCounter = indexCounter + 1
                                         if indexCounter == messagesLen {
 
@@ -355,11 +393,117 @@ struct ConversationsView: View {
             }
     }
     
-    func getConversations(page: MetaPage) async -> [Conversation] {
-        let urlString = "https://graph.facebook.com/v16.0/\(page.id)/conversations?platform=instagram&access_token=\(page.accessToken)"
+    func parseInstagramMessage(messageDataDict: [String: Any], message_id: String, createdTime: String) -> Message? {
+        let fromDict = messageDataDict["from"] as? [String: AnyObject]
+        let toDictList = messageDataDict["to"] as? [String: AnyObject]
+        let message = messageDataDict["message"] as? String
+
+        if toDictList != nil {
+            let toDict = toDictList!["data"] as? [[String: AnyObject]]
+
+            if toDict!.count == 1 {
+                if fromDict != nil && toDict != nil && message != nil {
+                    let fromUsername = fromDict!["username"] as? String
+                    let fromId = fromDict!["id"] as? String
+                    let toUsername = toDict![0]["username"] as? String
+                    let toId = toDict![0]["id"] as? String
+
+                    if fromUsername != nil && fromId != nil && toUsername != nil && toId != nil {
+                        let registeredUsernames = userRegistry.keys
+
+                        var fromUser: MetaUser? = nil
+                        if registeredUsernames.contains(fromId!) {
+                            fromUser = userRegistry[fromId!]
+                        }
+                        else {
+                            fromUser = MetaUser(id: fromId!, username: fromUsername!, email: nil, name: nil)
+                            userRegistry[fromId!] = fromUser
+                        }
+
+                        var toUser: MetaUser? = nil
+                        if registeredUsernames.contains(toId!) {
+                            toUser = userRegistry[toId!]
+                        }
+                        else {
+                            toUser = MetaUser(id: toId!, username: toUsername!, email: nil, name: nil)
+                            userRegistry[toId!] = toUser
+                        }
+                        return Message(id: message_id, message: message!, to: toUser!, from: fromUser!, createdTimeString: createdTime)
+                    }
+                    else {return nil}
+                }
+                else {return nil}
+            }
+            else {return nil}
+        }
+        else {return nil}
+    }
+    
+    func parseFacebookMessage(messageDataDict: [String: Any], message_id: String, createdTime: String) -> Message? {
+        let fromDict = messageDataDict["from"] as? [String: AnyObject]
+        let toDictList = messageDataDict["to"] as? [String: AnyObject]
+        let message = messageDataDict["message"] as? String
+
+        if toDictList != nil {
+            let toDict = toDictList!["data"] as? [[String: AnyObject]]
+
+            if toDict!.count == 1 {
+                if fromDict != nil && toDict != nil && message != nil {
+                    let fromEmail = fromDict!["email"] as? String
+                    let fromId = fromDict!["id"] as? String
+                    let fromName = fromDict!["name"] as? String
+                    
+                    let toEmail = toDict![0]["email"] as? String
+                    let toName = toDict![0]["name"] as? String
+                    let toId = toDict![0]["id"] as? String
+
+                    if fromEmail != nil && fromId != nil && fromName != nil && toEmail != nil && toName != nil && toId != nil {
+                        let registeredUsernames = userRegistry.keys
+
+                        var fromUser: MetaUser? = nil
+                        if registeredUsernames.contains(fromId!) {
+                            fromUser = userRegistry[fromId!]
+                        }
+                        else {
+                            fromUser = MetaUser(id: fromId!, username: nil, email: fromEmail, name: fromName)
+                            userRegistry[fromId!] = fromUser
+                        }
+
+                        var toUser: MetaUser? = nil
+                        if registeredUsernames.contains(toId!) {
+                            toUser = userRegistry[toId!]
+                        }
+                        else {
+                            toUser = MetaUser(id: toId!, username: nil, email: toEmail, name: toName)
+                            userRegistry[toId!] = toUser
+                        }
+                        return Message(id: message_id, message: message!, to: toUser!, from: fromUser!, createdTimeString: createdTime)
+                    }
+                    else {return nil}
+                }
+                else {return nil}
+            }
+            else {return nil}
+        }
+        else {return nil}
+    }
+    
+    func getConversations(page: MetaPage, platform: MessagingPlatform) async -> [Conversation] {
+        
+        var urlString = "https://graph.facebook.com/v16.0/\(page.id)/conversations?"
+        
+        switch platform {
+            case .facebook:
+                break
+            case .instagram:
+                urlString = urlString + "platform=instagram"
+        }
+        
+        urlString = urlString + "&access_token=\(page.accessToken)"
         
         var newConversations: [Conversation] = []
         let jsonDataDict = await getRequest(urlString: urlString)
+        print("Conversations", jsonDataDict)
         if jsonDataDict != nil {
             let conversations = jsonDataDict!["data"] as? [[String: AnyObject]]
             if conversations != nil {
@@ -368,7 +512,7 @@ struct ConversationsView: View {
                     let updatedTime = conversation["updated_time"] as? String
                     
                     if id != nil && updatedTime != nil {
-                        newConversations.append(Conversation(id: id!, updatedTime: updatedTime!, page: page, pagination: nil))
+                        newConversations.append(Conversation(id: id!, updatedTime: updatedTime!, page: page, pagination: nil, platform: platform))
                     }
                 }
             }
@@ -403,6 +547,7 @@ struct ConversationsView: View {
                             
                             if busAccountId != nil {
                                 newPage.businessAccountId = busAccountId!
+                                print(busAccountId!, newPage.name)
                                 await newPage.getProfilePicture(accountId: id!)
                               
                                 newPages.append(newPage)
@@ -465,11 +610,13 @@ struct ConversationNavigationView: View {
     
     var body: some View {
         VStack {
-            NavigationLink(destination: ConversationView(conversation: conversation, page: page, openMessages: self.$openMessages).navigationTitle(conversation.correspondent!.username)) {
+            let navTitle = conversation.correspondent?.name ?? conversation.correspondent?.username ?? conversation.correspondent?.email ?? ""
+            NavigationLink(destination: ConversationView(conversation: conversation, page: page, openMessages: self.$openMessages)
+                .navigationTitle(navTitle)) {
                 HStack {
                     AsyncImage(url: URL(string: self.correspondent.profilePicURL ?? "")) { image in image.resizable() } placeholder: { Image(systemName: "person.circle") } .frame(width: 55, height: 55) .clipShape(Circle()).offset(y: conversation.messages.last!.message == "" ? -6 : 0)
                     VStack(spacing: 0.5) {
-                        Text(conversation.correspondent!.username).foregroundColor(self.colorScheme == .dark ? .white : .black).font(.system(size: 23)).frame(width: width * 0.85, alignment: .leading)
+                        Text(navTitle).foregroundColor(self.colorScheme == .dark ? .white : .black).font(.system(size: 23)).frame(width: width * 0.85, alignment: .leading)
                         HStack {
                             Text((conversation.messages.last!).message).lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(.system(size: 23)).frame(width: width * 0.65, alignment: .leading)
                             if !conversation.messages.last!.opened {
@@ -787,7 +934,7 @@ struct MessageView : View {
         let isCurrentUser = page.businessAccountId == currentMessage.from.id
         if !isCurrentUser {
             HStack {
-                AsyncImage(url: URL(string: self.correspondent.profilePicURL ?? "")) { image in image.resizable() } placeholder: { Image(systemName: "person.circle") } .frame(width: 45, height: 45) .clipShape(Circle())
+                AsyncImage(url: URL(string: self.correspondent.profilePicURL ?? "")) { image in image.resizable() } placeholder: { Image(systemName: "person.circle") } .frame(width: 45, height: 45) .clipShape(Circle()).padding(.leading)
                 MessageBlurbView(contentMessage: currentMessage.message,
                                    isCurrentUser: isCurrentUser)
             }.frame(width: width * 0.875, alignment: .leading).padding(.trailing).offset(x: -7)
@@ -942,13 +1089,15 @@ class Conversation: Hashable, Equatable, ObservableObject {
     var correspondent: MetaUser? = nil
     var pagination: PagingInfo?
     var messagesInitialized: Bool = false
+    let platform: MessagingPlatform
     @Published var messages: [Message] = []
     
-    init(id: String, updatedTime: String, page: MetaPage, pagination: PagingInfo?) {
+    init(id: String, updatedTime: String, page: MetaPage, pagination: PagingInfo?, platform: MessagingPlatform) {
         self.id = id
         self.page = page
         self.updatedTime = Date().facebookStringToDate(fbString: updatedTime)
         self.pagination = pagination
+        self.platform = platform
     }
 
     func hash(into hasher: inout Hasher) {
@@ -1033,12 +1182,16 @@ class MetaPage: Hashable, Equatable {
 
 class MetaUser: Hashable, Equatable, ObservableObject {
     let id: String
-    let username: String
+    let username: String?
+    let email: String?
+    let name: String?
     @Published var profilePicURL: String? = nil
     
-    init(id: String, username: String) {
+    init(id: String, username: String?, email: String?, name: String?) {
         self.id = id
         self.username = username
+        self.email = email
+        self.name = name
     }
     
     func hash(into hasher: inout Hasher) {
