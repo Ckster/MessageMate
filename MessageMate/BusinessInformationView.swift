@@ -70,6 +70,7 @@ struct BusinessInformationView: View {
 
     var body: some View {
         
+        
         if self.loading {
             LottieView(name: "97952-loading-animation-blue").onAppear(perform: {
                 self.initializePage() {
@@ -78,32 +79,35 @@ struct BusinessInformationView: View {
             })
         }
         
-        if self.session.selectedPage == nil {
-            Text("Please go to Inbox view and connect a business page")
-        }
-        
         else {
-            NavigationView {
-                GeometryReader { geometry in
-                    VStack(alignment: .leading) {
-                        Text("Business Information").bold().font(.system(size: 30)).offset(x: 0).padding(.leading).padding(.bottom)
-                        ScrollView {
-                            ForEach(self.subViewDict.keys.sorted(), id:\.self) { category in
-                                VStack {
-                                    NavigationLink(destination: subViewDict[category]) {
-                                        HStack {
-                                            Text(category).foregroundColor(colorScheme == .dark ? Color.white : Color.black).font(.system(size: 23)).frame(width: geometry.size.width * 0.85, alignment: .leading)
-                                            Image(systemName: "chevron.right").foregroundColor(.gray).imageScale(.small).offset(x: -5)
+            if self.session.selectedPage == nil {
+                Text("Please go to Inbox view and connect a business page")
+            }
+            
+            else {
+                NavigationView {
+                    GeometryReader { geometry in
+                        VStack(alignment: .leading) {
+                            Text("Business Information").bold().font(.system(size: 30)).offset(x: 0).padding(.leading).padding(.bottom)
+                            ScrollView {
+                                ForEach(self.subViewDict.keys.sorted(), id:\.self) { category in
+                                    VStack {
+                                        NavigationLink(destination: subViewDict[category]) {
+                                            HStack {
+                                                Text(category).foregroundColor(colorScheme == .dark ? Color.white : Color.black).font(.system(size: 23)).frame(width: geometry.size.width * 0.85, alignment: .leading)
+                                                Image(systemName: "chevron.right").foregroundColor(.gray).imageScale(.small).offset(x: -5)
+                                            }
                                         }
-                                    }
-                                    HorizontalLine(color: .gray, height: 1.0)
-                                }.padding(.leading).offset(x: -geometry.size.width * 0.03)
+                                        HorizontalLine(color: .gray, height: 1.0)
+                                    }.padding(.leading).offset(x: -geometry.size.width * 0.03)
+                                }
                             }
                         }
                     }
-                }
-            }.navigationViewStyle(.stack)
+                }.navigationViewStyle(.stack)
+            }
         }
+        
     }
     
     // TODO: Clean this up

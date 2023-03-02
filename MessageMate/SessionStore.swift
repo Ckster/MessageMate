@@ -42,6 +42,7 @@ class SessionStore : NSObject, ObservableObject {
     @Published var facebookUserToken: String? = nil
     @Published var selectedPage: MetaPage?
     @Published var availablePages: [MetaPage] = []
+    @Published var loadingFacebookUserToken: Bool = true
     
     // TODO: Add in actual workflow to make this false when it needs to be
     @Published var onboardingCompleted: Bool? = nil
@@ -136,10 +137,15 @@ class SessionStore : NSObject, ObservableObject {
             self.db.collection(Users.name).document(self.user.uid!).getDocument(completion:  {
                 data, error in
                 guard let data = data?.data() else {
+                    self.loadingFacebookUserToken = false
                     return
                 }
                 self.facebookUserToken = data[Users.fields.FACEBOOK_USER_TOKEN] as? String
+                self.loadingFacebookUserToken = false
             })
+        }
+        else {
+            self.loadingFacebookUserToken = false
         }
     }
     

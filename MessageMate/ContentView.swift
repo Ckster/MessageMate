@@ -11,6 +11,7 @@ import FBSDKLoginKit
 struct ContentView: View {
     @EnvironmentObject var session: SessionStore
     @State var showingMenu: Bool = false
+    @State private var selection = 1
     let loginManager = LoginManager()
     
     var body: some View {
@@ -56,21 +57,25 @@ struct ContentView: View {
                                             withAnimation {self.showingMenu.toggle()}
                                         }).frame(width: geometry.size.width, height: geometry.size.height * 0.05, alignment: .leading).padding(.leading)
     
-                                        TabView {
+                                        TabView(selection: self.$selection) {
                                             InboxView().environmentObject(self.session)
                                                 .tabItem {
                                                     Label("Inbox", systemImage: "mail.stack.fill")
                                                 }
+                                                .tag(1)
     
                                             TutorialView().environmentObject(self.session)
                                                 .tabItem {
                                                     Label("Instructions", systemImage: "graduationcap.circle.fill")
                                                 }
+                                                .tag(2)
     
                                             BusinessInformationView().environmentObject(self.session)
                                                 .tabItem {
                                                     Label("Business Info", systemImage: "building.2.crop.circle.fill")
-                                            }
+                                                }
+                                                .tag(3)
+                                            
                                         }.ignoresSafeArea(.keyboard).frame(height: geometry.size.height * 0.95)
                                     }
                                     .disabled(self.showingMenu ? true : false)

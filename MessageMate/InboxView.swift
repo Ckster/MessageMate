@@ -24,9 +24,8 @@ struct InboxView: View {
     @EnvironmentObject var session: SessionStore
     
     var body: some View {
-        
-        // TODO: Implement loading while facebook Token is being discerned
-        if self.session.facebookUserToken == nil {
+
+        if !self.session.loadingFacebookUserToken && self.session.facebookUserToken == nil {
             FacebookAuthenticateView().environmentObject(self.session)
         }
         
