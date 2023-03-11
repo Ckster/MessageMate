@@ -7,7 +7,7 @@
 
 // Operations
 let FCM_TOKEN = "FCMToken"
-let BACKUP_LEGAL_LINK = "https://integratedtraf.weebly.com/legal"
+let BACKUP_LEGAL_LINK = "https://www.freeprivacypolicy.com/live/68b82d6f-42a3-4cf9-adf8-29e252d208be"
 
 // UI
 let TERMS_AND_PRIVACY_POLICY = "Terms of Service and Privacy Policy"

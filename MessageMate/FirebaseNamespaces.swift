@@ -30,16 +30,25 @@ struct Users {
 struct Pages {
     static let name = "pages"
     static let collections = PagesCollections.self
+    static let fields = PagesFields.self
     
     var name: String
     var collections: PagesCollections
     var documentPath: String
+    var fields: PagesFields
     
     init(pageId: String) {
         self.name = Pages.name
         self.collections = PagesCollections()
         self.documentPath = "\(Pages.name)/\(pageId)"
+        self.fields = PagesFields()
     }
+}
+
+
+struct PagesFields {
+    static let INSTAGRAM_ID = "instagram_id"
+    static let STATIC_PROMPT = "static_prompt"
 }
 
 

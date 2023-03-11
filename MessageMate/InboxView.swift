@@ -40,6 +40,7 @@ struct InboxView: View {
 struct ConversationsView: View {
     @EnvironmentObject var session: SessionStore
     @Environment(\.colorScheme) var colorScheme
+    @Environment(\.scenePhase) var scenePhase
     @State var loading: Bool = true
     @State var firstAppear: Bool = true
     let db = Firestore.firestore()
@@ -68,7 +69,9 @@ struct ConversationsView: View {
                                 PullToRefresh(coordinateSpaceName: "pullToRefresh") {
                                     self.loading = true
                                     Task {
+                                    
                                         await self.updateConversations(page: self.session.selectedPage!)
+                                        
                                     }
                                 }
                                 if self.session.selectedPage!.conversations.count == 0 {
@@ -98,17 +101,53 @@ struct ConversationsView: View {
             }
         }
         .onChange(of: self.session.selectedPage ?? MetaPage(id: "", name: "", accessToken: "", category: ""), perform: {
+            // TODO: Add de-listener here
             newPage in
-            if newPage.businessAccountId != nil {
-                self.addConversationListeners(page: newPage)
+            self.addConversationListeners(page: newPage)
+        }).onChange(of: scenePhase) {
+            newPhase in
+            print("PHASE", newPhase)
+            if newPhase == .active {
+                self.loading = true
+            Task {
+                print("Updating")
+                await self.updateConversations(page: self.session.selectedPage!)
+                }
             }
-        })
+//            else if newPhase == .inactive {
+//                                print("Inactive")
+//            } else if newPhase == .background {
+//                print("Background")
+//            }
+        }
+    }
+    
+    func initializeConversationCollection(page: MetaPage, completion: @escaping () -> Void) {
+        let conversationsCollection = self.db.collection(Pages.name).document(page.id).collection(Pages.collections.CONVERSATIONS.name)
+        conversationsCollection.getDocuments() {
+            docs, error in
+            if error == nil && docs != nil {
+                if docs!.isEmpty {
+                    conversationsCollection.document("init").setData(["message": nil]) {
+                        _ in
+                        completion()
+                    }
+                }
+                else {
+                    completion()
+                }
+            }
+            else {
+                completion()
+            }
+        }
     }
     
     // TODO: Add an implement a listener remover
     func addConversationListeners(page: MetaPage) {
-        if page.businessAccountId != nil {
-            self.db.collection(Pages.name).document(page.businessAccountId!).collection(Pages.collections.CONVERSATIONS.name).addSnapshotListener {
+        
+        self.initializeConversationCollection(page: page) {
+            self.db.collection(Pages.name).document(page.id).collection(Pages.collections.CONVERSATIONS.name).addSnapshotListener {
                 querySnapshot, error in
                 guard let snapshot = querySnapshot else {
                     print("Error listening for conversations: \(error!)")
@@ -137,7 +176,9 @@ struct ConversationsView: View {
                                             print("Updating conversation \(senderId)")
                                             var newMessages = conversation.messages
                                             newMessages.append(newMessage)
-                                            conversation.messages = sortMessages(messages: newMessages)
+                                            DispatchQueue.main.async {
+                                                conversation.messages = sortMessages(messages: newMessages)
+                                            }
                                         }
                                     }
                                 }
@@ -152,18 +193,21 @@ struct ConversationsView: View {
     //@MainActor
     func updatePages() async {
         let pages = await self.getPages()
+        var pagesLoaded = 0
         for page in pages {
             var newConversations: [Conversation] = []
             for platform in MessagingPlatform.allCases {
-                var conversations = await self.getConversations(page: page, platform: platform)
+                let conversations = await self.getConversations(page: page, platform: platform)
                 print(platform, conversations.count, "Count")
                 newConversations = newConversations + conversations
             }
+            
             page.conversations = newConversations
             
             // Do this asynchronously
             for conversation in page.conversations {
-                self.getMessages(page: page, conversation: conversation, platform: conversation.platform) {
+                print("Getting conversation")
+                self.getMessages(page: page, conversation: conversation) {
                     conversationTuple in
                     let messages = conversationTuple.0
                     
@@ -179,7 +223,6 @@ struct ConversationsView: View {
                         let userList = conversation.updateCorrespondent()
                         if userList.count > 0 {
                             page.pageUser = userList[1]
-                            self.initializePageConversations(page: page, correspondentId: conversation.correspondent!.id)
                         }
                     }
                     
@@ -193,14 +236,21 @@ struct ConversationsView: View {
                     }
                     
                     if allConversationsLoaded {
-                       // page.conversations = newConversations
+                        
+                        // reset for the next reload
+                        for conversation in page.conversations {
+                            conversation.messagesInitialized = false
+                        }
+                        
+                        pagesLoaded = pagesLoaded + 1
+                        
                         DispatchQueue.main.async {
-                            if page == pages.last {
+                            if pagesLoaded == pages.count {
                                 self.session.availablePages = pages
                                 if self.session.selectedPage == nil && self.session.availablePages.count > 0 {
                                     self.session.selectedPage = self.session.availablePages[0]
                                 }
-
+                                print("Done loading")
                                 self.loading = false
                             }
                         }
@@ -216,7 +266,7 @@ struct ConversationsView: View {
         // Do this asynchronously
         
         for conversation in page.conversations {
-            self.getMessages(page: page, conversation: conversation, platform: conversation.platform) {
+            self.getMessages(page: page, conversation: conversation) {
                 conversationTuple in
                 let messages = conversationTuple.0
                 
@@ -227,12 +277,13 @@ struct ConversationsView: View {
                 
                 let pagination = conversationTuple.1
                 if messages.count > 0 {
-                    conversation.messages = messages.sorted { $0.createdTime < $1.createdTime }
-                    conversation.pagination = pagination
-                    let userList = conversation.updateCorrespondent()
-                    if userList.count > 0 {
-                        page.pageUser = userList[1]
-                        self.initializePageConversations(page: page, correspondentId: conversation.correspondent!.id)
+                    DispatchQueue.main.async {
+                        conversation.messages = messages.sorted { $0.createdTime < $1.createdTime }
+                        conversation.pagination = pagination
+                        let userList = conversation.updateCorrespondent()
+                        if userList.count > 0 {
+                            page.pageUser = userList[1]
+                        }
                     }
                     newConversations.append(conversation)
                 }
@@ -253,72 +304,34 @@ struct ConversationsView: View {
                     }
                     
                     page.conversations = newConversations
+                    print("Done updating")
                     self.loading = false
                 }
             }
         }
-        
     }
     
-    // TODO: Clean this up
-    func initializePageConversations(page: MetaPage, correspondentId: String) {
-        // TODO: Don't use the business account, or at least incorporate the actual page ID
-        if page.businessAccountId != nil {
-            let pageDoc = self.db.collection(Pages.name).document(page.businessAccountId!)
-            pageDoc.getDocument() {
-                doc, error in
-                if error == nil && doc != nil {
-                    if doc!.exists {
-                        let pageDocument = Pages(pageId: page.businessAccountId!)
-                        let pageConversations = self.db.collection("\(pageDocument.documentPath)/\(Pages.collections.CONVERSATIONS.name)").document(correspondentId)
-                        
-                        pageConversations.getDocument {
-                            doc, error in
-                            if error == nil && doc != nil {
-                                if doc!.exists {
-                                    // TODO: Do some more granular checks
-                                }
-                                
-                                // Initialize the page
-                                else {
-                                    let pageFields = Pages.collections.CONVERSATIONS.documents.fields
-                                    pageConversations.setData([
-                                        pageFields.MESSAGE: nil
-                                    ])
-                                }
-                            }
-                        }
-                    }
-                    else {
-                        self.db.collection(Pages.name).document(page.businessAccountId!).setData([:]) {
-                            _ in
-                            let pageDocument = Pages(pageId: page.businessAccountId!)
-                            let pageConversations = self.db.collection("\(pageDocument.documentPath)/\(Pages.collections.CONVERSATIONS.name)").document(correspondentId)
-                            
-                            pageConversations.getDocument {
-                                doc, error in
-                                if error == nil && doc != nil {
-                                    if doc!.exists {
-                                        // TODO: Do some more granular checks
-                                    }
-                                    
-                                    // Initialize the page
-                                    else {
-                                        let pageFields = Pages.collections.CONVERSATIONS.documents.fields
-                                        pageConversations.setData([
-                                            pageFields.MESSAGE: nil
-                                        ])
-                                    }
-                                }
-                            }
-                        }
+    func initializePage(page: MetaPage) {
+        let pageDoc = self.db.collection(Pages.name).document(page.id)
+        pageDoc.getDocument() {
+            doc, error in
+            if error == nil && doc != nil {
+                if !doc!.exists {
+                    self.db.collection(Pages.name).document(page.id).setData(
+                        [
+                            Pages.fields.INSTAGRAM_ID: page.businessAccountId,
+                            Pages.fields.STATIC_PROMPT: ""
+                        ]
+                    ) {
+                        _ in
                     }
                 }
             }
         }
     }
     
-    func getMessages(page: MetaPage, conversation: Conversation, cursor: String? = nil, platform: MessagingPlatform, completion: @escaping (([Message], PagingInfo?)) -> Void) {
+    
+    func getMessages(page: MetaPage, conversation: Conversation, cursor: String? = nil, completion: @escaping (([Message], PagingInfo?)) -> Void) {
         var urlString = "https://graph.facebook.com/v16.0/\(conversation.id)?fields=messages&access_token=\(page.accessToken)"
         
         if cursor != nil {
@@ -327,7 +340,6 @@ struct ConversationsView: View {
         
         completionGetRequest(urlString: urlString) {
             jsonDataDict in
-            print("Message", jsonDataDict)
            
             let conversationData = jsonDataDict["messages"] as? [String: AnyObject]
             if conversationData != nil {
@@ -358,10 +370,9 @@ struct ConversationsView: View {
                             
                                 completionGetRequest(urlString: messageDataURLString) {
                                     messageDataDict in
-                                    print("MessageData", messageDataDict)
                                     if messageDataDict != nil {
                                         var message: Message?
-                                        switch platform {
+                                        switch conversation.platform {
                                         case .instagram:
                                             message = parseInstagramMessage(messageDataDict: messageDataDict, message_id: id!, createdTime: createdTime!)
                                         case .facebook:
@@ -502,7 +513,6 @@ struct ConversationsView: View {
         
         var newConversations: [Conversation] = []
         let jsonDataDict = await getRequest(urlString: urlString)
-        print("Conversations", jsonDataDict)
         if jsonDataDict != nil {
             let conversations = jsonDataDict!["data"] as? [[String: AnyObject]]
             if conversations != nil {
@@ -544,15 +554,13 @@ struct ConversationsView: View {
                             let newPage = MetaPage(id: id!, name: name!, accessToken: pageAccessToken!, category: category!)
                             let busAccountId = await self.getPageBusinessAccountId(page: newPage)
                             
-                            if busAccountId != nil {
-                                newPage.businessAccountId = busAccountId!
-                                print(busAccountId!, newPage.name)
-                                await newPage.getProfilePicture(accountId: id!)
-                              
-                                newPages.append(newPage)
-                                if pageIndex == pageCount {
-                                    newPagesReturn = newPages
-                                }
+                            newPage.businessAccountId = busAccountId
+                            await newPage.getProfilePicture(accountId: id!)
+                            
+                            newPages.append(newPage)
+                            self.initializePage(page: newPage)
+                            if pageIndex == pageCount {
+                                newPagesReturn = newPages.sorted {$0.name.first! < $1.name.first!}
                             }
                         }
                     }
@@ -578,6 +586,7 @@ struct ConversationsView: View {
         }
         return returnId
     }
+    
 }
 
 
@@ -667,6 +676,7 @@ struct ConversationView: View {
     @Environment(\.colorScheme) var colorScheme
     @State var loading: Bool = false
     @State var showCouldNotGenerateResponse: Bool = false
+    @State var messageSendError: String = ""
     @Binding var openMessages: Bool
 
     init(conversation: Conversation, page: MetaPage, openMessages: Binding<Bool>) {
@@ -699,7 +709,7 @@ struct ConversationView: View {
                                 value.scrollTo(conversation.messages.last?.id)
                             }.onChange(of: typingMessage) { _ in
                                 value.scrollTo(conversation.messages.last?.id)
-                            }.onChange(of: conversation) { _ in
+                            }.onChange(of: conversation.messages) { _ in
                                 value.scrollTo(conversation.messages.last?.id)
                             }.onAppear(perform: {
                                 value.scrollTo(conversation.messages.last?.id)
@@ -724,18 +734,24 @@ struct ConversationView: View {
                         HStack(spacing: 2) {
                             
                             // Auto Generation buttons
-                            AutoGenerateButton(buttonText: "Respond", width: geometry.size.width, height: geometry.size.height, conversationId: self.conversation.id, pageAccessToken: self.page.accessToken, pageName: self.page.name, businessAccountId: self.page.businessAccountId ?? "", loading: self.$loading, typingText: self.$typingMessage, showCouldNotGenerateResponse: self.$showCouldNotGenerateResponse)
+                            AutoGenerateButton(buttonText: "Respond", width: geometry.size.width, height: geometry.size.height, conversationId: self.conversation.id, pageAccessToken: self.page.accessToken, pageName: self.page.name, accountId: self.page.id, loading: self.$loading, typingText: self.$typingMessage, showCouldNotGenerateResponse: self.$showCouldNotGenerateResponse)
                             
-                            AutoGenerateButton(buttonText: "Sell", width: geometry.size.width, height: geometry.size.height, conversationId: self.conversation.id, pageAccessToken: self.page.accessToken, pageName: self.page.name, businessAccountId: self.page.businessAccountId ?? "", loading: self.$loading, typingText: self.$typingMessage, showCouldNotGenerateResponse: self.$showCouldNotGenerateResponse)
+                            AutoGenerateButton(buttonText: "Sell", width: geometry.size.width, height: geometry.size.height, conversationId: self.conversation.id, pageAccessToken: self.page.accessToken, pageName: self.page.name, accountId: self.page.id, loading: self.$loading, typingText: self.$typingMessage, showCouldNotGenerateResponse: self.$showCouldNotGenerateResponse)
                             
-                            AutoGenerateButton(buttonText: "Yes", width: geometry.size.width, height: geometry.size.height, conversationId: self.conversation.id, pageAccessToken: self.page.accessToken, pageName: self.page.name, businessAccountId: self.page.businessAccountId ?? "", loading: self.$loading, typingText: self.$typingMessage, showCouldNotGenerateResponse: self.$showCouldNotGenerateResponse)
+                            AutoGenerateButton(buttonText: "Yes", width: geometry.size.width, height: geometry.size.height, conversationId: self.conversation.id, pageAccessToken: self.page.accessToken, pageName: self.page.name, accountId: self.page.id, loading: self.$loading, typingText: self.$typingMessage, showCouldNotGenerateResponse: self.$showCouldNotGenerateResponse)
                             
-                            AutoGenerateButton(buttonText: "No", width: geometry.size.width, height: geometry.size.height, conversationId: self.conversation.id, pageAccessToken: self.page.accessToken, pageName: self.page.name, businessAccountId: self.page.businessAccountId ?? "", loading: self.$loading, typingText: self.$typingMessage, showCouldNotGenerateResponse: self.$showCouldNotGenerateResponse)
+                            AutoGenerateButton(buttonText: "No", width: geometry.size.width, height: geometry.size.height, conversationId: self.conversation.id, pageAccessToken: self.page.accessToken, pageName: self.page.name, accountId: self.page.id, loading: self.$loading, typingText: self.$typingMessage, showCouldNotGenerateResponse: self.$showCouldNotGenerateResponse)
                             
                             // Send message button
                             Button(
                                 action: {
-                                    self.sendMessage(message: self.typingMessage, to: conversation.correspondent!)
+                                    self.sendMessage(message: self.typingMessage, to: conversation.correspondent!) {
+                                        response in
+                                        self.messageSendError = (response["error"] as? [String: Any])?["message"] as? String ?? ""
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
+                                            self.messageSendError = ""
+                                        }
+                                    }
                                 }
                             ) {
                                 Image(systemName: "paperplane.circle.fill").font(.system(size: 35))
@@ -749,14 +765,24 @@ struct ConversationView: View {
                 }
                 if self.showCouldNotGenerateResponse {
                     RoundedRectangle(cornerRadius: 16)
-                        .foregroundColor(Color.gray)
-                        .frame(width: geometry.size.width * 0.80, height: 100, alignment: .center).offset(x: -20, y: 140).padding()
+                        .foregroundColor(Color.blue)
+                        .frame(width: geometry.size.width * 0.85, height: 150, alignment: .center).padding()
                         .overlay(
                             VStack {
-                                Text("Could not generate a response").font(.body).offset(x: -20, y: 140)
+                                Text("Could not generate a response").frame(width: geometry.size.width * 0.85, height: 150, alignment: .center)
                             }
                         )
                 }
+                
+                if self.messageSendError != "" {
+                    RoundedRectangle(cornerRadius: 16)
+                        .foregroundColor(Color.blue)
+                        .frame(width: geometry.size.width * 0.85, height: 150, alignment: .center)
+                        .overlay(
+                            Text(self.messageSendError).frame(width: geometry.size.width * 0.85, height: 150, alignment: .center)
+                        ).padding(.leading)
+                }
+                
             }
         }
         .onAppear(perform: {
@@ -766,7 +792,7 @@ struct ConversationView: View {
         })
     }
     
-    func sendMessage(message: String, to: MetaUser) {
+    func sendMessage(message: String, to: MetaUser, completion: @escaping ([String: Any]) -> Void) {
         // TODO: Add an error alert if the message cannot send
         /// API Reference: https://developers.facebook.com/docs/messenger-platform/reference/send-api/
         let urlString = "https://graph.facebook.com/v16.0/\(page.id)/messages?access_token=\(page.accessToken)"
@@ -789,10 +815,11 @@ struct ConversationView: View {
                         self.typingMessage = ""
                     }
                 }
+                completion(sentMessageData)
             }
         }
         else {
-            // TODO: Show the user there was an issue
+            completion(["error": ["message": "Could not encode message data"]])
         }
     }
     
@@ -815,7 +842,7 @@ struct AutoGenerateButton: View {
     let conversationId: String
     let pageAccessToken: String
     let pageName: String
-    let businessAccountId: String
+    let accountId: String
     @Binding var loading: Bool
     @Binding var typingText: String
     @Binding var showCouldNotGenerateResponse: Bool
@@ -823,7 +850,7 @@ struct AutoGenerateButton: View {
     var body: some View {
         Button(action: {
             self.loading = true
-            generateResponse(responseType: self.buttonText.lowercased(), conversationId: conversationId, pageAccessToken: pageAccessToken, pageName: pageName, businessAccountId: businessAccountId) {
+            generateResponse(responseType: self.buttonText.lowercased(), conversationId: conversationId, pageAccessToken: pageAccessToken, pageName: pageName, accountId: accountId) {
                 message in
                 
                 if message != "" {
@@ -848,7 +875,7 @@ struct AutoGenerateButton: View {
 }
 
 
-func generateResponse(responseType: String, conversationId: String, pageAccessToken: String, pageName: String, businessAccountId: String, completion: @escaping (String) -> Void) {
+func generateResponse(responseType: String, conversationId: String, pageAccessToken: String, pageName: String, accountId: String, completion: @escaping (String) -> Void) {
     let urlString = "https://us-central1-messagemate-2d9af.cloudfunctions.net/generate_response"
     let currentUser = Auth.auth().currentUser
     
@@ -865,7 +892,7 @@ func generateResponse(responseType: String, conversationId: String, pageAccessTo
             "conversationId": conversationId,
             "pageAccessToken": pageAccessToken,
             "pageName": pageName,
-            "pageId": businessAccountId
+            "pageId": accountId
         ]
         
         Task {
@@ -884,7 +911,7 @@ struct DynamicHeightTextBox: View {
     @Binding var typingMessage: String
     @State var textEditorHeight : CGFloat = 100
     @Environment(\.colorScheme) var colorScheme
-    var maxHeight : CGFloat = 3000
+    var maxHeight : CGFloat = 5000
     
     var body: some View {
         ZStack(alignment: .leading) {
@@ -913,7 +940,7 @@ struct DynamicHeightTextBox: View {
     
 }
 
-
+// TODO: Add an alert if you don't have permission to send message
 struct MessageView : View {
     let width: CGFloat
     var currentMessage: Message
@@ -930,7 +957,7 @@ struct MessageView : View {
     }
     
     var body: some View {
-        let isCurrentUser = page.businessAccountId == currentMessage.from.id
+        let isCurrentUser = page.businessAccountId == currentMessage.from.id || page.id == currentMessage.from.id
         if !isCurrentUser {
             HStack {
                 AsyncImage(url: URL(string: self.correspondent.profilePicURL ?? "")) { image in image.resizable() } placeholder: { Image(systemName: "person.circle") } .frame(width: 45, height: 45) .clipShape(Circle()).padding(.leading)
@@ -1110,7 +1137,7 @@ class Conversation: Hashable, Equatable, ObservableObject {
     func updateCorrespondent() -> [MetaUser] {
         var rList: [MetaUser] = []
         for message in self.messages {
-            if message.from.id != page.businessAccountId {
+            if message.from.id != (platform == .instagram ? page.businessAccountId : page.id) {
                 self.correspondent = message.from
                 rList = [message.from, message.to]
                 break

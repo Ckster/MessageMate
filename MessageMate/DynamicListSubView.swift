@@ -78,53 +78,49 @@ struct DynamicListSubView: View {
     }
     
     func getItems() {
-        if self.session.selectedPage != nil && self.session.selectedPage!.businessAccountId != nil {
-            self.db.collection(Pages.name).document("\(self.session.selectedPage!.businessAccountId!)/\(Pages.collections.BUSINESS_INFO.name)/\(Pages.collections.BUSINESS_INFO.documents.FIELDS.name)").getDocument() {
-                doc, error in
-                if error == nil {
-                    let data = doc?.data()
-                    if data != nil {
-                        let existingItems = data![self.firebaseItemsField] as? [String] ?? []
-                        
-                        var newExistingItems: [SingleInputBoxView] = []
-                        
-                        for item in existingItems {
-                            let newItem = SingleInputBoxView(item: item, deletable: true, listHeader: self.listHeaderText, inputToDelete: $itemToDelete, inputStrings: $itemStrings, justAdded: false, disableAutoCorrect: self.disableAutoCorrect, disableAutoCapitalization: self.disableAutoCapitalization)
-                            newExistingItems.append(newItem)
-                            self.itemStrings[newItem.id] = newItem.item
-                            if item == existingItems.last {
-                                self.items = newExistingItems
-                                self.loading = false
-                            }
-                        }
-                        
-                        if existingItems.count == 0 {
-                            let newItem = SingleInputBoxView(item: "", deletable: false, listHeader: self.listHeaderText, inputToDelete: nil, inputStrings: $itemStrings, justAdded: false, disableAutoCorrect: self.disableAutoCorrect, disableAutoCapitalization: self.disableAutoCapitalization)
-                            self.itemStrings[newItem.id] = newItem.item
-                            self.items = [newItem]
+        self.db.collection(Pages.name).document("\(self.session.selectedPage!.id)/\(Pages.collections.BUSINESS_INFO.name)/\(Pages.collections.BUSINESS_INFO.documents.FIELDS.name)").getDocument() {
+            doc, error in
+            if error == nil {
+                let data = doc?.data()
+                if data != nil {
+                    let existingItems = data![self.firebaseItemsField] as? [String] ?? []
+                    
+                    var newExistingItems: [SingleInputBoxView] = []
+                    
+                    for item in existingItems {
+                        let newItem = SingleInputBoxView(item: item, deletable: true, listHeader: self.listHeaderText, inputToDelete: $itemToDelete, inputStrings: $itemStrings, justAdded: false, disableAutoCorrect: self.disableAutoCorrect, disableAutoCapitalization: self.disableAutoCapitalization)
+                        newExistingItems.append(newItem)
+                        self.itemStrings[newItem.id] = newItem.item
+                        if item == existingItems.last {
+                            self.items = newExistingItems
                             self.loading = false
                         }
                     }
-                    else {
-                        // TODO: Show the user an error here
+                    
+                    if existingItems.count == 0 {
+                        let newItem = SingleInputBoxView(item: "", deletable: false, listHeader: self.listHeaderText, inputToDelete: nil, inputStrings: $itemStrings, justAdded: false, disableAutoCorrect: self.disableAutoCorrect, disableAutoCapitalization: self.disableAutoCapitalization)
+                        self.itemStrings[newItem.id] = newItem.item
+                        self.items = [newItem]
+                        self.loading = false
                     }
+                }
+                else {
+                    // TODO: Show the user an error here
                 }
             }
         }
     }
     
     func updateItems() {
-        if self.session.selectedPage != nil && self.session.selectedPage!.businessAccountId != nil {
-            var newItems: [String] = []
-            for newItem in self.itemStrings.values {
-                if newItem != "" {
-                    newItems.append(newItem)
-                }
+        var newItems: [String] = []
+        for newItem in self.itemStrings.values {
+            if newItem != "" {
+                newItems.append(newItem)
             }
-            self.db.collection(Pages.name).document("\(self.session.selectedPage!.businessAccountId!)/\(Pages.collections.BUSINESS_INFO.name)/\(Pages.collections.BUSINESS_INFO.documents.FIELDS.name)").updateData(
-                [self.firebaseItemsField: newItems]
-            )
         }
+        self.db.collection(Pages.name).document("\(self.session.selectedPage!.id)/\(Pages.collections.BUSINESS_INFO.name)/\(Pages.collections.BUSINESS_INFO.documents.FIELDS.name)").updateData(
+            [self.firebaseItemsField: newItems]
+        )
     }
 }
 
