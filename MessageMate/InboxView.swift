@@ -19,6 +19,10 @@ enum MessagingPlatform: CaseIterable {
     case facebook
 }
 
+// TODO: Add support for post messages
+// TODO: Look into audio message
+// TODO: Press on user profile to go to instagram account
+
 
 struct InboxView: View {
     @EnvironmentObject var session: SessionStore
@@ -182,7 +186,9 @@ struct ConversationsView: View {
                                         if isDeleted != nil && isDeleted! {
                                             let deleteAtIndex = conversation.messages.firstIndex(of: newMessage)
                                             if deleteAtIndex != nil {
-                                                conversation.messages.remove(at: deleteAtIndex!)
+                                                DispatchQueue.main.async {
+                                                    conversation.messages.remove(at: deleteAtIndex!)
+                                                }
                                             }
                                         }
                                         
@@ -202,6 +208,10 @@ struct ConversationsView: View {
                                                     }
                                                 }
                                             }
+                                            
+                                            newMessage.instagramStoryMention = instagramStoryMention
+                                            newMessage.instagramStoryReply = instagramStoryReply
+                                            newMessage.imageAttachment = imageAttachment
                                             
                                             if !conversation.messages.contains(newMessage) {
                                                 print("Updating conversation \(senderId)")
@@ -1295,9 +1305,9 @@ class Message: Hashable, Equatable {
     let from: MetaUser
     let createdTime: Date
     var opened: Bool = false
-    let instagramStoryMention: InstagramStoryMention?
-    let instagramStoryReply: InstagramStoryReply?
-    let imageAttachment: ImageAttachment?
+    var instagramStoryMention: InstagramStoryMention?
+    var instagramStoryReply: InstagramStoryReply?
+    var imageAttachment: ImageAttachment?
     
     init (id: String, message: String, to: MetaUser, from: MetaUser, createdTimeString: String? = nil, createdTimeDate: Date? = nil, instagramStoryMention: InstagramStoryMention? = nil, instagramStoryReply: InstagramStoryReply? = nil, imageAttachment: ImageAttachment? = nil) {
         self.id = id
