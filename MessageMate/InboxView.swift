@@ -157,29 +157,67 @@ struct ConversationsView: View {
                 querySnapshot?.documentChanges.forEach { diff in
                     if (diff.type == .modified || diff.type == .added) {
                         let data = diff.document.data()
-                        let messageText = data["message"] as? String
+                        let messageText = data["message"] as? String ?? ""
                         let pageId = data["page_id"] as? String
                         let recipientId = data["recipient_id"] as? String
                         let senderId = data["sender_id"] as? String
                         let createdTime = data["created_time"] as? Double
                         let messageId = data["message_id"] as? String
+                        let storyMentionUrl = data["story_mention_url"] as? String
+                        let imageUrl = data["image_url"] as? String
+                        let storyReplyUrl = data["story_reply_url"] as? String
+                        let isDeleted = data["is_deleted"] as? Bool
                         
-                        // TODO: Get this to refresh the conversation sorting when a new message is received
-                        if messageText != nil && pageId != nil && recipientId != nil && senderId != nil && createdTime != nil && messageId != nil {
+                        if pageId != nil && recipientId != nil && senderId != nil && createdTime != nil && messageId != nil {
                             if self.session.selectedPage != nil {
                                 for conversation in self.session.selectedPage!.conversations {
                                     if conversation.correspondent != nil && conversation.correspondent!.id == senderId {
                                         let messageDate = Date(timeIntervalSince1970: createdTime! / 1000)
-                                        print(Date().dateToFacebookString(date: messageDate), "received", createdTime!)
-                                        let newMessage = Message(id: messageId!, message: messageText!, to: page.pageUser!, from: conversation.correspondent!, createdTimeDate: messageDate)
-                                        if !conversation.messages.contains(newMessage) {
-                                            print("Updating conversation \(senderId)")
-                                            var newMessages = conversation.messages
-                                            newMessages.append(newMessage)
-                                            DispatchQueue.main.async {
-                                                conversation.messages = sortMessages(messages: newMessages)
+                                        var imageAttachment: ImageAttachment? = nil
+                                        var instagramStoryMention: InstagramStoryMention? = nil
+                                        var instagramStoryReply: InstagramStoryReply? = nil
+                                        
+                                        let newMessage = Message(id: messageId!, message: messageText, to: page.pageUser!, from: conversation.correspondent!, createdTimeDate: messageDate)
+                                        
+                                        if isDeleted != nil && isDeleted! {
+                                            let deleteAtIndex = conversation.messages.firstIndex(of: newMessage)
+                                            if deleteAtIndex != nil {
+                                                conversation.messages.remove(at: deleteAtIndex!)
                                             }
                                         }
+                                        
+                                        else {
+                                            if imageUrl != nil {
+                                                imageAttachment = ImageAttachment(url: imageUrl!)
+                                            }
+                                            else {
+                                                if storyMentionUrl != nil {
+                                                    // TODO: Get story ID
+                                                    instagramStoryMention = InstagramStoryMention(id: "1", cdnUrl: storyMentionUrl!)
+                                                }
+                                                
+                                                else {
+                                                    if storyReplyUrl != nil {
+                                                        instagramStoryReply = InstagramStoryReply(id: "1", cdnUrl: storyReplyUrl!)
+                                                    }
+                                                }
+                                            }
+                                            
+                                            if !conversation.messages.contains(newMessage) {
+                                                print("Updating conversation \(senderId)")
+                                                var newMessages = conversation.messages
+                                                newMessages.append(newMessage)
+                                                DispatchQueue.main.async {
+                                                    conversation.messages = sortMessages(messages: newMessages)
+                                                }
+                                            }
+                                            
+                                        }
+                                        
+                                        
+                                        
+                                        
+                                        
                                     }
                                 }
                             }
@@ -362,11 +400,13 @@ struct ConversationsView: View {
                         var newMessages: [Message] = []
                         
                         for message in messageData! {
+                            // TODO: Add check for is_deleted
+                            print(message)
                             let id = message["id"] as? String
                             let createdTime = message["created_time"] as? String
                             
                             if id != nil && createdTime != nil {
-                                let messageDataURLString = "https://graph.facebook.com/v9.0/\(id!)?fields=id,created_time,from,to,message&access_token=\(page.accessToken)"
+                                let messageDataURLString = "https://graph.facebook.com/v16.0/\(id!)?fields=id,created_time,from,to,message,story,attachments&access_token=\(page.accessToken)"
                             
                                 completionGetRequest(urlString: messageDataURLString) {
                                     messageDataDict in
@@ -403,7 +443,64 @@ struct ConversationsView: View {
             }
     }
     
+    func parseInstagramStoryMention(messageDataDict: [String: Any]) -> InstagramStoryMention? {
+        var instagramStoryMention: InstagramStoryMention? = nil
+        let storyData = messageDataDict["story"] as? [String: Any]
+        if storyData != nil {
+            print("not nil")
+            let mentionData = storyData!["mention"] as? [String: Any]
+            if mentionData != nil {
+                let id = mentionData!["id"] as? String
+                let cdnUrl = mentionData!["link"] as? String
+                if id != nil && cdnUrl != nil {
+                    print("updating instagram story")
+                    instagramStoryMention = InstagramStoryMention(id: id!, cdnUrl: cdnUrl!)
+                }
+            }
+        }
+        return instagramStoryMention
+    }
+    
+    func parseInstagramStoryReply(messageDataDict: [String: Any]) -> InstagramStoryReply? {
+        var instagramStoryReply: InstagramStoryReply? = nil
+        let storyData = messageDataDict["story"] as? [String: Any]
+        if storyData != nil {
+            print("not nil")
+            let replyToData = storyData!["reply_to"] as? [String: Any]
+            if replyToData != nil {
+                let id = replyToData!["id"] as? String
+                let cdnUrl = replyToData!["link"] as? String
+                if id != nil && cdnUrl != nil {
+                    print("updating instagram story")
+                    instagramStoryReply = InstagramStoryReply(id: id!, cdnUrl: cdnUrl!)
+                }
+            }
+        }
+        return instagramStoryReply
+    }
+    
+    func parseImageAttachment(messageDataDict: [String: Any]) -> ImageAttachment? {
+        var imageAttachment: ImageAttachment? = nil
+        let attachmentsData = messageDataDict["attachments"] as? [String: Any]
+        if attachmentsData != nil {
+            let data = attachmentsData!["data"] as? [[String: Any]]
+            if data != nil {
+                if data!.count > 0 {
+                    let image_data = data![0]["image_data"] as? [String: Any]
+                    if image_data != nil {
+                        let url = image_data!["url"] as? String
+                        if url != nil {
+                            imageAttachment = ImageAttachment(url: url!)
+                        }
+                    }
+                }
+            }
+        }
+        return imageAttachment
+    }
+    
     func parseInstagramMessage(messageDataDict: [String: Any], message_id: String, createdTime: String) -> Message? {
+        print(messageDataDict)
         let fromDict = messageDataDict["from"] as? [String: AnyObject]
         let toDictList = messageDataDict["to"] as? [String: AnyObject]
         let message = messageDataDict["message"] as? String
@@ -417,6 +514,10 @@ struct ConversationsView: View {
                     let fromId = fromDict!["id"] as? String
                     let toUsername = toDict![0]["username"] as? String
                     let toId = toDict![0]["id"] as? String
+                    
+                    let instagramStoryMention = parseInstagramStoryMention(messageDataDict: messageDataDict)
+                    let instagramStoryReply = parseInstagramStoryReply(messageDataDict: messageDataDict)
+                    let imageAttachment = parseImageAttachment(messageDataDict: messageDataDict)
 
                     if fromUsername != nil && fromId != nil && toUsername != nil && toId != nil {
                         let registeredUsernames = userRegistry.keys
@@ -438,7 +539,8 @@ struct ConversationsView: View {
                             toUser = MetaUser(id: toId!, username: toUsername!, email: nil, name: nil)
                             userRegistry[toId!] = toUser
                         }
-                        return Message(id: message_id, message: message!, to: toUser!, from: fromUser!, createdTimeString: createdTime)
+                        print("returning message")
+                        return Message(id: message_id, message: message!, to: toUser!, from: fromUser!, createdTimeString: createdTime, instagramStoryMention: instagramStoryMention, instagramStoryReply: instagramStoryReply, imageAttachment: imageAttachment)
                     }
                     else {return nil}
                 }
@@ -456,6 +558,8 @@ struct ConversationsView: View {
 
         if toDictList != nil {
             let toDict = toDictList!["data"] as? [[String: AnyObject]]
+            
+            let imageAttachment = parseImageAttachment(messageDataDict: messageDataDict)
 
             if toDict!.count == 1 {
                 if fromDict != nil && toDict != nil && message != nil {
@@ -487,7 +591,7 @@ struct ConversationsView: View {
                             toUser = MetaUser(id: toId!, username: nil, email: toEmail, name: toName)
                             userRegistry[toId!] = toUser
                         }
-                        return Message(id: message_id, message: message!, to: toUser!, from: fromUser!, createdTimeString: createdTime)
+                        return Message(id: message_id, message: message!, to: toUser!, from: fromUser!, createdTimeString: createdTime, imageAttachment: imageAttachment)
                     }
                     else {return nil}
                 }
@@ -626,7 +730,28 @@ struct ConversationNavigationView: View {
                     VStack(spacing: 0.5) {
                         Text(navTitle).foregroundColor(self.colorScheme == .dark ? .white : .black).font(.system(size: 23)).frame(width: width * 0.85, alignment: .leading)
                         HStack {
-                            Text((conversation.messages.last!).message).lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(.system(size: 23)).frame(width: width * 0.65, alignment: .leading)
+                            if conversation.messages.last!.instagramStoryMention != nil {
+                                Text("\(conversation.correspondent?.name ?? "") mentioned you in their story").lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(.system(size: 23)).frame(width: width * 0.65, alignment: .leading)
+                            }
+                            else {
+                                
+                                if conversation.messages.last!.imageAttachment != nil {
+                                    Text("\(conversation.correspondent?.name ?? "") sent you an image").lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(.system(size: 23)).frame(width: width * 0.65, alignment: .leading)
+                                }
+                                
+                                else {
+                                    
+                                    if conversation.messages.last!.instagramStoryReply != nil {
+                                        Text("\(conversation.correspondent?.name ?? "") replied to your story").lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(.system(size: 23)).frame(width: width * 0.65, alignment: .leading)
+                                    }
+                                    
+                                    else {
+                                        Text((conversation.messages.last!).message).lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(.system(size: 23)).frame(width: width * 0.65, alignment: .leading)
+                                    }
+                                    
+                                }
+                            }
+                            
                             if !conversation.messages.last!.opened {
                                 Circle().foregroundColor(.blue).frame(width: 14)
                             }
@@ -689,7 +814,6 @@ struct ConversationView: View {
             UINavigationBar.appearance().standardAppearance = appearance
     }
     
-    // TODO: Make sure message goes away when send button is pressed
     var body: some View {
         GeometryReader {
             geometry in
@@ -961,12 +1085,12 @@ struct MessageView : View {
         if !isCurrentUser {
             HStack {
                 AsyncImage(url: URL(string: self.correspondent.profilePicURL ?? "")) { image in image.resizable() } placeholder: { Image(systemName: "person.circle") } .frame(width: 45, height: 45) .clipShape(Circle()).padding(.leading)
-                MessageBlurbView(contentMessage: currentMessage.message,
+                MessageBlurbView(contentMessage: currentMessage,
                                    isCurrentUser: isCurrentUser)
             }.frame(width: width * 0.875, alignment: .leading).padding(.trailing).offset(x: -7)
         }
         else {
-            MessageBlurbView(contentMessage: currentMessage.message,
+            MessageBlurbView(contentMessage: currentMessage,
                              isCurrentUser: isCurrentUser).frame(width: width * 0.875, alignment: .trailing).padding(.leading).padding(.trailing)
         }
     }
@@ -974,15 +1098,41 @@ struct MessageView : View {
 
 
 struct MessageBlurbView: View {
-    var contentMessage: String
+    var contentMessage: Message
     var isCurrentUser: Bool
 
     var body: some View {
-        Text(contentMessage)
-            .padding(10)
-            .foregroundColor(isCurrentUser ? Color.white : Color.black)
-            .background(isCurrentUser ? Color.blue : Color(UIColor(red: 240/255, green: 240/255, blue: 240/255, alpha: 1.0)))
-            .cornerRadius(10)
+        if contentMessage.instagramStoryMention != nil {
+            AsyncImage(url: URL(string: contentMessage.instagramStoryMention!.cdnUrl ?? "")) { image in image.resizable() } placeholder: { Image(systemName: "person.circle") } .frame(width: 150, height: 250).clipShape(RoundedRectangle(cornerRadius: 16))
+        }
+        
+        else {
+            
+            if contentMessage.imageAttachment != nil {
+                AsyncImage(url: URL(string: contentMessage.imageAttachment!.url ?? "")) { image in image.resizable() } placeholder: { Image(systemName: "person.circle") } .frame(width: 150, height: 250).clipShape(RoundedRectangle(cornerRadius: 16))
+            }
+            
+            else {
+                
+                if contentMessage.instagramStoryReply != nil {
+                    VStack {
+                        AsyncImage(url: URL(string: contentMessage.instagramStoryReply!.cdnUrl ?? "")) { image in image.resizable() } placeholder: { Image(systemName: "person.circle") } .frame(width: 150, height: 250).clipShape(RoundedRectangle(cornerRadius: 16))
+                        Text(contentMessage.message)
+                            .padding(10)
+                            .foregroundColor(isCurrentUser ? Color.white : Color.black)
+                            .background(isCurrentUser ? Color.blue : Color(UIColor(red: 240/255, green: 240/255, blue: 240/255, alpha: 1.0)))
+                            .cornerRadius(10)
+                    }
+                }
+                else {
+                    Text(contentMessage.message)
+                        .padding(10)
+                        .foregroundColor(isCurrentUser ? Color.white : Color.black)
+                        .background(isCurrentUser ? Color.blue : Color(UIColor(red: 240/255, green: 240/255, blue: 240/255, alpha: 1.0)))
+                        .cornerRadius(10)
+                }
+            }
+        }
     }
 }
 
@@ -1077,6 +1227,66 @@ struct ViewHeightKey: PreferenceKey {
 }
 
 
+class InstagramStoryMention: Hashable, Equatable {
+    let id: String
+    let cdnUrl: String
+    
+    init (id: String, cdnUrl: String) {
+        self.id = id
+        self.cdnUrl = cdnUrl
+    }
+    
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(self.id)
+    }
+
+    static func == (lhs: InstagramStoryMention, rhs: InstagramStoryMention) -> Bool {
+        return lhs.id == rhs.id
+    }
+    
+}
+
+
+class InstagramStoryReply: Hashable, Equatable {
+    let id: String
+    let cdnUrl: String
+    
+    init (id: String, cdnUrl: String) {
+        self.id = id
+        self.cdnUrl = cdnUrl
+    }
+    
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(self.id)
+    }
+
+    static func == (lhs: InstagramStoryReply, rhs: InstagramStoryReply) -> Bool {
+        return lhs.id == rhs.id
+    }
+    
+}
+
+
+class ImageAttachment: Hashable, Equatable {
+//    let height: Int
+//    let width: Int
+    let url: String
+
+    init (url: String) {
+        self.url = url
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(self.url)
+    }
+
+    static func == (lhs: ImageAttachment, rhs: ImageAttachment) -> Bool {
+        return lhs.url == rhs.url
+    }
+
+}
+
+
 class Message: Hashable, Equatable {
     let id: String
     let uid: UUID = UUID()
@@ -1085,8 +1295,11 @@ class Message: Hashable, Equatable {
     let from: MetaUser
     let createdTime: Date
     var opened: Bool = false
+    let instagramStoryMention: InstagramStoryMention?
+    let instagramStoryReply: InstagramStoryReply?
+    let imageAttachment: ImageAttachment?
     
-    init (id: String, message: String, to: MetaUser, from: MetaUser, createdTimeString: String? = nil, createdTimeDate: Date? = nil) {
+    init (id: String, message: String, to: MetaUser, from: MetaUser, createdTimeString: String? = nil, createdTimeDate: Date? = nil, instagramStoryMention: InstagramStoryMention? = nil, instagramStoryReply: InstagramStoryReply? = nil, imageAttachment: ImageAttachment? = nil) {
         self.id = id
         self.message = message
         self.to = to
@@ -1097,6 +1310,9 @@ class Message: Hashable, Equatable {
         else {
             self.createdTime = createdTimeDate!
         }
+        self.instagramStoryMention = instagramStoryMention
+        self.instagramStoryReply = instagramStoryReply
+        self.imageAttachment = imageAttachment
     }
 
     func hash(into hasher: inout Hasher) {
