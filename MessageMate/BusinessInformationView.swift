@@ -69,21 +69,19 @@ struct BusinessInformationView: View {
     ]
 
     var body: some View {
-        
-        
-        if self.loading {
-            LottieView(name: "97952-loading-animation-blue").onAppear(perform: {
-                self.initializePage() {
-                    self.loading = false
-                }
-            })
+        if self.session.selectedPage == nil {
+            Text("Please go to Inbox view and connect a business page")
         }
         
         else {
-            if self.session.selectedPage == nil {
-                Text("Please go to Inbox view and connect a business page")
+            if self.loading {
+                LottieView(name: "97952-loading-animation-blue")
+                    .onAppear(perform: {
+                        self.initializePage() {
+                            self.loading = false
+                        }
+                    })
             }
-            
             else {
                 NavigationView {
                     GeometryReader { geometry in
@@ -104,14 +102,17 @@ struct BusinessInformationView: View {
                             }
                         }
                     }
-                }.navigationViewStyle(.stack)
+                }.navigationViewStyle(.stack).onChange(of: self.session.selectedPage ?? MetaPage(id: "", name: "", accessToken: "", category: ""), perform: {
+                    newPage in
+                    self.loading = true
+                })
             }
         }
     }
     
     // TODO: Clean this up
     func initializePage(completion: @escaping () -> Void) {
-       
+        if self.session.selectedPage != nil {
             let pageDocument = self.db.collection(Pages.name).document(self.session.selectedPage!.id)
             pageDocument.getDocument {
                 doc, error in
@@ -193,9 +194,8 @@ struct BusinessInformationView: View {
                     completion()
                 }
             }
-        
+        }
     }
-        
 }
 
 

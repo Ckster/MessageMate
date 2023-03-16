@@ -16,8 +16,8 @@ struct ContentView: View {
     
     var body: some View {
             if self.session.isLoggedIn == .loading {
-                            Text("Loading")
-                        }
+                LottieView(name: "97952-loading-animation-blue")
+                    }
     
             if self.session.isLoggedIn == .signedIn {
                 Group {

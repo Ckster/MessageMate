@@ -44,6 +44,10 @@ class SessionStore : NSObject, ObservableObject {
     @Published var availablePages: [MetaPage] = []
     @Published var loadingFacebookUserToken: Bool = true
     
+    // This is sort of abusive
+    @Published var videoPlayerUrl: URL?
+    @Published var fullScreenImageUrlString: String?
+    
     // TODO: Add in actual workflow to make this false when it needs to be
     @Published var onboardingCompleted: Bool? = nil
     

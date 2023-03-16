@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		5FE661B142104780D7C8EE99 /* Pods_MessageMate.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D477F7C3E89B9C41DD0E7FEA /* Pods_MessageMate.framework */; };
 		ED2CBB1C29936275002161BE /* LottieView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED2CBB1B29936275002161BE /* LottieView.swift */; };
+		ED3032E729C2A73D008EC92A /* TestView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED3032E629C2A73D008EC92A /* TestView.swift */; };
 		ED53B9AF297F8A0E0013C03B /* InboxView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED53B9AE297F8A0E0013C03B /* InboxView.swift */; };
 		ED53B9B1297F8A250013C03B /* TutorialView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED53B9B0297F8A250013C03B /* TutorialView.swift */; };
 		ED53B9B3297F8A400013C03B /* BusinessInformationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED53B9B2297F8A400013C03B /* BusinessInformationView.swift */; };
@@ -38,6 +39,7 @@
 		D477F7C3E89B9C41DD0E7FEA /* Pods_MessageMate.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_MessageMate.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		DC094F7B9A365A2903FD338C /* Pods-MessageMate.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-MessageMate.release.xcconfig"; path = "Target Support Files/Pods-MessageMate/Pods-MessageMate.release.xcconfig"; sourceTree = "<group>"; };
 		ED2CBB1B29936275002161BE /* LottieView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LottieView.swift; sourceTree = "<group>"; };
+		ED3032E629C2A73D008EC92A /* TestView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestView.swift; sourceTree = "<group>"; };
 		ED53B9AE297F8A0E0013C03B /* InboxView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InboxView.swift; sourceTree = "<group>"; };
 		ED53B9B0297F8A250013C03B /* TutorialView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TutorialView.swift; sourceTree = "<group>"; };
 		ED53B9B2297F8A400013C03B /* BusinessInformationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BusinessInformationView.swift; sourceTree = "<group>"; };
@@ -148,6 +150,7 @@
 				EDB4B66529A2D33D004DE432 /* DynamicDictSubView.swift */,
 				EDB4B66729A2D390004DE432 /* DynamicListSubView.swift */,
 				EDC9CC4329AB35750036567C /* SelectPageView.swift */,
+				ED3032E629C2A73D008EC92A /* TestView.swift */,
 			);
 			path = MessageMate;
 			sourceTree = "<group>";
@@ -292,6 +295,7 @@
 				ED53B9B5297F8AAA0013C03B /* OnboardingView.swift in Sources */,
 				ED2CBB1C29936275002161BE /* LottieView.swift in Sources */,
 				EDB4B66629A2D33D004DE432 /* DynamicDictSubView.swift in Sources */,
+				ED3032E729C2A73D008EC92A /* TestView.swift in Sources */,
 				EDC9CC4429AB35750036567C /* SelectPageView.swift in Sources */,
 				ED53B9B3297F8A400013C03B /* BusinessInformationView.swift in Sources */,
 				ED53B9B1297F8A250013C03B /* TutorialView.swift in Sources */,
@@ -423,7 +427,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = MessageMate/MessageMate.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 14;
+				CURRENT_PROJECT_VERSION = 15;
 				DEVELOPMENT_ASSET_PATHS = "\"MessageMate/Preview Content\"";
 				DEVELOPMENT_TEAM = WRFAAJL539;
 				ENABLE_PREVIEWS = YES;
@@ -460,7 +464,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = MessageMate/MessageMate.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 14;
+				CURRENT_PROJECT_VERSION = 15;
 				DEVELOPMENT_ASSET_PATHS = "\"MessageMate/Preview Content\"";
 				DEVELOPMENT_TEAM = WRFAAJL539;
 				ENABLE_PREVIEWS = YES;
