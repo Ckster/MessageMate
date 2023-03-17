@@ -255,7 +255,7 @@ struct DoubleInputBoxView: View, Equatable {
     var body: some View {
         
         let deleteAlert =
-            Alert(title: Text("Delete Link"), message: Text("Are you sure you would like to delete this link?"), primaryButton: .default(Text("Cancel")), secondaryButton: .default(Text("Delete"), action: {
+            Alert(title: Text("Delete \(keyHeader)"), message: Text("Are you sure you would like to delete this \(keyHeader)?"), primaryButton: .default(Text("Cancel")), secondaryButton: .default(Text("Delete"), action: {
                 self.inputToDelete = self.id
                 self.presentationMode.wrappedValue.dismiss()
             }))

@@ -54,7 +54,7 @@ struct DynamicListSubView: View {
                             }
                         })
                         
-                        DynamicListScrollView(items: $items, itemStrings: $itemStrings, showFillOutFirst: $showFillOutFirst, itemToDelete: $itemToDelete, width: geometry.size.width, height: geometry.size.height, textColor: textColor, listHeader: self.listHeaderText, disableAutoCorrect: self.disableAutoCorrect, disableAutoCapitalization: self.disableAutoCapitalization)
+                        DynamicListScrollView(items: $items, itemStrings: $itemStrings, showFillOutFirst: $showFillOutFirst, itemToDelete: $itemToDelete, width: geometry.size.width, height: geometry.size.height, textColor: textColor, listHeader: self.listHeaderText, disableAutoCorrect: self.disableAutoCorrect, disableAutoCapitalization: self.disableAutoCapitalization, inputText: inputText)
                         
                     }.onDisappear(perform: {
                         self.updateItems()
@@ -88,7 +88,7 @@ struct DynamicListSubView: View {
                     var newExistingItems: [SingleInputBoxView] = []
                     
                     for item in existingItems {
-                        let newItem = SingleInputBoxView(item: item, deletable: true, listHeader: self.listHeaderText, inputToDelete: $itemToDelete, inputStrings: $itemStrings, justAdded: false, disableAutoCorrect: self.disableAutoCorrect, disableAutoCapitalization: self.disableAutoCapitalization)
+                        let newItem = SingleInputBoxView(item: item, deletable: true, listHeader: self.listHeaderText, inputToDelete: $itemToDelete, inputStrings: $itemStrings, justAdded: false, disableAutoCorrect: self.disableAutoCorrect, disableAutoCapitalization: self.disableAutoCapitalization, inputText: inputText)
                         newExistingItems.append(newItem)
                         self.itemStrings[newItem.id] = newItem.item
                         if item == existingItems.last {
@@ -98,7 +98,7 @@ struct DynamicListSubView: View {
                     }
                     
                     if existingItems.count == 0 {
-                        let newItem = SingleInputBoxView(item: "", deletable: false, listHeader: self.listHeaderText, inputToDelete: nil, inputStrings: $itemStrings, justAdded: false, disableAutoCorrect: self.disableAutoCorrect, disableAutoCapitalization: self.disableAutoCapitalization)
+                        let newItem = SingleInputBoxView(item: "", deletable: false, listHeader: self.listHeaderText, inputToDelete: nil, inputStrings: $itemStrings, justAdded: false, disableAutoCorrect: self.disableAutoCorrect, disableAutoCapitalization: self.disableAutoCapitalization, inputText: inputText)
                         self.itemStrings[newItem.id] = newItem.item
                         self.items = [newItem]
                         self.loading = false
@@ -152,6 +152,7 @@ struct DynamicListScrollView: View {
     let listHeader: String
     let disableAutoCorrect: Bool
     let disableAutoCapitalization: Bool
+    let inputText: String
     
     var body: some View {
         ScrollView {
@@ -182,7 +183,7 @@ struct DynamicListScrollView: View {
                         }
                         
                         if count < 1 {
-                            let newSB = SingleInputBoxView(item: "", deletable: true, listHeader: self.listHeader, inputToDelete: $itemToDelete, inputStrings: $itemStrings, justAdded: true, disableAutoCorrect: self.disableAutoCorrect, disableAutoCapitalization: self.disableAutoCapitalization)
+                            let newSB = SingleInputBoxView(item: "", deletable: true, listHeader: self.listHeader, inputToDelete: $itemToDelete, inputStrings: $itemStrings, justAdded: true, disableAutoCorrect: self.disableAutoCorrect, disableAutoCapitalization: self.disableAutoCapitalization, inputText: inputText)
                             self.itemStrings[newSB.id] = newSB.item
                             self.items.append(newSB)
                             
@@ -222,8 +223,9 @@ struct SingleInputBoxView: View, Equatable {
     @State var justAdded: Bool
     let disableAutoCorrect: Bool
     let disableAutoCapitalization: Bool
+    let inputText: String
     
-    init (item: String, deletable: Bool, listHeader: String, inputToDelete: Binding<UUID?>?, inputStrings: Binding<[UUID: String]>, justAdded: Bool, disableAutoCorrect: Bool, disableAutoCapitalization: Bool) {
+    init (item: String, deletable: Bool, listHeader: String, inputToDelete: Binding<UUID?>?, inputStrings: Binding<[UUID: String]>, justAdded: Bool, disableAutoCorrect: Bool, disableAutoCapitalization: Bool, inputText: String) {
         self.deletable = deletable
         self.listHeader = listHeader
         _item = State(initialValue: keyToType(input: item))
@@ -232,12 +234,13 @@ struct SingleInputBoxView: View, Equatable {
         _justAdded = State(initialValue: justAdded)
         self.disableAutoCorrect = disableAutoCorrect
         self.disableAutoCapitalization = disableAutoCapitalization
+        self.inputText = inputText
     }
     
     var body: some View {
         
         let deleteAlert =
-            Alert(title: Text("Delete Link"), message: Text("Are you sure you would like to delete this link?"), primaryButton: .default(Text("Cancel")), secondaryButton: .default(Text("Delete"), action: {
+            Alert(title: Text("Delete \(inputText)"), message: Text("Are you sure you would like to delete this \(inputText)?"), primaryButton: .default(Text("Cancel")), secondaryButton: .default(Text("Delete"), action: {
                 self.inputToDelete = self.id
                 self.presentationMode.wrappedValue.dismiss()
             }))

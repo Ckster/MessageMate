@@ -85,22 +85,20 @@ struct BusinessInformationView: View {
             else {
                 NavigationView {
                     GeometryReader { geometry in
-                        VStack(alignment: .leading) {
-                            Text("Business Information").bold().font(.system(size: 30)).offset(x: 0).padding(.leading).padding(.bottom)
-                            ScrollView {
+                        VStack(alignment: .center) {
+                            Text("Business Information").bold().font(.system(size: 30)).padding(.bottom)
                                 ForEach(self.subViewDict.keys.sorted(), id:\.self) { category in
-                                    VStack {
+                                   
                                         NavigationLink(destination: subViewDict[category]) {
-                                            HStack {
-                                                Text(category).foregroundColor(colorScheme == .dark ? Color.white : Color.black).font(.system(size: 30)).frame(width: geometry.size.width * 0.85, alignment: .leading)
-                                                Image(systemName: "chevron.right").foregroundColor(.gray).imageScale(.small).offset(x: -5)
-                                            }
+                                            Text(category).font(.system(size: 30))
+                                                .foregroundColor(.white).frame(width: geometry.size.width * 0.80, height: geometry.size.height * 0.1)
+                                             .background(Color.blue)
+                                             .clipShape(Rectangle()).cornerRadius(10)
+                                             .padding()
                                         }
-                                        HorizontalLine(color: .gray, height: 1.0)
-                                    }.padding(.leading).offset(x: -geometry.size.width * 0.03)
+                                 
                                 }
-                            }
-                        }
+                        }.frame(width: geometry.size.width)
                     }
                 }.navigationViewStyle(.stack).onChange(of: self.session.selectedPage ?? MetaPage(id: "", name: "", accessToken: "", category: ""), perform: {
                     newPage in
@@ -220,12 +218,12 @@ struct GeneralInfoSubView: View {
         else {
             GeometryReader { geometry in
                 VStack {
-                    Text("General Info").bold().foregroundColor(textColor).font(.system(size: 25)).frame(width: geometry.size.width, alignment: .leading).padding(.leading)
-                    Text("Please input some general info:").font(.system(size: 18)).frame(width: geometry.size.width, alignment: .leading).padding().padding(.leading)
+                    Text("General Information").bold().foregroundColor(textColor).font(.system(size: 40)).frame(width: geometry.size.width, alignment: .center).padding(.leading)
+                    //Text("Please input some general info:").font(.system(size: 18)).frame(width: geometry.size.width, alignment: .leading).padding().padding(.leading)
                     
                     ScrollView {
                         Text("Sender Name").bold().font(.system(size: 20)).frame(width: geometry.size.width, height: geometry.size.height * 0.10, alignment: .leading).padding(.leading)
-                        TextEditor(text: $senderName).frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.35)
+                        TextEditor(text: $senderName).frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.06)
                                 .overlay(RoundedRectangle(cornerRadius: 8)
                                     .stroke(Color.secondary).opacity(0.75))
                                 .focused($isFieldFocused)
@@ -237,11 +235,14 @@ struct GeneralInfoSubView: View {
                                     .stroke(Color.secondary).opacity(0.75))
                                 .focused($isFieldFocused)
                                 .offset(x: -20)
+                                
                     }
                     
                 }.offset(x: -15).onDisappear(perform: {
                     self.updateInfo()
-                })
+                }).onTapGesture {
+                    self.isFieldFocused = false
+                }
             }
         }
     }
@@ -293,26 +294,26 @@ struct BusinessInfoSubView: View {
         else {
             GeometryReader { geometry in
                 VStack {
-                    Text("Business Info").bold().foregroundColor(textColor).font(.system(size: 25)).frame(width: geometry.size.width, alignment: .leading).padding(.leading)
+                    Text("Business Information").bold().foregroundColor(textColor).font(.system(size: 40)).frame(width: geometry.size.width, alignment: .leading).padding(.leading)
                     Text("Please input the following information about your business:").font(.system(size: 18)).frame(width: geometry.size.width, alignment: .leading).padding().padding(.leading)
                     
                     ScrollView {
                         Text("Address").bold().font(.system(size: 20)).frame(width: geometry.size.width, height: geometry.size.height * 0.10, alignment: .leading).padding(.leading)
-                        TextEditor(text: $address).frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.25)
+                        TextEditor(text: $address).frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.06)
                                 .overlay(RoundedRectangle(cornerRadius: 8)
                                     .stroke(Color.secondary).opacity(0.75))
                                 .focused($isFieldFocused)
                                 .offset(x: -20)
                         
                         Text("Business Name").bold().font(.system(size: 20)).frame(width: geometry.size.width, height: geometry.size.height * 0.10, alignment: .leading).padding(.leading)
-                        TextEditor(text: $businessName).frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.25)
+                        TextEditor(text: $businessName).frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.06)
                                 .overlay(RoundedRectangle(cornerRadius: 8)
                                     .stroke(Color.secondary).opacity(0.75))
                                 .focused($isFieldFocused)
                                 .offset(x: -20)
                         
                         Text("Industry").bold().font(.system(size: 20)).frame(width: geometry.size.width, height: geometry.size.height * 0.10, alignment: .leading).padding(.leading)
-                        TextEditor(text: $industry).frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.25)
+                        TextEditor(text: $industry).frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.06)
                                 .overlay(RoundedRectangle(cornerRadius: 8)
                                     .stroke(Color.secondary).opacity(0.75))
                                 .focused($isFieldFocused)
@@ -321,7 +322,9 @@ struct BusinessInfoSubView: View {
                     
                 }.offset(x: -15).onDisappear(perform: {
                     self.updateInfo()
-                })
+                }).onTapGesture {
+                    self.isFieldFocused = false
+                }
             }
         }
     }

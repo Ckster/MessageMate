@@ -38,7 +38,7 @@ enum MessagingPlatform: CaseIterable {
 
 // TODO: Add support for post messages if possible
 // TODO: Look into audio message if possible
-// TODO: Add message dates and times to message thread view
+// TODO: Add full screen for story mentions and replies
 
 struct InboxView: View {
     @EnvironmentObject var session: SessionStore
@@ -71,24 +71,9 @@ struct ConversationsView: View {
             GeometryReader { geometry in
                 VStack(alignment: .leading) {
                     Text("Messages").bold().font(.system(size: 30)).offset(x: 0).padding(.leading)
-//                        .onChange(of: self.session.selectedPage?.conversations, perform: {
-//                        newConversations in
-//                        if newConversations != nil {
-//                            var newUnread: Int = 0
-//                            for conversation in newConversations! {
-//                                for message in conversation.messages {
-//                                    if !message.opened {
-//                                        newUnread = newUnread + 1
-//                                    }
-//                                }
-//                            }
-//                            self.unreadMessages = newUnread
-//                        }
-//                    })
-                    
                     if self.loading {
                         LottieView(name: "9844-loading-40-paperplane")
-                            .onTapGesture(perform: {
+                            .onAppear(perform: {
                                 if self.firstAppear {
                                     self.firstAppear = false
                                     Task {
