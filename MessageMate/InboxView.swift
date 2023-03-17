@@ -73,7 +73,7 @@ struct ConversationsView: View {
                     Text("Messages").bold().font(.system(size: 30)).offset(x: 0).padding(.leading)
                     if self.loading {
                         LottieView(name: "9844-loading-40-paperplane")
-                            .onAppear(perform: {
+                            .onTapGesture(perform: {
                                 if self.firstAppear {
                                     self.firstAppear = false
                                     Task {
@@ -92,9 +92,7 @@ struct ConversationsView: View {
                                 PullToRefresh(coordinateSpaceName: "pullToRefresh") {
                                     self.loading = true
                                     Task {
-                                    
                                         await self.updateConversations(page: self.session.selectedPage!)
-                                        
                                     }
                                 }
                                 if self.session.selectedPage!.conversations.count == 0 {
@@ -124,28 +122,31 @@ struct ConversationsView: View {
                 }
             }
         }
+        .accentColor(Color("aoBlue")) 
         .onChange(of: self.session.selectedPage ?? MetaPage(id: "", name: "", accessToken: "", category: ""), perform: {
             // TODO: Add de-listener here
             newPage in
             self.addConversationListeners(page: newPage)
-        }).onChange(of: scenePhase) {
-            newPhase in
-            print("PHASE", newPhase)
-            if newPhase == .active {
-                self.loading = true
-            Task {
-                print("Updating")
-                if self.session.selectedPage != nil {
-                    await self.updateConversations(page: self.session.selectedPage!)
-                }
-            }
-        }
-//            else if newPhase == .inactive {
-//                                print("Inactive")
-//            } else if newPhase == .background {
-//                print("Background")
+        })
+//        .onChange(of: scenePhase) {
+//            newPhase in
+//            print("PHASE", newPhase)
+//            if newPhase == .active {
+//                self.loading = true
+//            Task {
+//                print("Updating")
+//                if self.session.selectedPage != nil {
+//                    await self.updateConversations(page: self.session.selectedPage!)
+//                }
 //            }
-        }
+//        }
+//        }
+//        .onAppear(perform: {
+//            if self.session.selectedPage != nil {
+//                print("Sorting")
+//                self.session.selectedPage!.sortConversations()
+//            }
+//        })
     }
     
     func initializeConversationCollection(page: MetaPage, completion: @escaping () -> Void) {
@@ -218,8 +219,10 @@ struct ConversationsView: View {
                                             if isDeleted != nil && isDeleted! {
                                                 let deleteAtIndex = conversation.messages.firstIndex(of: newMessage)
                                                 if deleteAtIndex != nil {
-                                                    DispatchQueue.main.async {
-                                                        conversation.messages.remove(at: deleteAtIndex!)
+                                                    Task {
+                                                        await MainActor.run {
+                                                            conversation.messages.remove(at: deleteAtIndex!)
+                                                        }
                                                     }
                                                 }
                                             }
@@ -249,9 +252,11 @@ struct ConversationsView: View {
                                                     print("Updating conversation \(senderId)")
                                                     var newMessages = conversation.messages
                                                     newMessages.append(newMessage)
-                                                    DispatchQueue.main.async {
-                                                        conversation.messages = sortMessages(messages: newMessages)
-                                                        self.unreadMessages = self.unreadMessages + 1
+                                                    Task {
+                                                        await MainActor.run {
+                                                            conversation.messages = sortMessages(messages: newMessages)
+                                                            self.unreadMessages = self.unreadMessages + 1
+                                                        }
                                                     }
                                                 }
             
@@ -262,7 +267,7 @@ struct ConversationsView: View {
                                     // TODO: Of course facebook doesn't send the conversation ID with the webhook... this should work for now but may be slow. Try to come up with a more efficient way later
                                     if !conversationFound {
                                         Task {
-                                            await self.updatePages()
+                                            await self.updateConversations(page: self.session.selectedPage!)
                                             self.unreadMessages = self.unreadMessages + 1
                                         }
                                     }
@@ -329,20 +334,21 @@ struct ConversationsView: View {
                         
                         pagesLoaded = pagesLoaded + 1
                         
-                        DispatchQueue.main.async {
-                            if pagesLoaded == pages.count {
-                                self.session.availablePages = pages
-                                if self.session.selectedPage == nil && self.session.availablePages.count > 0 {
-                                    self.session.selectedPage = self.session.availablePages[0]
+                        Task {
+                            await MainActor.run {
+                                if pagesLoaded == pages.count {
+                                    self.session.availablePages = pages
+                                    if self.session.selectedPage == nil && self.session.availablePages.count > 0 {
+                                        self.session.selectedPage = pages[0]
+                                    }
+                                    print("Done loading")
+                                    self.loading = false
                                 }
-                                print("Done loading")
-                                self.loading = false
                             }
                         }
                     }
                 }
             }
-            
         }
     }
     
@@ -362,12 +368,15 @@ struct ConversationsView: View {
                 
                 let pagination = conversationTuple.1
                 if messages.count > 0 {
-                    DispatchQueue.main.async {
-                        conversation.messages = messages
-                        conversation.pagination = pagination
-                        let userList = conversation.updateCorrespondent()
-                        if userList.count > 0 {
-                            page.pageUser = userList[1]
+                    
+                    Task {
+                        await MainActor.run {
+                            conversation.messages = messages
+                            conversation.pagination = pagination
+                            let userList = conversation.updateCorrespondent()
+                            if userList.count > 0 {
+                                page.pageUser = userList[1]
+                            }
                         }
                     }
                     newConversations.append(conversation)
@@ -715,7 +724,6 @@ struct ConversationsView: View {
         return newConversations
     }
     
-    //@MainActor
     func getPages() async -> [MetaPage] {
         var newPagesReturn: [MetaPage] = []
         if self.session.facebookUserToken != nil {
@@ -836,11 +844,14 @@ struct ConversationNavigationView: View {
             ) {
                 ZStack {
                     HStack {
-                        AsyncImage(url: URL(string: self.correspondent.profilePicURL ?? "")) { image in image.resizable() } placeholder: { Image(systemName: "person.circle") } .frame(width: 55, height: 55).clipShape(Circle()).offset(y: conversation.messages.last!.message == "" ? -6 : 0)
+                        AsyncImage(url: URL(string: self.correspondent.profilePicURL ?? "")) { image in image.resizable() } placeholder: { Image(systemName: "person.circle").foregroundColor(Color("aoBlue")) } .frame(width: 55, height: 55).clipShape(Circle()).offset(y: conversation.messages.last!.message == "" ? -6 : 0)
                         
                         VStack(spacing: 0.5) {
-                            Text(navTitle).foregroundColor(self.colorScheme == .dark ? .white : .black).font(.system(size: 23))
-                                .frame(width: width * 0.55, alignment: .leading)
+                            HStack {
+                                Text(navTitle).foregroundColor(self.colorScheme == .dark ? .white : .black).font(.system(size: 22))
+                                Image(self.correspondent.platform == .instagram ? "instagram_logo" : "facebook_logo").resizable().frame(width: 15.5, height: 15.5)
+                            }.frame(width: width * 0.55, alignment: .leading)
+                        
                             HStack {
                                 if conversation.messages.last!.instagramStoryMention != nil {
                                     Text("\(conversation.correspondent?.name ?? "") mentioned you in their story").lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(.system(size: 23)).frame(width: width * 0.55, alignment: .leading)
@@ -864,7 +875,7 @@ struct ConversationNavigationView: View {
                                             }
                                             
                                             else {
-                                                Text((conversation.messages.last!).message).lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(.system(size: 23)).frame(width: width * 0.55, alignment: .leading)
+                                                Text((conversation.messages.last!).message).lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(.system(size: 15)).frame(width: width * 0.55, alignment: .leading)
                                             }
                                         }
                                     }
@@ -873,7 +884,7 @@ struct ConversationNavigationView: View {
                         }
                         
                         let lastMessageIntervalString = self.makeTimeElapsedString(elapsedTime: conversation.messages.last!.createdTime.timeIntervalSinceNow)
-                        Text(lastMessageIntervalString).lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(.system(size: 11)).frame(width: width * 0.20)
+                        Text(lastMessageIntervalString).lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(.system(size: 10)).frame(width: width * 0.20)
                         
                     }
                     //.offset(x: 10)
@@ -891,12 +902,14 @@ struct ConversationNavigationView: View {
             
         }.onChange(of: self.openMessages) {
             _ in
-            DispatchQueue.main.async {
-                for message in self.conversation.messages {
-                    if !(message.opened) {
-                        message.opened = true
-                        if self.unreadMessages > 0 {
-                            self.unreadMessages = self.unreadMessages - 1
+            Task {
+                await MainActor.run {
+                    for message in self.conversation.messages {
+                        if !(message.opened) {
+                            message.opened = true
+                            if self.unreadMessages > 0 {
+                                self.unreadMessages = self.unreadMessages - 1
+                            }
                         }
                     }
                 }
@@ -907,23 +920,23 @@ struct ConversationNavigationView: View {
     func makeTimeElapsedString(elapsedTime: Foundation.TimeInterval) -> String {
         let years = Int(elapsedTime * -1) / Int(86400 * 365)
         if years != 0 {
-            return "\(years) years ago"
+            return "\(years) \(years > 1 ? "years" : "year") ago"
         }
         let months = Int(elapsedTime * -1) / Int(86400 * 30)
         if months != 0 {
-            return "\(months) months ago"
+            return "\(months) \(months > 1 ? "months" : "month") ago"
         }
         let days = Int(elapsedTime * -1) / Int(86400)
         if days != 0 {
-            return "\(days) days ago"
+            return "\(days) \(days > 1 ? "days" : "day") ago"
         }
         let hours = Int(elapsedTime * -1) / Int(60 * 60)
         if hours != 0 {
-            return "\(hours) hours ago"
+            return "\(hours) \(hours > 1 ? "hours" : "hour") ago"
         }
         let minutes = Int(elapsedTime * -1) / Int(60)
         if minutes != 0 {
-            return "\(minutes) minutes ago"
+            return "\(minutes) \(minutes > 1 ? "minutes" : "minute") ago"
         }
         return "now"
     }
@@ -971,23 +984,36 @@ struct TextControlView: View {
                 }
                 
                 else {
-                    DynamicHeightTextBox(typingMessage: self.$typingMessage, messageSendError: self.$messageSendError, height: height, width: width, conversation: conversation, page: page).frame(width: width * 0.98)
+                    DynamicHeightTextBox(typingMessage: self.$typingMessage, messageSendError: self.$messageSendError, height: height, width: width, conversation: conversation, page: page).frame(width: width * 0.925)
                 }
                 
+           //     ZStack {
+//                RoundedRectangle(cornerRadius: 16)
+//                    .foregroundColor(Color.gray)
+//                    .frame(width: width * 0.95, height: height * 0.07, alignment: .center).padding()
+//                    .overlay(
                 HStack(spacing: 2) {
-                    
-                    // Auto Generation buttons
-                    AutoGenerateButton(buttonText: "Respond", width: width, height: height, conversationId: self.conversation.id, pageAccessToken: self.page.accessToken, pageName: self.page.name, accountId: self.page.id, loading: self.$loading, typingText: self.$typingMessage, showCouldNotGenerateResponse: self.$showCouldNotGenerateResponse)
-                    
-                    AutoGenerateButton(buttonText: "Sell", width: width, height: height, conversationId: self.conversation.id, pageAccessToken: self.page.accessToken, pageName: self.page.name, accountId: self.page.id, loading: self.$loading, typingText: self.$typingMessage, showCouldNotGenerateResponse: self.$showCouldNotGenerateResponse)
-                    
-                    AutoGenerateButton(buttonText: "Yes", width: width, height: height, conversationId: self.conversation.id, pageAccessToken: self.page.accessToken, pageName: self.page.name, accountId: self.page.id, loading: self.$loading, typingText: self.$typingMessage, showCouldNotGenerateResponse: self.$showCouldNotGenerateResponse)
-                    
-                    AutoGenerateButton(buttonText: "No", width: width, height: height, conversationId: self.conversation.id, pageAccessToken: self.page.accessToken, pageName: self.page.name, accountId: self.page.id, loading: self.$loading, typingText: self.$typingMessage, showCouldNotGenerateResponse: self.$showCouldNotGenerateResponse)
-                    
-                    DeleteTypingTextButton(width: self.width, height: self.height, typingText: self.$typingMessage)
-                    
-                }.frame(width: width)
+                            
+                            // Auto Generation buttons
+                            AutoGenerateButton(buttonText: "Respond", width: width, height: height, conversationId: self.conversation.id, pageAccessToken: self.page.accessToken, pageName: self.page.name, accountId: self.page.id, loading: self.$loading, typingText: self.$typingMessage, showCouldNotGenerateResponse: self.$showCouldNotGenerateResponse)
+                                //.frame(width: width * 0.19, height: height * 0.07)
+                            
+                            AutoGenerateButton(buttonText: "Sell", width: width, height: height, conversationId: self.conversation.id, pageAccessToken: self.page.accessToken, pageName: self.page.name, accountId: self.page.id, loading: self.$loading, typingText: self.$typingMessage, showCouldNotGenerateResponse: self.$showCouldNotGenerateResponse)
+                                //.frame(width: width * 0.19, height: height * 0.07)
+                            
+                            AutoGenerateButton(buttonText: "Yes", width: width, height: height, conversationId: self.conversation.id, pageAccessToken: self.page.accessToken, pageName: self.page.name, accountId: self.page.id, loading: self.$loading, typingText: self.$typingMessage, showCouldNotGenerateResponse: self.$showCouldNotGenerateResponse)
+                               // .frame(width: width * 0.19, height: height * 0.07)
+                            
+                            AutoGenerateButton(buttonText: "No", width: width, height: height, conversationId: self.conversation.id, pageAccessToken: self.page.accessToken, pageName: self.page.name, accountId: self.page.id, loading: self.$loading, typingText: self.$typingMessage, showCouldNotGenerateResponse: self.$showCouldNotGenerateResponse)
+                                //.frame(width: width * 0.19, height: height * 0.07)
+                            
+                            DeleteTypingTextButton(width: self.width, height: self.height, typingText: self.$typingMessage)
+                                //.frame(width: width * 0.19, height: height * 0.07)
+                            
+                }.padding(.top).padding(.bottom)
+                            //.frame(width: width * 0.90, height: height * 0.06)
+                 //   )
+              //  }
             }
             .padding(.bottom)
             .padding(.top)
@@ -1231,13 +1257,14 @@ struct ConversationView: View {
     func rectReader(_ binding: Binding<CGFloat>, _ space: CoordinateSpace = .global) -> some View {
         GeometryReader { (geometry) -> Color in
             let rect = geometry.frame(in: space)
-            DispatchQueue.main.asyncAfter(deadline: .now()) {
-                binding.wrappedValue = rect.midY
+            Task {
+                await MainActor.run {
+                    binding.wrappedValue = rect.midY
+                }
             }
             return .clear
         }
     }
-    
 }
 
 struct AutoGenerateButton: View {
@@ -1271,12 +1298,72 @@ struct AutoGenerateButton: View {
                 }
             }
         }) {
-            Text(self.buttonText)
-                .foregroundColor(.white).frame(width: width * 0.19, height: height * 0.07)
-             .background(Color.blue)
-             .clipShape(Rectangle()).cornerRadius(6)
-            }
+            Text(self.buttonText).font(.system(size: 13)).bold()
+                .frame(width: width * 0.185, height: height * 0.07)
+        }
+        .buttonStyle(SimpleButtonStyle(width: width, height: height))
    }
+}
+
+
+struct SimpleButtonStyle: ButtonStyle {
+    let width: CGFloat
+    let height: CGFloat
+    
+    func makeBody(configuration: Self.Configuration) -> some View {
+        configuration.label
+            .background(
+                Group {
+                    if configuration.isPressed {
+                        Circle()
+                            .fill(Color.offWhite)
+                           // .cornerRadius(6)
+                            .overlay(
+                                Circle()
+                                    .stroke(Color.gray, lineWidth: 4)
+                                    .blur(radius: 4)
+                                    //.cornerRadius(6)
+                                    .offset(x: 2, y: 2)
+                                    .mask(Circle().fill(LinearGradient(Color.black, Color.clear))
+                                    //    .cornerRadius(6)
+                                    .frame(width: width * 0.165, height: width * 0.165)
+                                    )
+                            )
+                            .overlay(
+                                Circle()
+                                    .stroke(Color.white, lineWidth: 8)
+                                    .blur(radius: 4)
+                                    //.cornerRadius(6)
+                                    .offset(x: -2, y: -2)
+                                    .mask(Circle().fill(LinearGradient(Color.clear, Color.black))
+                                    //    .cornerRadius(6)
+                                    .frame(width: width * 0.165, height: width * 0.165)
+                                    )
+                            )
+                            .frame(width: width * 0.165, height: width * 0.165)
+                    } else {
+                        Circle()
+                            .fill(Color.offWhite)
+                            .shadow(color: Color.black.opacity(0.2), radius: 10, x: 10, y: 10)
+                            .shadow(color: Color.white.opacity(0.7), radius: 10, x: -5, y: -5)
+                            .frame(width: width * 0.165, height: width * 0.165)
+                           // .cornerRadius(6)
+                    }
+                }
+            )
+    }
+}
+
+
+extension LinearGradient {
+    init(_ colors: Color...) {
+        self.init(gradient: Gradient(colors: colors), startPoint: .topLeading, endPoint: .bottomTrailing)
+    }
+}
+
+
+extension Color {
+    static let offWhite = Color(red: 225 / 255, green: 225 / 255, blue: 235 / 255)
 }
 
 
@@ -1290,10 +1377,10 @@ struct DeleteTypingTextButton: View {
             self.typingText = ""
         }) {
             Image(systemName: "trash")
-                .foregroundColor(.white).frame(width: width * 0.19, height: height * 0.07)
-             .background(Color.red)
-             .clipShape(Rectangle()).cornerRadius(6)
-            }
+                //.foregroundColor(.white)
+                .frame(width: width * 0.175, height: height * 0.07)
+             //.background(Color.red)
+            }.buttonStyle(SimpleButtonStyle(width: width, height: height))
    }
 }
 
@@ -1333,6 +1420,7 @@ func generateResponse(responseType: String, conversationId: String, pageAccessTo
 
 
 struct DynamicHeightTextBox: View {
+    @EnvironmentObject var session: SessionStore
     @Binding var typingMessage: String
     @Binding var messageSendError: String
     @State var textEditorHeight : CGFloat = 100
@@ -1346,6 +1434,27 @@ struct DynamicHeightTextBox: View {
     
     var body: some View {
             ZStack(alignment: .leading) {
+                
+                // Send message button
+                Button(
+                    action: {
+                        self.sendMessage(message: self.typingMessage, to: conversation.correspondent!) {
+                            response in
+                            self.messageSendError = (response["error"] as? [String: Any])?["message"] as? String ?? ""
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
+                                  self.messageSendError = ""
+                            }
+                        }
+                    }
+                ) {
+                    Image(systemName: "paperplane.circle.fill")
+//                        .resizable()
+//                        .scaledToFit()
+                        .font(.system(size: 35))
+                        .position(x: width * 0.85, y: 10)
+                        .frame(height: 20).foregroundColor(Color("aoBlue"))
+                      //  .clipShape(Circle())
+                }
                 
                 Text(typingMessage)
                     .lineLimit(5)
@@ -1364,23 +1473,7 @@ struct DynamicHeightTextBox: View {
                     .frame(height: min(textEditorHeight, maxHeight))
                     .background(self.colorScheme == .dark ? Color.black : Color.white)
                     .frame(width: width * 0.80)
-                
-                // Send message button
-                Button(
-                    action: {
-                        self.sendMessage(message: self.typingMessage, to: conversation.correspondent!) {
-                            response in
-                            self.messageSendError = (response["error"] as? [String: Any])?["message"] as? String ?? ""
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
-                                  self.messageSendError = ""
-                            }
-                        }
-                    }
-                ) {
-                    Image(systemName: "paperplane.circle.fill").font(.system(size: 35))
-                        .position(x: width * 0.90, y: 10).frame(height: 20)
-                }
-                
+               
             }
             .overlay(
                 RoundedRectangle(cornerRadius: 5, style: .continuous)
@@ -1404,18 +1497,33 @@ struct DynamicHeightTextBox: View {
                 let messageId = sentMessageData["message_id"] as? String
                 
                 if messageId != nil {
-                    DispatchQueue.main.async {
-                        let createdDate = Date(timeIntervalSince1970: NSDate().timeIntervalSince1970)
-                        print(Date().dateToFacebookString(date: createdDate), "sent", NSDate().timeIntervalSince1970)
-                        let lastDate = Calendar.current.dateComponents([.month, .day], from: self.conversation.messages.last!.createdTime)
-                        let messageDate = Calendar.current.dateComponents([.month, .day], from: createdDate)
-                        
-                        let dayStarter = lastDate.month! != messageDate.month! || lastDate.day! != messageDate.day!
-                        
-                        var newMesssage = Message(id: messageId!, message: message, to: to, from: page.pageUser!, dayStarter: dayStarter, createdTimeDate: createdDate)
-                        newMesssage.opened = true
-                        self.conversation.messages.append(newMesssage)
-                        self.typingMessage = ""
+                    let conversationIndex = self.session.selectedPage!.conversations.firstIndex(of: self.conversation)
+                    var conversation: Conversation? = nil
+                    if conversationIndex != nil {
+                        conversation = self.session.selectedPage!.conversations[conversationIndex!]
+                    }
+                    
+                    if conversation != nil {
+                        Task {
+                            await MainActor.run {
+                                let createdDate = Date(timeIntervalSince1970: NSDate().timeIntervalSince1970)
+                                print(Date().dateToFacebookString(date: createdDate), "sent", NSDate().timeIntervalSince1970)
+                                let lastDate = Calendar.current.dateComponents([.month, .day], from: self.conversation.messages.last!.createdTime)
+                                let messageDate = Calendar.current.dateComponents([.month, .day], from: createdDate)
+                                
+                                let dayStarter = lastDate.month! != messageDate.month! || lastDate.day! != messageDate.day!
+                                
+                                var newMesssage = Message(id: messageId!, message: message, to: to, from: page.pageUser!, dayStarter: dayStarter, createdTimeDate: createdDate)
+                                newMesssage.opened = true
+                                
+                                var newMessages = conversation!.messages
+                                newMessages.append(newMesssage)
+                                conversation!.messages = newMessages
+                                print("rearranged")
+                    
+                                self.typingMessage = ""
+                            }
+                        }
                     }
                 }
                 completion(sentMessageData)
@@ -1425,7 +1533,6 @@ struct DynamicHeightTextBox: View {
             completion(["error": ["message": "Could not encode message data"]])
         }
     }
-    
 }
 
 // TODO: Add an alert if you don't have permission to send message
@@ -1451,7 +1558,7 @@ struct MessageView : View {
         if !isCurrentUser {
             VStack(spacing: 1) {
                 HStack {
-                    AsyncImage(url: URL(string: self.correspondent.profilePicURL ?? "")) { image in image.resizable() } placeholder: { Image(systemName: "person.circle") } .frame(width: 25, height: 25, alignment: .bottom) .clipShape(Circle()).padding(.leading).onTapGesture {
+                    AsyncImage(url: URL(string: self.correspondent.profilePicURL ?? "")) { image in image.resizable() } placeholder: { Image(systemName: "person.circle").foregroundColor(Color("aoBlue")) } .frame(width: 25, height: 25, alignment: .bottom) .clipShape(Circle()).padding(.leading).onTapGesture {
                             openProfile(correspondent: correspondent)
                     }
                     MessageBlurbView(contentMessage: currentMessage, isCurrentUser: isCurrentUser)
@@ -1507,7 +1614,7 @@ struct InstagramStoryReplyView: View {
                         .foregroundColor(.gray)
                     
                     if contentMessage.instagramStoryReply!.cdnUrl != "" {
-                        AsyncImage(url: URL(string: contentMessage.instagramStoryReply!.cdnUrl ?? "")) { image in image.resizable() } placeholder: { Image(systemName: "person.circle") } .frame(width: 150, height: 250).clipShape(RoundedRectangle(cornerRadius: 16))
+                        AsyncImage(url: URL(string: contentMessage.instagramStoryReply!.cdnUrl ?? "")) { image in image.resizable() } placeholder: { Image(systemName: "person.circle").foregroundColor(Color("aoBlue")) } .frame(width: 150, height: 250).clipShape(RoundedRectangle(cornerRadius: 16))
                     }
                     else {
                         Text("")
@@ -1540,7 +1647,7 @@ struct InstagramStoryMentionView: View {
                     .foregroundColor(.gray).font(.system(size: 10))
                 
                 if contentMessage.instagramStoryMention!.cdnUrl != "" {
-                    AsyncImage(url: URL(string: contentMessage.instagramStoryMention!.cdnUrl ?? "")) { image in image.resizable() } placeholder: { Image(systemName: "person.circle") } .frame(width: 150, height: 250).clipShape(RoundedRectangle(cornerRadius: 16))
+                    AsyncImage(url: URL(string: contentMessage.instagramStoryMention!.cdnUrl ?? "")) { image in image.resizable() } placeholder: { Image(systemName: "person.circle").foregroundColor(Color("aoBlue")) } .frame(width: 150, height: 250).clipShape(RoundedRectangle(cornerRadius: 16))
                 }
                 else {
                     Text("")
@@ -1629,7 +1736,7 @@ struct MessageBlurbView: View {
                         Text(contentMessage.message)
                             .padding(10)
                             .foregroundColor(isCurrentUser ? Color.white : Color.black)
-                            .background(isCurrentUser ? Color.blue : Color(UIColor(red: 240/255, green: 240/255, blue: 240/255, alpha: 1.0)))
+                            .background(isCurrentUser ? Color("aoBlue") : Color.offWhite)
                             .cornerRadius(10)
                     }
                 }
@@ -1901,12 +2008,12 @@ func sortMessages(messages: [Message]) -> [Message] {
 
 
 
-class MetaPage: Hashable, Equatable {
+class MetaPage: Hashable, Equatable, ObservableObject {
     let id: String
     let name: String
     let accessToken: String
     let category: String
-    var conversations: [Conversation] = []
+    @Published var conversations: [Conversation] = []
     var businessAccountId: String? = nil
     var pageUser: MetaUser? = nil
     var photoURL: String?
@@ -1929,7 +2036,11 @@ class MetaPage: Hashable, Equatable {
     }
     
     func sortConversations() {
-        self.conversations = self.conversations.sorted {$0.messages.last!.createdTime > $1.messages.last!.createdTime}
+        Task {
+            await MainActor.run {
+                self.conversations = self.conversations.sorted {$0.messages.last!.createdTime > $1.messages.last!.createdTime}
+            }
+        }
     }
     
     //@MainActor
@@ -1978,8 +2089,10 @@ class MetaUser: Hashable, Equatable, ObservableObject {
             profileData in
             
             let profilePicURL = profileData["profile_pic"] as? String
-            DispatchQueue.main.async {
-                self.profilePicURL = profilePicURL?.replacingOccurrences(of: "\\", with: "")
+            Task {
+                await MainActor.run {
+                    self.profilePicURL = profilePicURL?.replacingOccurrences(of: "\\", with: "")
+                }
             }
         }
     }

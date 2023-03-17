@@ -14,6 +14,10 @@ struct ContentView: View {
     @State private var selection = 1
     let loginManager = LoginManager()
     
+    init() {
+        UITabBar.appearance().barTintColor = UIColor(Color.offWhite)
+    }
+    
     var body: some View {
             if self.session.isLoggedIn == .loading {
                 LottieView(name: "97952-loading-animation-blue")
@@ -77,6 +81,7 @@ struct ContentView: View {
                                                 .tag(3)
                                             
                                         }.ignoresSafeArea(.keyboard)
+                                            .accentColor(Color("aoBlue"))
                                             //.frame(height: geometry.size.height * 0.95)
                                     }
                                     .disabled(self.showingMenu ? true : false)
