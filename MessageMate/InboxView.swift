@@ -15,6 +15,22 @@ import FirebaseAuth
 var userRegistry: [String: MetaUser] = [:]
 
 
+let monthMap: [Int: String] = [
+    1: "January",
+    2: "February",
+    3: "March",
+    4: "April",
+    5: "May",
+    6: "June",
+    7: "July",
+    8: "August",
+    9: "September",
+    10: "October",
+    11: "November",
+    12: "December"
+]
+
+
 enum MessagingPlatform: CaseIterable {
     case instagram
     case facebook
@@ -22,7 +38,7 @@ enum MessagingPlatform: CaseIterable {
 
 // TODO: Add support for post messages if possible
 // TODO: Look into audio message if possible
-
+// TODO: Add message dates and times to message thread view
 
 struct InboxView: View {
     @EnvironmentObject var session: SessionStore
@@ -47,13 +63,28 @@ struct ConversationsView: View {
     @Environment(\.scenePhase) var scenePhase
     @State var loading: Bool = true
     @State var firstAppear: Bool = true
+    @State var unreadMessages: Int = 0
     let db = Firestore.firestore()
     
     var body: some View {
         NavigationView {
             GeometryReader { geometry in
                 VStack(alignment: .leading) {
-                    Text("Inbox").bold().font(.system(size: 30)).offset(x: 0).padding(.leading).padding(.bottom)
+                    Text("Messages").bold().font(.system(size: 30)).offset(x: 0).padding(.leading)
+//                        .onChange(of: self.session.selectedPage?.conversations, perform: {
+//                        newConversations in
+//                        if newConversations != nil {
+//                            var newUnread: Int = 0
+//                            for conversation in newConversations! {
+//                                for message in conversation.messages {
+//                                    if !message.opened {
+//                                        newUnread = newUnread + 1
+//                                    }
+//                                }
+//                            }
+//                            self.unreadMessages = newUnread
+//                        }
+//                    })
                     
                     if self.loading {
                         LottieView(name: "9844-loading-40-paperplane")
@@ -68,6 +99,9 @@ struct ConversationsView: View {
                             })
                     }
                     else {
+                        
+                        Text("You have \(self.unreadMessages == 0 ? "no" : String(self.unreadMessages)) new \(self.unreadMessages != 1 ? "messages" : "message")").foregroundColor(.gray).font(.system(size: 15)).padding(.leading).padding(.bottom)
+                        
                         ScrollView {
                             if self.session.selectedPage != nil {
                                 PullToRefresh(coordinateSpaceName: "pullToRefresh") {
@@ -84,7 +118,7 @@ struct ConversationsView: View {
                                 else {
                                     ForEach(self.session.selectedPage!.conversations.sorted {$0.messages.last?.createdTime ?? Date() > $1.messages.last?.createdTime ?? Date()}, id:\.self) { conversation in
                                         if conversation.messages.count > 0 {
-                                            ConversationNavigationView(conversation: conversation, width: geometry.size.width, page: self.session.selectedPage!)
+                                            ConversationNavigationView(conversation: conversation, width: geometry.size.width, page: self.session.selectedPage!, unreadMessages: self.$unreadMessages)
                                         }
                                     }
                                 }
@@ -180,7 +214,6 @@ struct ConversationsView: View {
                         if pageId != nil && recipientId != nil && senderId != nil && createdTime != nil && messageId != nil {
                             if self.session.selectedPage != nil {
                                 if self.session.selectedPage!.businessAccountId ?? "" == pageId || self.session.selectedPage!.id == pageId {
-                                    
                                     var conversationFound: Bool = false
                                     
                                     for conversation in self.session.selectedPage!.conversations {
@@ -190,8 +223,12 @@ struct ConversationsView: View {
                                             var imageAttachment: ImageAttachment? = nil
                                             var instagramStoryMention: InstagramStoryMention? = nil
                                             var instagramStoryReply: InstagramStoryReply? = nil
-            
-                                            let newMessage = Message(id: messageId!, message: messageText, to: page.pageUser!, from: conversation.correspondent!, createdTimeDate: messageDate)
+                                            
+                                            let lastDate = Calendar.current.dateComponents([.month, .day], from: conversation.messages.last!.createdTime)
+                                            let messageCompDate = Calendar.current.dateComponents([.month, .day], from: messageDate)
+                                            let dayStarter = lastDate.month! != messageCompDate.month! || lastDate.day! != messageCompDate.day!
+                                            
+                                            let newMessage = Message(id: messageId!, message: messageText, to: page.pageUser!, from: conversation.correspondent!, dayStarter: dayStarter, createdTimeDate: messageDate)
             
                                             if isDeleted != nil && isDeleted! {
                                                 let deleteAtIndex = conversation.messages.firstIndex(of: newMessage)
@@ -229,6 +266,7 @@ struct ConversationsView: View {
                                                     newMessages.append(newMessage)
                                                     DispatchQueue.main.async {
                                                         conversation.messages = sortMessages(messages: newMessages)
+                                                        self.unreadMessages = self.unreadMessages + 1
                                                     }
                                                 }
             
@@ -240,6 +278,7 @@ struct ConversationsView: View {
                                     if !conversationFound {
                                         Task {
                                             await self.updatePages()
+                                            self.unreadMessages = self.unreadMessages + 1
                                         }
                                     }
                                 }
@@ -339,7 +378,7 @@ struct ConversationsView: View {
                 let pagination = conversationTuple.1
                 if messages.count > 0 {
                     DispatchQueue.main.async {
-                        conversation.messages = messages.sorted { $0.createdTime < $1.createdTime }
+                        conversation.messages = messages
                         conversation.pagination = pagination
                         let userList = conversation.updateCorrespondent()
                         if userList.count > 0 {
@@ -437,9 +476,9 @@ struct ConversationsView: View {
                                         var message: Message?
                                         switch conversation.platform {
                                         case .instagram:
-                                            message = parseInstagramMessage(messageDataDict: messageDataDict, message_id: id!, createdTime: createdTime!)
+                                            message = parseInstagramMessage(messageDataDict: messageDataDict, message_id: id!, createdTime: createdTime!, previousMessage: newMessages.last)
                                         case .facebook:
-                                            message = parseFacebookMessage(messageDataDict: messageDataDict, message_id: id!, createdTime: createdTime!)
+                                            message = parseFacebookMessage(messageDataDict: messageDataDict, message_id: id!, createdTime: createdTime!, previousMessage: newMessages.last)
                                         }
                                         
                                         if message != nil {
@@ -454,6 +493,18 @@ struct ConversationsView: View {
                                                 if user.profilePicURL == nil {
                                                     user.getProfilePicture(access_token: page.accessToken)
                                                 }
+                                            }
+                                            
+                                            newMessages = newMessages.sorted { $0.createdTime < $1.createdTime }
+                                            var lastDate: Foundation.DateComponents? = nil
+                                            for message in newMessages {
+                                                let createdTimeDate = Calendar.current.dateComponents([.month, .day], from: message.createdTime)
+                                                var dayStarter = lastDate == nil
+                                                if lastDate != nil {
+                                                    dayStarter = lastDate!.month! != createdTimeDate.month! || lastDate!.day! != createdTimeDate.day!
+                                                }
+                                                lastDate = createdTimeDate
+                                                message.dayStarter = dayStarter
                                             }
                                             completion((newMessages, pagingInfo))
                                         }
@@ -542,7 +593,7 @@ struct ConversationsView: View {
         return imageAttachment
     }
     
-    func parseInstagramMessage(messageDataDict: [String: Any], message_id: String, createdTime: String) -> Message? {
+    func parseInstagramMessage(messageDataDict: [String: Any], message_id: String, createdTime: String, previousMessage: Message? = nil) -> Message? {
         print(messageDataDict)
         let fromDict = messageDataDict["from"] as? [String: AnyObject]
         let toDictList = messageDataDict["to"] as? [String: AnyObject]
@@ -571,7 +622,7 @@ struct ConversationsView: View {
                             fromUser = userRegistry[fromId!]
                         }
                         else {
-                            fromUser = MetaUser(id: fromId!, username: fromUsername!, email: nil, name: nil)
+                            fromUser = MetaUser(id: fromId!, username: fromUsername!, email: nil, name: nil, platform: .instagram)
                             userRegistry[fromId!] = fromUser
                         }
 
@@ -580,10 +631,11 @@ struct ConversationsView: View {
                             toUser = userRegistry[toId!]
                         }
                         else {
-                            toUser = MetaUser(id: toId!, username: toUsername!, email: nil, name: nil)
+                            toUser = MetaUser(id: toId!, username: toUsername!, email: nil, name: nil, platform: .instagram)
                             userRegistry[toId!] = toUser
                         }
                         print("returning message")
+                        
                         return Message(id: message_id, message: message!, to: toUser!, from: fromUser!, createdTimeString: createdTime, instagramStoryMention: instagramStoryMention, instagramStoryReply: instagramStoryReply, imageAttachment: imageAttachment, videoAttachment: videoAttachment)
                     }
                     else {return nil}
@@ -595,7 +647,7 @@ struct ConversationsView: View {
         else {return nil}
     }
     
-    func parseFacebookMessage(messageDataDict: [String: Any], message_id: String, createdTime: String) -> Message? {
+    func parseFacebookMessage(messageDataDict: [String: Any], message_id: String, createdTime: String, previousMessage: Message? = nil) -> Message? {
         let fromDict = messageDataDict["from"] as? [String: AnyObject]
         let toDictList = messageDataDict["to"] as? [String: AnyObject]
         let message = messageDataDict["message"] as? String
@@ -623,7 +675,7 @@ struct ConversationsView: View {
                             fromUser = userRegistry[fromId!]
                         }
                         else {
-                            fromUser = MetaUser(id: fromId!, username: nil, email: fromEmail, name: fromName)
+                            fromUser = MetaUser(id: fromId!, username: nil, email: fromEmail, name: fromName, platform: .facebook)
                             userRegistry[fromId!] = fromUser
                         }
 
@@ -632,9 +684,10 @@ struct ConversationsView: View {
                             toUser = userRegistry[toId!]
                         }
                         else {
-                            toUser = MetaUser(id: toId!, username: nil, email: toEmail, name: toName)
+                            toUser = MetaUser(id: toId!, username: nil, email: toEmail, name: toName, platform: .facebook)
                             userRegistry[toId!] = toUser
                         }
+                    
                         return Message(id: message_id, message: message!, to: toUser!, from: fromUser!, createdTimeString: createdTime, imageAttachment: imageAttachment)
                     }
                     else {return nil}
@@ -757,69 +810,137 @@ struct ConversationNavigationView: View {
     @Environment(\.colorScheme) var colorScheme
     @ObservedObject var correspondent: MetaUser
     @State var openMessages: Bool = false
+    @Binding var unreadMessages: Int
     
-    init(conversation: Conversation, width: CGFloat, page: MetaPage) {
+    init(conversation: Conversation, width: CGFloat, page: MetaPage, unreadMessages: Binding<Int>) {
         self.conversation = conversation
         self.width = width
         self.page = page
         self.correspondent = conversation.correspondent!
+        _unreadMessages = unreadMessages
     }
     
     var body: some View {
         VStack {
             let navTitle = conversation.correspondent?.name ?? conversation.correspondent?.username ?? conversation.correspondent?.email ?? ""
             NavigationLink(destination: ConversationView(conversation: conversation, page: page, openMessages: self.$openMessages)
-                .navigationTitle(navTitle)) {
-                HStack {
-                    AsyncImage(url: URL(string: self.correspondent.profilePicURL ?? "")) { image in image.resizable() } placeholder: { Image(systemName: "person.circle") } .frame(width: 55, height: 55) .clipShape(Circle()).offset(y: conversation.messages.last!.message == "" ? -6 : 0)
-                    VStack(spacing: 0.5) {
-                        Text(navTitle).foregroundColor(self.colorScheme == .dark ? .white : .black).font(.system(size: 23)).frame(width: width * 0.85, alignment: .leading)
+                .navigationBarTitleDisplayMode(.inline).toolbar {
+                    ToolbarItem {
                         HStack {
-                            if conversation.messages.last!.instagramStoryMention != nil {
-                                Text("\(conversation.correspondent?.name ?? "") mentioned you in their story").lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(.system(size: 23)).frame(width: width * 0.65, alignment: .leading)
+                            HStack {
+                                AsyncImage(url: URL(string: conversation.correspondent?.profilePicURL ?? "")) { image in image.resizable() } placeholder: { EmptyView() } .frame(width: 37.5, height: 37.5) .clipShape(Circle())
+                                VStack(alignment: .leading, spacing: 0.5) {
+                                    Text(navTitle).bold()
+                                    switch conversation.correspondent?.platform {
+                                    case .instagram:
+                                        Image("instagram_logo").resizable().frame(width: 20.5, height: 20.5)
+                                    case .facebook:
+                                        Image("facebook_logo").resizable().frame(width: 20.5, height: 20.5)
+                                    default:
+                                        EmptyView()
+                                    }
+                                }.offset(y: -2)
+                            }.frame(width: width * 0.60, alignment: .leading).padding().onTapGesture {
+                                openProfile(correspondent: conversation.correspondent!)
                             }
-                            else {
-                                
-                                if conversation.messages.last!.imageAttachment != nil {
-                                    Text("\(conversation.correspondent?.name ?? "") sent you an image").lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(.system(size: 23)).frame(width: width * 0.65, alignment: .leading)
+                            Spacer()
+                            Image(systemName: "magnifyingglass")
+                        }
+                    }
+                }
+            ) {
+                ZStack {
+                    HStack {
+                        AsyncImage(url: URL(string: self.correspondent.profilePicURL ?? "")) { image in image.resizable() } placeholder: { Image(systemName: "person.circle") } .frame(width: 55, height: 55).clipShape(Circle()).offset(y: conversation.messages.last!.message == "" ? -6 : 0)
+                        
+                        VStack(spacing: 0.5) {
+                            Text(navTitle).foregroundColor(self.colorScheme == .dark ? .white : .black).font(.system(size: 23))
+                                .frame(width: width * 0.55, alignment: .leading)
+                            HStack {
+                                if conversation.messages.last!.instagramStoryMention != nil {
+                                    Text("\(conversation.correspondent?.name ?? "") mentioned you in their story").lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(.system(size: 23)).frame(width: width * 0.55, alignment: .leading)
                                 }
-                                
                                 else {
                                     
-                                    if conversation.messages.last!.instagramStoryReply != nil {
-                                        Text("\(conversation.correspondent?.name ?? "") replied to your story").lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(.system(size: 23)).frame(width: width * 0.65, alignment: .leading)
+                                    if conversation.messages.last!.imageAttachment != nil {
+                                        Text("\(conversation.correspondent?.name ?? "") sent you an image").lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(.system(size: 23)).frame(width: width * 0.55, alignment: .leading)
                                     }
                                     
                                     else {
                                         
-                                        if conversation.messages.last!.videoAttachment != nil {
-                                            Text("\(conversation.correspondent?.name ?? "") sent you an video").lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(.system(size: 23)).frame(width: width * 0.65, alignment: .leading)
+                                        if conversation.messages.last!.instagramStoryReply != nil {
+                                            Text("\(conversation.correspondent?.name ?? "") replied to your story").lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(.system(size: 23)).frame(width: width * 0.55, alignment: .leading)
                                         }
                                         
                                         else {
-                                            Text((conversation.messages.last!).message).lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(.system(size: 23)).frame(width: width * 0.65, alignment: .leading)
+                                            
+                                            if conversation.messages.last!.videoAttachment != nil {
+                                                Text("\(conversation.correspondent?.name ?? "") sent you a video").lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(.system(size: 23)).frame(width: width * 0.55, alignment: .leading)
+                                            }
+                                            
+                                            else {
+                                                Text((conversation.messages.last!).message).lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(.system(size: 23)).frame(width: width * 0.55, alignment: .leading)
+                                            }
                                         }
                                     }
                                 }
                             }
-                            
-                            if !conversation.messages.last!.opened {
-                                Circle().foregroundColor(.blue).frame(width: 14)
-                            }
-                            Spacer()
+                        }
+                        
+                        let lastMessageIntervalString = self.makeTimeElapsedString(elapsedTime: conversation.messages.last!.createdTime.timeIntervalSinceNow)
+                        Text(lastMessageIntervalString).lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(.system(size: 11)).frame(width: width * 0.20)
+                        
+                    }
+                    //.offset(x: 10)
+                    
+                    if !conversation.messages.last!.opened {
+                        HStack(spacing: 0) {
+                            Color.blue.frame(width: width * 0.01, height: 75)
+                            Color.gray.frame(width: width * 0.99, height: 75).opacity(0.10)
                         }
                     }
                 }
-            }.navigationBarTitleDisplayMode(.inline).navigationTitle(" ")
+            }
+            
             HorizontalLine(color: .gray, height: 0.75)
-        }.padding(.leading).offset(x: width * 0.03).onChange(of: self.openMessages) {
+            
+        }.onChange(of: self.openMessages) {
             _ in
             DispatchQueue.main.async {
                 for message in self.conversation.messages {
-                    message.opened = true
+                    if !(message.opened) {
+                        message.opened = true
+                        if self.unreadMessages > 0 {
+                            self.unreadMessages = self.unreadMessages - 1
+                        }
+                    }
                 }
             }
         }
+    }
+    
+    func makeTimeElapsedString(elapsedTime: Foundation.TimeInterval) -> String {
+        let years = Int(elapsedTime * -1) / Int(86400 * 365)
+        if years != 0 {
+            return "\(years) years ago"
+        }
+        let months = Int(elapsedTime * -1) / Int(86400 * 30)
+        if months != 0 {
+            return "\(months) months ago"
+        }
+        let days = Int(elapsedTime * -1) / Int(86400)
+        if days != 0 {
+            return "\(days) days ago"
+        }
+        let hours = Int(elapsedTime * -1) / Int(60 * 60)
+        if hours != 0 {
+            return "\(hours) hours ago"
+        }
+        let minutes = Int(elapsedTime * -1) / Int(60)
+        if minutes != 0 {
+            return "\(minutes) minutes ago"
+        }
+        return "now"
     }
 }
 
@@ -855,79 +976,89 @@ struct TextControlView: View {
         
     
     var body: some View {
-        VStack {
-            
-            // Input text box / loading when message is being generated
-            if self.loading {
-                LottieView(name: "97952-loading-animation-blue").frame(width: width, height: height * 0.10, alignment: .leading)
+//        GeometryReader {
+//            geometry in
+            VStack {
+                
+                // Input text box / loading when message is being generated
+                if self.loading {
+                    LottieView(name: "97952-loading-animation-blue").frame(width: width, height: height * 0.10, alignment: .leading)
+                }
+                
+                else {
+                    DynamicHeightTextBox(typingMessage: self.$typingMessage, messageSendError: self.$messageSendError, height: height, width: width, conversation: conversation, page: page).frame(width: width * 0.98)
+                }
+                
+                HStack(spacing: 2) {
+                    
+                    // Auto Generation buttons
+                    AutoGenerateButton(buttonText: "Respond", width: width, height: height, conversationId: self.conversation.id, pageAccessToken: self.page.accessToken, pageName: self.page.name, accountId: self.page.id, loading: self.$loading, typingText: self.$typingMessage, showCouldNotGenerateResponse: self.$showCouldNotGenerateResponse)
+                    
+                    AutoGenerateButton(buttonText: "Sell", width: width, height: height, conversationId: self.conversation.id, pageAccessToken: self.page.accessToken, pageName: self.page.name, accountId: self.page.id, loading: self.$loading, typingText: self.$typingMessage, showCouldNotGenerateResponse: self.$showCouldNotGenerateResponse)
+                    
+                    AutoGenerateButton(buttonText: "Yes", width: width, height: height, conversationId: self.conversation.id, pageAccessToken: self.page.accessToken, pageName: self.page.name, accountId: self.page.id, loading: self.$loading, typingText: self.$typingMessage, showCouldNotGenerateResponse: self.$showCouldNotGenerateResponse)
+                    
+                    AutoGenerateButton(buttonText: "No", width: width, height: height, conversationId: self.conversation.id, pageAccessToken: self.page.accessToken, pageName: self.page.name, accountId: self.page.id, loading: self.$loading, typingText: self.$typingMessage, showCouldNotGenerateResponse: self.$showCouldNotGenerateResponse)
+                    
+                    DeleteTypingTextButton(width: self.width, height: self.height, typingText: self.$typingMessage)
+                    
+                }.frame(width: width)
             }
-            
-            else {
-                DynamicHeightTextBox(typingMessage: self.$typingMessage).frame(width: width * 0.9, alignment: .leading).padding(.trailing).offset(x: -5)
-            }
-            
-            HStack(spacing: 2) {
+            .padding(.bottom)
+            .padding(.top)
+       // }
+    }
+}
+
+
+struct MessageDateHeaderView: View {
+    let msg: Message
+    let width: CGFloat
+    let dateString: String
+    
+    init (msg: Message, width: CGFloat) {
+        self.msg = msg
+        self.width = width
                 
-                // Auto Generation buttons
-                AutoGenerateButton(buttonText: "Respond", width: width, height: height, conversationId: self.conversation.id, pageAccessToken: self.page.accessToken, pageName: self.page.name, accountId: self.page.id, loading: self.$loading, typingText: self.$typingMessage, showCouldNotGenerateResponse: self.$showCouldNotGenerateResponse)
-                
-                AutoGenerateButton(buttonText: "Sell", width: width, height: height, conversationId: self.conversation.id, pageAccessToken: self.page.accessToken, pageName: self.page.name, accountId: self.page.id, loading: self.$loading, typingText: self.$typingMessage, showCouldNotGenerateResponse: self.$showCouldNotGenerateResponse)
-                
-                AutoGenerateButton(buttonText: "Yes", width: width, height: height, conversationId: self.conversation.id, pageAccessToken: self.page.accessToken, pageName: self.page.name, accountId: self.page.id, loading: self.$loading, typingText: self.$typingMessage, showCouldNotGenerateResponse: self.$showCouldNotGenerateResponse)
-                
-                AutoGenerateButton(buttonText: "No", width: width, height: height, conversationId: self.conversation.id, pageAccessToken: self.page.accessToken, pageName: self.page.name, accountId: self.page.id, loading: self.$loading, typingText: self.$typingMessage, showCouldNotGenerateResponse: self.$showCouldNotGenerateResponse)
-                
-                // Send message button
-                Button(
-                    action: {
-                        self.sendMessage(message: self.typingMessage, to: conversation.correspondent!) {
-                            response in
-                            self.messageSendError = (response["error"] as? [String: Any])?["message"] as? String ?? ""
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
-                                self.messageSendError = ""
-                            }
-                        }
-                    }
-                ) {
-                    Image(systemName: "paperplane.circle.fill").font(.system(size: 35))
-                }.frame(width: width * 0.215, height: height * 0.10, alignment: .center)
-                
-            }.frame(width: width)
+        let dates = Calendar.current.dateComponents([.hour, .minute, .month, .day], from: msg.createdTime)
+        let today = Calendar.current.dateComponents([.month, .day], from: Date())
+        let yesterday = Calendar.current.dateComponents([.month, .day], from: Date.yesterday)
+        var dateString = "\(monthMap[dates.month!]!) \(dates.day!) at \(dates.hour! > 12 ? dates.hour! - 12 : dates.hour!):\(String(format: "%02d", dates.minute!)) \(dates.hour! > 12 ? "PM" : "AM")"
+        if dates.month! == today.month! && dates.day! == today.day! {
+            dateString = "Today"
         }
-        .padding(.bottom)
-        .padding(.top)
+        if dates.month! == yesterday.month! && dates.day! == yesterday.day! {
+            dateString = "Yesterday"
+        }
+        self.dateString = dateString
     }
     
-    
-    func sendMessage(message: String, to: MetaUser, completion: @escaping ([String: Any]) -> Void) {
-        // TODO: Add an error alert if the message cannot send
-        /// API Reference: https://developers.facebook.com/docs/messenger-platform/reference/send-api/
-        let urlString = "https://graph.facebook.com/v16.0/\(page.id)/messages?access_token=\(page.accessToken)"
-        let data: [String: Any] = ["recipient": ["id": to.id], "message": ["text": message]]
-        let jsonData = try? JSONSerialization.data(withJSONObject: data)
-        
-        if jsonData != nil {
-            print("Message Data not Nil")
-            postRequest(urlString: urlString, data: jsonData!) {
-                sentMessageData in
-                let messageId = sentMessageData["message_id"] as? String
-                
-                if messageId != nil {
-                    DispatchQueue.main.async {
-                        let createdDate = Date(timeIntervalSince1970: NSDate().timeIntervalSince1970)
-                        print(Date().dateToFacebookString(date: createdDate), "sent", NSDate().timeIntervalSince1970)
-                        var newMesssage = Message(id: messageId!, message: message, to: to, from: page.pageUser!, createdTimeDate: createdDate)
-                        newMesssage.opened = true
-                        self.conversation.messages.append(newMesssage)
-                        self.typingMessage = ""
-                    }
-                }
-                completion(sentMessageData)
-            }
-        }
-        else {
-            completion(["error": ["message": "Could not encode message data"]])
-        }
+    var body: some View {
+        Text(self.dateString)
+            .font(.system(size: 10))
+            .foregroundColor(.gray)
+            .frame(width: width, alignment: .center)
+    }
+}
+
+
+extension Date {
+    static var yesterday: Date { return Date().dayBefore }
+    static var tomorrow:  Date { return Date().dayAfter }
+    var dayBefore: Date {
+        return Calendar.current.date(byAdding: .day, value: -1, to: noon)!
+    }
+    var dayAfter: Date {
+        return Calendar.current.date(byAdding: .day, value: 1, to: noon)!
+    }
+    var noon: Date {
+        return Calendar.current.date(bySettingHour: 12, minute: 0, second: 0, of: self)!
+    }
+    var month: Int {
+        return Calendar.current.component(.month,  from: self)
+    }
+    var isLastDayOfMonth: Bool {
+        return dayAfter.month != month
     }
 }
 
@@ -947,6 +1078,9 @@ struct MessageThreadView: View {
                 value in
                 VStack {
                     ForEach(conversation.messages, id: \.self.uid) { msg in
+                        if msg.dayStarter != nil && msg.dayStarter! {
+                            MessageDateHeaderView(msg: msg, width: width)
+                        }
                         MessageView(width: width, currentMessage: msg, conversation: conversation, page: page).id(msg.id)
                     }
                 }.onChange(of: typingMessage) { _ in
@@ -1153,12 +1287,32 @@ struct AutoGenerateButton: View {
             }
         }) {
             Text(self.buttonText)
-                .foregroundColor(.white).frame(width: width * 0.18, height: height * 0.07)
+                .foregroundColor(.white).frame(width: width * 0.19, height: height * 0.07)
              .background(Color.blue)
              .clipShape(Rectangle()).cornerRadius(6)
             }
    }
 }
+
+
+struct DeleteTypingTextButton: View {
+    let width: CGFloat
+    let height: CGFloat
+    @Binding var typingText: String
+    
+    var body: some View {
+        Button(action: {
+            self.typingText = ""
+        }) {
+            Image(systemName: "trash")
+                .foregroundColor(.white).frame(width: width * 0.19, height: height * 0.07)
+             .background(Color.red)
+             .clipShape(Rectangle()).cornerRadius(6)
+            }
+   }
+}
+
+
 
 
 func generateResponse(responseType: String, conversationId: String, pageAccessToken: String, pageName: String, accountId: String, completion: @escaping (String) -> Void) {
@@ -1195,33 +1349,96 @@ func generateResponse(responseType: String, conversationId: String, pageAccessTo
 
 struct DynamicHeightTextBox: View {
     @Binding var typingMessage: String
+    @Binding var messageSendError: String
     @State var textEditorHeight : CGFloat = 100
     @Environment(\.colorScheme) var colorScheme
-    var maxHeight : CGFloat = 5000
+    
+    var maxHeight : CGFloat = 10000
+    let height: CGFloat
+    let width: CGFloat
+    let conversation: Conversation
+    let page: MetaPage
     
     var body: some View {
-        ZStack(alignment: .leading) {
-            Text(typingMessage)
-                .lineLimit(5)
-                .font(.system(.body))
-                .foregroundColor(.clear)
-                .padding(15)
-                .background(GeometryReader {
-                    Color.clear.preference(key: ViewHeightKey.self,
-                                           value: $0.frame(in: .local).size.height)
-                })
-
-            TextEditor(text: $typingMessage)
-                .font(.system(.body))
-                .padding(7)
-                .frame(height: min(textEditorHeight, maxHeight))
-                .background(self.colorScheme == .dark ? Color.black : Color.white)
+            ZStack(alignment: .leading) {
+                
+                Text(typingMessage)
+                    .lineLimit(5)
+                    .font(.system(.body))
+                    .foregroundColor(.clear)
+                    .padding(15)
+                    .background(GeometryReader {
+                        Color.clear.preference(key: ViewHeightKey.self,
+                                               value: $0.frame(in: .local).size.height)
+                    })
+                    .frame(width: width * 0.80)
+                
+                TextEditor(text: $typingMessage)
+                    .font(.system(.body))
+                    .padding(7)
+                    .frame(height: min(textEditorHeight, maxHeight))
+                    .background(self.colorScheme == .dark ? Color.black : Color.white)
+                    .frame(width: width * 0.80)
+                
+                // Send message button
+                Button(
+                    action: {
+                        self.sendMessage(message: self.typingMessage, to: conversation.correspondent!) {
+                            response in
+                            self.messageSendError = (response["error"] as? [String: Any])?["message"] as? String ?? ""
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
+                                  self.messageSendError = ""
+                            }
+                        }
+                    }
+                ) {
+                    Image(systemName: "paperplane.circle.fill").font(.system(size: 35))
+                        .position(x: width * 0.90, y: 10).frame(height: 20)
+                }
+                
+            }
+            .overlay(
+                RoundedRectangle(cornerRadius: 5, style: .continuous)
+                    .strokeBorder(Color.gray, lineWidth: 1)
+            )
+            .onPreferenceChange(ViewHeightKey.self) { textEditorHeight = $0 }
         }
-        .overlay(
-            RoundedRectangle(cornerRadius: 5, style: .continuous)
-                .strokeBorder(Color.gray, lineWidth: 1)
-        )
-        .onPreferenceChange(ViewHeightKey.self) { textEditorHeight = $0 }
+    
+    
+    func sendMessage(message: String, to: MetaUser, completion: @escaping ([String: Any]) -> Void) {
+        // TODO: Add an error alert if the message cannot send
+        /// API Reference: https://developers.facebook.com/docs/messenger-platform/reference/send-api/
+        let urlString = "https://graph.facebook.com/v16.0/\(page.id)/messages?access_token=\(page.accessToken)"
+        let data: [String: Any] = ["recipient": ["id": to.id], "message": ["text": message]]
+        let jsonData = try? JSONSerialization.data(withJSONObject: data)
+        
+        if jsonData != nil {
+            print("Message Data not Nil")
+            postRequest(urlString: urlString, data: jsonData!) {
+                sentMessageData in
+                let messageId = sentMessageData["message_id"] as? String
+                
+                if messageId != nil {
+                    DispatchQueue.main.async {
+                        let createdDate = Date(timeIntervalSince1970: NSDate().timeIntervalSince1970)
+                        print(Date().dateToFacebookString(date: createdDate), "sent", NSDate().timeIntervalSince1970)
+                        let lastDate = Calendar.current.dateComponents([.month, .day], from: self.conversation.messages.last!.createdTime)
+                        let messageDate = Calendar.current.dateComponents([.month, .day], from: createdDate)
+                        
+                        let dayStarter = lastDate.month! != messageDate.month! || lastDate.day! != messageDate.day!
+                        
+                        var newMesssage = Message(id: messageId!, message: message, to: to, from: page.pageUser!, dayStarter: dayStarter, createdTimeDate: createdDate)
+                        newMesssage.opened = true
+                        self.conversation.messages.append(newMesssage)
+                        self.typingMessage = ""
+                    }
+                }
+                completion(sentMessageData)
+            }
+        }
+        else {
+            completion(["error": ["message": "Could not encode message data"]])
+        }
     }
     
 }
@@ -1245,37 +1462,48 @@ struct MessageView : View {
     
     var body: some View {
         let isCurrentUser = page.businessAccountId == currentMessage.from.id || page.id == currentMessage.from.id
+        let dates = Calendar.current.dateComponents([.hour, .minute], from: currentMessage.createdTime)
         if !isCurrentUser {
-            HStack {
-                AsyncImage(url: URL(string: self.correspondent.profilePicURL ?? "")) { image in image.resizable() } placeholder: { Image(systemName: "person.circle") } .frame(width: 25, height: 25, alignment: .bottom) .clipShape(Circle()).padding(.leading).onTapGesture {
-                    if correspondent.username != nil {
-                        let instagramHooks = "instagram://user?username=\(correspondent.username!)"
-                        let instagramUrl = URL(string: instagramHooks)
-                        if instagramUrl != nil {
-                            if UIApplication.shared.canOpenURL(instagramUrl!) {
-                              UIApplication.shared.open(instagramUrl!)
-                            }
-                        }
+            VStack(spacing: 1) {
+                HStack {
+                    AsyncImage(url: URL(string: self.correspondent.profilePicURL ?? "")) { image in image.resizable() } placeholder: { Image(systemName: "person.circle") } .frame(width: 25, height: 25, alignment: .bottom) .clipShape(Circle()).padding(.leading).onTapGesture {
+                            openProfile(correspondent: correspondent)
                     }
-                    else {
-                        if correspondent.name != nil {
-                            print(correspondent.name, correspondent.email, correspondent.username)
-                            let facebookHooks = "fb://profile/\(correspondent.email!)"
-                            let facebookUrl = URL(string: facebookHooks)
-                            if facebookUrl != nil {
-                                if UIApplication.shared.canOpenURL(facebookUrl!) {
-                                  UIApplication.shared.open(facebookUrl!)
-                                }
-                            }
-                        }
-                    }
-                }
-                MessageBlurbView(contentMessage: currentMessage, isCurrentUser: isCurrentUser)
-            }.frame(width: width * 0.875, alignment: .leading).padding(.trailing).offset(x: -20)
+                    MessageBlurbView(contentMessage: currentMessage, isCurrentUser: isCurrentUser)
+                }.frame(width: width * 0.875, alignment: .leading).padding(.trailing).offset(x: -20)
+                
+                Text("\(dates.hour! > 12 ? dates.hour! - 12 : dates.hour!):\(String(format: "%02d", dates.minute!)) \(dates.hour! > 12 ? "PM" : "AM")")
+                    .frame(width: width * 0.875, alignment: .leading).padding(.trailing)
+                    .font(.system(size: 9))
+                    .foregroundColor(.gray)
+            }
         }
         else {
-            MessageBlurbView(contentMessage: currentMessage, isCurrentUser: isCurrentUser)
-                .frame(width: width * 0.875, alignment: .trailing).padding(.leading).padding(.trailing)
+            VStack(spacing: 1) {
+                MessageBlurbView(contentMessage: currentMessage, isCurrentUser: isCurrentUser)
+                    .frame(width: width * 0.875, alignment: .trailing).padding(.leading).padding(.trailing)
+                Text("\(dates.hour! > 12 ? dates.hour! - 12 : dates.hour!):\(String(format: "%02d", dates.minute!)) \(dates.hour! > 12 ? "PM" : "AM")")
+                    .frame(width: width * 0.875, alignment: .trailing).padding(.leading).padding(.trailing)
+                    .font(.system(size: 9))
+                    .foregroundColor(.gray)
+            }
+        }
+    }
+}
+
+
+func openProfile(correspondent: MetaUser) {
+    var hook = ""
+    switch correspondent.platform {
+        case .instagram:
+            hook = "instagram://user?username=\(correspondent.username!)"
+        case .facebook:
+            hook = "fb://profile/\(correspondent.email!)"
+    }
+    let hookUrl = URL(string: hook)
+    if hookUrl != nil {
+        if UIApplication.shared.canOpenURL(hookUrl!) {
+            UIApplication.shared.open(hookUrl!)
         }
     }
 }
@@ -1608,8 +1836,9 @@ class Message: Hashable, Equatable {
     var instagramStoryReply: InstagramStoryReply?
     var imageAttachment: ImageAttachment?
     var videoAttachment: VideoAttachment?
+    var dayStarter: Bool? = nil
     
-    init (id: String, message: String, to: MetaUser, from: MetaUser, createdTimeString: String? = nil, createdTimeDate: Date? = nil, instagramStoryMention: InstagramStoryMention? = nil, instagramStoryReply: InstagramStoryReply? = nil, imageAttachment: ImageAttachment? = nil, videoAttachment: VideoAttachment? = nil) {
+    init (id: String, message: String, to: MetaUser, from: MetaUser, dayStarter: Bool? = nil, createdTimeString: String? = nil, createdTimeDate: Date? = nil, instagramStoryMention: InstagramStoryMention? = nil, instagramStoryReply: InstagramStoryReply? = nil, imageAttachment: ImageAttachment? = nil, videoAttachment: VideoAttachment? = nil) {
         self.id = id
         self.message = message
         self.to = to
@@ -1624,6 +1853,7 @@ class Message: Hashable, Equatable {
         self.instagramStoryReply = instagramStoryReply
         self.imageAttachment = imageAttachment
         self.videoAttachment = videoAttachment
+        self.dayStarter = dayStarter
     }
 
     func hash(into hasher: inout Hasher) {
@@ -1738,13 +1968,15 @@ class MetaUser: Hashable, Equatable, ObservableObject {
     let username: String?
     let email: String?
     let name: String?
+    let platform: MessagingPlatform
     @Published var profilePicURL: String? = nil
     
-    init(id: String, username: String?, email: String?, name: String?) {
+    init(id: String, username: String?, email: String?, name: String?, platform: MessagingPlatform) {
         self.id = id
         self.username = username
         self.email = email
         self.name = name
+        self.platform = platform
     }
     
     func hash(into hasher: inout Hasher) {
@@ -1755,7 +1987,6 @@ class MetaUser: Hashable, Equatable, ObservableObject {
         return lhs.id == rhs.id
     }
     
-    //@MainActor
     func getProfilePicture(access_token: String) {
         let urlString = "https://graph.facebook.com/v16.0/\(self.id)?access_token=\(access_token)"
         completionGetRequest(urlString: urlString) {

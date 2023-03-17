@@ -53,9 +53,9 @@ struct ContentView: View {
                                 ZStack {
                                     VStack {
     
-                                        Image(systemName: "line.3.horizontal").font(.system(size: 25)).onTapGesture(perform: {
-                                            withAnimation {self.showingMenu.toggle()}
-                                        }).frame(width: geometry.size.width, height: geometry.size.height * 0.05, alignment: .leading).padding(.leading)
+//                                        Image(systemName: "line.3.horizontal").font(.system(size: 25)).onTapGesture(perform: {
+//                                            withAnimation {self.showingMenu.toggle()}
+//                                        }).frame(width: geometry.size.width, height: geometry.size.height * 0.05, alignment: .leading).padding(.leading)
     
                                         TabView(selection: self.$selection) {
                                             InboxView().environmentObject(self.session)
@@ -76,7 +76,8 @@ struct ContentView: View {
                                                 }
                                                 .tag(3)
                                             
-                                        }.ignoresSafeArea(.keyboard).frame(height: geometry.size.height * 0.95)
+                                        }.ignoresSafeArea(.keyboard)
+                                            //.frame(height: geometry.size.height * 0.95)
                                     }
                                     .disabled(self.showingMenu ? true : false)
     
