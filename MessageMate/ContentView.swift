@@ -8,14 +8,34 @@
 import SwiftUI
 import FBSDKLoginKit
 
+
+struct FooAnchorData: Equatable {
+    var anchor: Anchor<CGRect>? = nil
+    static func == (lhs: FooAnchorData, rhs: FooAnchorData) -> Bool {
+        return false
+    }
+}
+
+
+struct FooAnchorPreferenceKey: PreferenceKey {
+    static let defaultValue = FooAnchorData()
+    static func reduce(value: inout FooAnchorData, nextValue: () -> FooAnchorData) {
+        value.anchor = nextValue().anchor ?? value.anchor
+    }
+}
+
+
 struct ContentView: View {
+    @Environment(\.colorScheme) var colorScheme
     @EnvironmentObject var session: SessionStore
     @State var showingMenu: Bool = false
     @State private var selection = 1
+    var tabsCount: CGFloat = 3
+    var badgePosition: CGFloat = 1
     let loginManager = LoginManager()
     
     init() {
-        UITabBar.appearance().barTintColor = UIColor(Color.offWhite)
+        UITabBar.appearance().barTintColor = self.colorScheme == .light ? UIColor(Color.black) : UIColor(Color.black)
     }
     
     var body: some View {
@@ -55,18 +75,15 @@ struct ContentView: View {
     
                             case true:
                                 ZStack {
-                                    VStack {
-    
-//                                        Image(systemName: "line.3.horizontal").font(.system(size: 25)).onTapGesture(perform: {
-//                                            withAnimation {self.showingMenu.toggle()}
-//                                        }).frame(width: geometry.size.width, height: geometry.size.height * 0.05, alignment: .leading).padding(.leading)
-    
+                                    ZStack(alignment: .bottomLeading) {
                                         TabView(selection: self.$selection) {
                                             InboxView().environmentObject(self.session)
                                                 .tabItem {
-                                                    Label("Inbox", systemImage: "mail.stack.fill")
+                                                    var text = "Inbox"
+                                                    Label(text, systemImage: "mail.stack.fill")
                                                 }
                                                 .tag(1)
+                                                
     
                                             TutorialView().environmentObject(self.session)
                                                 .tabItem {
@@ -82,7 +99,12 @@ struct ContentView: View {
                                             
                                         }.ignoresSafeArea(.keyboard)
                                             .accentColor(Color("aoBlue"))
-                                            //.frame(height: geometry.size.height * 0.95)
+                                        
+                                        if self.session.unreadMessages > 0 {
+                                            Image(systemName: "\(self.session.unreadMessages).circle").foregroundColor(Color.red).font(.system(size: 14))
+                                                .offset(x: ( ( 2 * self.badgePosition ) - 1 ) * ( geometry.size.width / ( 2 * self.tabsCount ) ) + 8, y: -35)
+                                                .opacity(self.session.unreadMessages == 0 ? 0 : 1)
+                                        }
                                     }
                                     .disabled(self.showingMenu ? true : false)
     

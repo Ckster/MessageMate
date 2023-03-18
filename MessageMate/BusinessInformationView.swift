@@ -16,6 +16,7 @@ struct BusinessInformationView: View {
     let db = Firestore.firestore()
     
     // TODO: Make sure users can't delete everything
+    // TODO: Update when screen goes away in case user inputs info and then doesn't navigate back
 
     let subViewDict: Dictionary<String, AnyView> = [
         "General": AnyView(GeneralInfoSubView()),
@@ -218,27 +219,30 @@ struct GeneralInfoSubView: View {
         else {
             GeometryReader { geometry in
                 VStack {
-                    Text("General Information").bold().foregroundColor(textColor).font(.system(size: 40)).frame(width: geometry.size.width, alignment: .center).padding(.leading)
+                    Text("General Information").bold().foregroundColor(textColor).font(.system(size: 40)).frame(width: geometry.size.width, alignment: .center)
+                        //.padding(.leading)
                     //Text("Please input some general info:").font(.system(size: 18)).frame(width: geometry.size.width, alignment: .leading).padding().padding(.leading)
                     
                     ScrollView {
-                        Text("Sender Name").bold().font(.system(size: 20)).frame(width: geometry.size.width, height: geometry.size.height * 0.10, alignment: .leading).padding(.leading)
+                        Text("Sender Name").bold().font(.system(size: 20)).frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.10, alignment: .leading)
                         TextEditor(text: $senderName).frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.06)
                                 .overlay(RoundedRectangle(cornerRadius: 8)
                                     .stroke(Color.secondary).opacity(0.75))
                                 .focused($isFieldFocused)
-                                .offset(x: -20)
+                                //.offset(x: -20)
                         
-                        Text("Sender Characteristics").bold().font(.system(size: 20)).frame(width: geometry.size.width, height: geometry.size.height * 0.10, alignment: .leading).padding(.leading)
+                        Text("Sender Characteristics").bold().font(.system(size: 20)).frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.10, alignment: .leading)
                         TextEditor(text: $senderCharacteristics).frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.35)
                                 .overlay(RoundedRectangle(cornerRadius: 8)
                                     .stroke(Color.secondary).opacity(0.75))
                                 .focused($isFieldFocused)
-                                .offset(x: -20)
+                                //.offset(x: -20)
                                 
                     }
                     
-                }.offset(x: -15).onDisappear(perform: {
+                }
+                //.offset(x: -15)
+                    .onDisappear(perform: {
                     self.updateInfo()
                 }).onTapGesture {
                     self.isFieldFocused = false
@@ -294,33 +298,35 @@ struct BusinessInfoSubView: View {
         else {
             GeometryReader { geometry in
                 VStack {
-                    Text("Business Information").bold().foregroundColor(textColor).font(.system(size: 40)).frame(width: geometry.size.width, alignment: .leading).padding(.leading)
-                    Text("Please input the following information about your business:").font(.system(size: 18)).frame(width: geometry.size.width, alignment: .leading).padding().padding(.leading)
+                    Text("Business Information").bold().foregroundColor(textColor).font(.system(size: 40)).frame(width: geometry.size.width, alignment: .center)
+//                    Text("Please input the following information about your business:").font(.system(size: 18)).frame(width: geometry.size.width, alignment: .leading).padding().padding(.leading)
                     
                     ScrollView {
-                        Text("Address").bold().font(.system(size: 20)).frame(width: geometry.size.width, height: geometry.size.height * 0.10, alignment: .leading).padding(.leading)
+                        Text("Address").bold().font(.system(size: 20)).frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.10, alignment: .leading)
                         TextEditor(text: $address).frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.06)
                                 .overlay(RoundedRectangle(cornerRadius: 8)
                                     .stroke(Color.secondary).opacity(0.75))
                                 .focused($isFieldFocused)
-                                .offset(x: -20)
+                                //.offset(x: -20)
                         
-                        Text("Business Name").bold().font(.system(size: 20)).frame(width: geometry.size.width, height: geometry.size.height * 0.10, alignment: .leading).padding(.leading)
+                        Text("Business Name").bold().font(.system(size: 20)).frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.10, alignment: .leading)
                         TextEditor(text: $businessName).frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.06)
                                 .overlay(RoundedRectangle(cornerRadius: 8)
                                     .stroke(Color.secondary).opacity(0.75))
                                 .focused($isFieldFocused)
-                                .offset(x: -20)
+                                //.offset(x: -20)
                         
-                        Text("Industry").bold().font(.system(size: 20)).frame(width: geometry.size.width, height: geometry.size.height * 0.10, alignment: .leading).padding(.leading)
+                        Text("Industry").bold().font(.system(size: 20)).frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.10, alignment: .leading).padding(.leading)
                         TextEditor(text: $industry).frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.06)
                                 .overlay(RoundedRectangle(cornerRadius: 8)
                                     .stroke(Color.secondary).opacity(0.75))
                                 .focused($isFieldFocused)
-                                .offset(x: -20)
+                                //.offset(x: -20)
                     }
                     
-                }.offset(x: -15).onDisappear(perform: {
+                }
+                //.offset(x: -15)
+                .onDisappear(perform: {
                     self.updateInfo()
                 }).onTapGesture {
                     self.isFieldFocused = false

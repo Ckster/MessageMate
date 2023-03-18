@@ -51,6 +51,8 @@ class SessionStore : NSObject, ObservableObject {
     // TODO: Add in actual workflow to make this false when it needs to be
     @Published var onboardingCompleted: Bool? = nil
     
+    @Published var unreadMessages: Int = 0
+    
     private var db = Firestore.firestore()
     let loginManager = LoginManager()
     

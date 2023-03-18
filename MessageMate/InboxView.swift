@@ -39,6 +39,7 @@ enum MessagingPlatform: CaseIterable {
 // TODO: Add support for post messages if possible
 // TODO: Look into audio message if possible
 // TODO: Add full screen for story mentions and replies
+// TODO: Finish adding push notifications. Back end mostly but also nav to conversation on app
 
 struct InboxView: View {
     @EnvironmentObject var session: SessionStore
@@ -52,7 +53,7 @@ struct InboxView: View {
         else {
             ConversationsView().environmentObject(self.session)
         }
-        
+
     }
 }
 
@@ -63,7 +64,7 @@ struct ConversationsView: View {
     @Environment(\.scenePhase) var scenePhase
     @State var loading: Bool = true
     @State var firstAppear: Bool = true
-    @State var unreadMessages: Int = 0
+    @State var sortedConvervations: [Conversation]? = nil
     let db = Firestore.firestore()
     
     var body: some View {
@@ -85,23 +86,29 @@ struct ConversationsView: View {
                     }
                     else {
                         
-                        Text("You have \(self.unreadMessages == 0 ? "no" : String(self.unreadMessages)) new \(self.unreadMessages != 1 ? "messages" : "message")").foregroundColor(.gray).font(.system(size: 15)).padding(.leading).padding(.bottom)
+                        Text("You have \(self.session.unreadMessages == 0 ? "no" : String(self.session.unreadMessages)) new \(self.session.unreadMessages != 1 ? "messages" : "message")").foregroundColor(.gray).font(.system(size: 15)).padding(.leading).padding(.bottom)
                         
                         ScrollView {
                             if self.session.selectedPage != nil {
+                                
                                 PullToRefresh(coordinateSpaceName: "pullToRefresh") {
                                     self.loading = true
                                     Task {
                                         await self.updateConversations(page: self.session.selectedPage!)
                                     }
                                 }
+                                
                                 if self.session.selectedPage!.conversations.count == 0 {
                                     Text("No conversations. Pull down to refresh.")
                                 }
+                                
                                 else {
-                                    ForEach(self.session.selectedPage!.conversations.sorted {$0.messages.last?.createdTime ?? Date() > $1.messages.last?.createdTime ?? Date()}, id:\.self) { conversation in
+                                    var sortedConversations = self.session.selectedPage!.conversations.sorted {$0.messages.last!.createdTime > $1.messages.last!.createdTime}
+                                    ForEach(sortedConversations, id:\.self) { conversation in
                                         if conversation.messages.count > 0 {
-                                            ConversationNavigationView(conversation: conversation, width: geometry.size.width, page: self.session.selectedPage!, unreadMessages: self.$unreadMessages)
+                                            ConversationNavigationView(conversation: conversation, width: geometry.size.width, page: self.session.selectedPage!).environmentObject(self.session).onAppear(perform: {
+                                                print("REFRESHING")
+                                            })
                                         }
                                     }
                                 }
@@ -255,7 +262,7 @@ struct ConversationsView: View {
                                                     Task {
                                                         await MainActor.run {
                                                             conversation.messages = sortMessages(messages: newMessages)
-                                                            self.unreadMessages = self.unreadMessages + 1
+                                                            self.session.unreadMessages = self.session.unreadMessages + 1
                                                         }
                                                     }
                                                 }
@@ -268,7 +275,7 @@ struct ConversationsView: View {
                                     if !conversationFound {
                                         Task {
                                             await self.updateConversations(page: self.session.selectedPage!)
-                                            self.unreadMessages = self.unreadMessages + 1
+                                            self.session.unreadMessages = self.session.unreadMessages + 1
                                         }
                                     }
                                 }
@@ -456,7 +463,6 @@ struct ConversationsView: View {
                         var newMessages: [Message] = []
                         
                         for message in messageData! {
-                            // TODO: Add check for is_deleted
                             print(message)
                             let id = message["id"] as? String
                             let createdTime = message["created_time"] as? String
@@ -802,21 +808,19 @@ struct ConversationNavigationView: View {
     let page: MetaPage
     @Environment(\.colorScheme) var colorScheme
     @ObservedObject var correspondent: MetaUser
-    @State var openMessages: Bool = false
-    @Binding var unreadMessages: Int
+    //@State var openMessages: Bool = false
     
-    init(conversation: Conversation, width: CGFloat, page: MetaPage, unreadMessages: Binding<Int>) {
+    init(conversation: Conversation, width: CGFloat, page: MetaPage) {
         self.conversation = conversation
         self.width = width
         self.page = page
         self.correspondent = conversation.correspondent!
-        _unreadMessages = unreadMessages
     }
     
     var body: some View {
         VStack {
             let navTitle = conversation.correspondent?.name ?? conversation.correspondent?.username ?? conversation.correspondent?.email ?? ""
-            NavigationLink(destination: ConversationView(conversation: conversation, page: page, openMessages: self.$openMessages)
+            NavigationLink(destination: ConversationView(conversation: conversation, page: page).environmentObject(self.session)
                 .navigationBarTitleDisplayMode(.inline).toolbar {
                     ToolbarItem {
                         HStack {
@@ -854,24 +858,24 @@ struct ConversationNavigationView: View {
                         
                             HStack {
                                 if conversation.messages.last!.instagramStoryMention != nil {
-                                    Text("\(conversation.correspondent?.name ?? "") mentioned you in their story").lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(.system(size: 23)).frame(width: width * 0.55, alignment: .leading)
+                                    Text("\(conversation.correspondent?.name ?? "") mentioned you in their story").lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(.system(size: 15)).frame(width: width * 0.55, alignment: .leading)
                                 }
                                 else {
                                     
                                     if conversation.messages.last!.imageAttachment != nil {
-                                        Text("\(conversation.correspondent?.name ?? "") sent you an image").lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(.system(size: 23)).frame(width: width * 0.55, alignment: .leading)
+                                        Text("\(conversation.correspondent?.name ?? "") sent you an image").lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(.system(size: 15)).frame(width: width * 0.55, alignment: .leading)
                                     }
                                     
                                     else {
                                         
                                         if conversation.messages.last!.instagramStoryReply != nil {
-                                            Text("\(conversation.correspondent?.name ?? "") replied to your story").lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(.system(size: 23)).frame(width: width * 0.55, alignment: .leading)
+                                            Text("\(conversation.correspondent?.name ?? "") replied to your story").lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(.system(size: 15)).frame(width: width * 0.55, alignment: .leading)
                                         }
                                         
                                         else {
                                             
                                             if conversation.messages.last!.videoAttachment != nil {
-                                                Text("\(conversation.correspondent?.name ?? "") sent you a video").lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(.system(size: 23)).frame(width: width * 0.55, alignment: .leading)
+                                                Text("\(conversation.correspondent?.name ?? "") sent you a video").lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(.system(size: 15)).frame(width: width * 0.55, alignment: .leading)
                                             }
                                             
                                             else {
@@ -891,8 +895,8 @@ struct ConversationNavigationView: View {
                     
                     if !conversation.messages.last!.opened {
                         HStack(spacing: 0) {
-                            Color.blue.frame(width: width * 0.01, height: 75)
-                            Color.gray.frame(width: width * 0.99, height: 75).opacity(0.10)
+                            Color("aoBlue").frame(width: width * 0.01, height: 75)
+                            Color.offWhite.frame(width: width * 0.99, height: 75).opacity(0.10)
                         }
                     }
                 }
@@ -900,21 +904,19 @@ struct ConversationNavigationView: View {
             
             HorizontalLine(color: .gray, height: 0.75)
             
-        }.onChange(of: self.openMessages) {
-            _ in
-            Task {
-                await MainActor.run {
-                    for message in self.conversation.messages {
-                        if !(message.opened) {
-                            message.opened = true
-                            if self.unreadMessages > 0 {
-                                self.unreadMessages = self.unreadMessages - 1
-                            }
-                        }
-                    }
-                }
-            }
         }
+//        .onChange(of: self.openMessages) {
+//            _ in
+//            Task {
+//                await MainActor.run {
+//                    for message in self.conversation.messages {
+//                        if !(message.opened) {
+//                            message.opened = true
+//                        }
+//                    }
+//                }
+//            }
+//        }
     }
     
     func makeTimeElapsedString(elapsedTime: Foundation.TimeInterval) -> String {
@@ -962,6 +964,7 @@ struct FacebookAuthenticateView: View {
 
 
 struct TextControlView: View {
+    @EnvironmentObject var session: SessionStore
     @Binding var showCouldNotGenerateResponse: Bool
     @Binding var messageSendError: String
     @Binding var typingMessage: String
@@ -984,7 +987,7 @@ struct TextControlView: View {
                 }
                 
                 else {
-                    DynamicHeightTextBox(typingMessage: self.$typingMessage, messageSendError: self.$messageSendError, height: height, width: width, conversation: conversation, page: page).frame(width: width * 0.925)
+                    DynamicHeightTextBox(typingMessage: self.$typingMessage, messageSendError: self.$messageSendError, height: height, width: width, conversation: conversation, page: page).frame(width: width * 0.925).environmentObject(self.session)
                 }
                 
            //     ZStack {
@@ -1093,6 +1096,14 @@ struct MessageThreadView: View {
                             MessageDateHeaderView(msg: msg, width: width)
                         }
                         MessageView(width: width, currentMessage: msg, conversation: conversation, page: page).id(msg.id)
+                            .onAppear(perform: {
+                            if !msg.opened {
+                                msg.opened = true
+                                if self.session.unreadMessages > 0 {
+                                    self.session.unreadMessages = self.session.unreadMessages - 1
+                                }
+                            }
+                        })
                     }
                 }.onChange(of: typingMessage) { _ in
                     value.scrollTo(conversation.messages.last?.id)
@@ -1123,16 +1134,15 @@ struct ConversationView: View {
     @State var messageSendError: String = ""
     @State var offset = CGSize.zero
     
-    @Binding var openMessages: Bool
+   // @Binding var openMessages: Bool
     
     var maxHeight : CGFloat = 250
     
     let page: MetaPage
 
-    init(conversation: Conversation, page: MetaPage, openMessages: Binding<Bool>) {
+    init(conversation: Conversation, page: MetaPage) {
         self.conversation = conversation
         self.page = page
-        self._openMessages = openMessages
         let appearance = UINavigationBarAppearance()
         appearance.configureWithOpaqueBackground()
             appearance.backgroundColor = UIColor.systemBackground
@@ -1150,7 +1160,10 @@ struct ConversationView: View {
                         self.messageIsFocused = false
                     }
                     
-                    TextControlView(showCouldNotGenerateResponse: self.$showCouldNotGenerateResponse, messageSendError: self.$messageSendError, typingMessage: self.$typingMessage, conversation: self.conversation, height: geometry.size.height, width: geometry.size.width, page: page).focused($messageIsFocused)
+                    TextControlView(showCouldNotGenerateResponse: self.$showCouldNotGenerateResponse, messageSendError: self.$messageSendError, typingMessage: self.$typingMessage, conversation: self.conversation, height: geometry.size.height, width: geometry.size.width, page: page).focused($messageIsFocused).onDisappear(perform: {
+                        print("ON DISAPPEAR")
+                        self.session.selectedPage!.sortConversations()
+                    }).environmentObject(self.session)
                     
                 }
                 .opacity(self.session.videoPlayerUrl != nil || self.session.fullScreenImageUrlString != nil ? 0.10 : 1)
@@ -1247,11 +1260,11 @@ struct ConversationView: View {
                 
             }
         }
-        .onAppear(perform: {
-            self.openMessages.toggle()
-        }).onDisappear(perform: {
-            self.openMessages.toggle()
-        })
+//        .onAppear(perform: {
+//            self.openMessages.toggle()
+//        }).onDisappear(perform: {
+//            self.openMessages.toggle()
+//        })
     }
     
     func rectReader(_ binding: Binding<CGFloat>, _ space: CoordinateSpace = .global) -> some View {
@@ -1306,55 +1319,6 @@ struct AutoGenerateButton: View {
 }
 
 
-struct SimpleButtonStyle: ButtonStyle {
-    let width: CGFloat
-    let height: CGFloat
-    
-    func makeBody(configuration: Self.Configuration) -> some View {
-        configuration.label
-            .background(
-                Group {
-                    if configuration.isPressed {
-                        Circle()
-                            .fill(Color.offWhite)
-                           // .cornerRadius(6)
-                            .overlay(
-                                Circle()
-                                    .stroke(Color.gray, lineWidth: 4)
-                                    .blur(radius: 4)
-                                    //.cornerRadius(6)
-                                    .offset(x: 2, y: 2)
-                                    .mask(Circle().fill(LinearGradient(Color.black, Color.clear))
-                                    //    .cornerRadius(6)
-                                    .frame(width: width * 0.165, height: width * 0.165)
-                                    )
-                            )
-                            .overlay(
-                                Circle()
-                                    .stroke(Color.white, lineWidth: 8)
-                                    .blur(radius: 4)
-                                    //.cornerRadius(6)
-                                    .offset(x: -2, y: -2)
-                                    .mask(Circle().fill(LinearGradient(Color.clear, Color.black))
-                                    //    .cornerRadius(6)
-                                    .frame(width: width * 0.165, height: width * 0.165)
-                                    )
-                            )
-                            .frame(width: width * 0.165, height: width * 0.165)
-                    } else {
-                        Circle()
-                            .fill(Color.offWhite)
-                            .shadow(color: Color.black.opacity(0.2), radius: 10, x: 10, y: 10)
-                            .shadow(color: Color.white.opacity(0.7), radius: 10, x: -5, y: -5)
-                            .frame(width: width * 0.165, height: width * 0.165)
-                           // .cornerRadius(6)
-                    }
-                }
-            )
-    }
-}
-
-
 extension LinearGradient {
     init(_ colors: Color...) {
         self.init(gradient: Gradient(colors: colors), startPoint: .topLeading, endPoint: .bottomTrailing)
@@ -1362,9 +1326,105 @@ extension LinearGradient {
 }
 
 
+struct SimpleButtonStyle: ButtonStyle {
+    let width: CGFloat
+    let height: CGFloat
+    @Environment(\.colorScheme) var colorScheme
+    
+    func makeBody(configuration: Self.Configuration) -> some View {
+        if colorScheme == .light {
+            configuration.label
+                .background(
+                    Group {
+                        if configuration.isPressed {
+                            Circle()
+                                .fill(Color.offWhite)
+                                .overlay(
+                                    Circle()
+                                        .stroke(Color.gray, lineWidth: 4)
+                                        .blur(radius: 4)
+                                        .offset(x: 2, y: 2)
+                                        .mask(Circle().fill(LinearGradient(Color.black, Color.clear)))
+                                        .frame(width: width * 0.165, height: width * 0.165)
+                                )
+                                .overlay(
+                                    Circle()
+                                        .stroke(Color.white, lineWidth: 8)
+                                        .blur(radius: 4)
+                                        .offset(x: -2, y: -2)
+                                        .mask(Circle().fill(LinearGradient(Color.clear, Color.black)))
+                                        .frame(width: width * 0.165, height: width * 0.165)
+                                )
+                                .frame(width: width * 0.165, height: width * 0.165)
+                        } else {
+                            Circle()
+                                .fill(Color.offWhite)
+                                .shadow(color: Color.black.opacity(0.2), radius: 10, x: 10, y: 10)
+                                .shadow(color: Color.white.opacity(0.7), radius: 10, x: -5, y: -5)
+                                .frame(width: width * 0.165, height: width * 0.165)
+                               // .cornerRadius(6)
+                        }
+                    }
+                )
+        }
+        else {
+            configuration.label
+                .contentShape(
+                    Circle()
+                )
+                .background(
+                    DarkBackground(isHighlighted: configuration.isPressed, shape: Circle(), width: width, height: height)
+                )
+                
+        }
+    }
+}
+
+
 extension Color {
     static let offWhite = Color(red: 225 / 255, green: 225 / 255, blue: 235 / 255)
+    static let darkStart = Color(red: 50 / 255, green: 60 / 255, blue: 65 / 255)
+    static let darkEnd = Color(red: 25 / 255, green: 25 / 255, blue: 30 / 255)
 }
+
+
+struct DarkBackground<S: Shape>: View {
+    var isHighlighted: Bool
+    var shape: S
+    let width: CGFloat
+    let height: CGFloat
+
+    var body: some View {
+        ZStack {
+            if isHighlighted {
+                shape
+                    .fill(Color.darkEnd)
+                    .shadow(color: Color.darkStart, radius: 5, x: 1.5, y: 1.5)
+                    .shadow(color: Color.darkEnd, radius: 5, x: -1.5, y: -1.5)
+                    .frame(width: width * 0.165, height: width * 0.165)
+
+            } else {
+                shape
+                    .fill(Color.darkEnd)
+                    .shadow(color: Color.darkStart, radius: 5, x: -1.5, y: -1.5)
+                    .shadow(color: Color.darkEnd, radius: 5, x: 1.5, y: 1.5)
+                    .frame(width: width * 0.165, height: width * 0.165)
+            }
+        }
+    }
+}
+
+
+//struct DarkButtonStyle: ButtonStyle {
+//    func makeBody(configuration: Self.Configuration) -> some View {
+//        configuration.label
+//            .padding(30)
+//            .contentShape(Circle())
+//            .background(
+//                DarkBackground(isHighlighted: configuration.isPressed, shape: Circle())
+//            )
+//    }
+//}
 
 
 struct DeleteTypingTextButton: View {
@@ -1484,7 +1544,6 @@ struct DynamicHeightTextBox: View {
     
     
     func sendMessage(message: String, to: MetaUser, completion: @escaping ([String: Any]) -> Void) {
-        // TODO: Add an error alert if the message cannot send
         /// API Reference: https://developers.facebook.com/docs/messenger-platform/reference/send-api/
         let urlString = "https://graph.facebook.com/v16.0/\(page.id)/messages?access_token=\(page.accessToken)"
         let data: [String: Any] = ["recipient": ["id": to.id], "message": ["text": message]]
@@ -1497,34 +1556,46 @@ struct DynamicHeightTextBox: View {
                 let messageId = sentMessageData["message_id"] as? String
                 
                 if messageId != nil {
-                    let conversationIndex = self.session.selectedPage!.conversations.firstIndex(of: self.conversation)
-                    var conversation: Conversation? = nil
-                    if conversationIndex != nil {
-                        conversation = self.session.selectedPage!.conversations[conversationIndex!]
-                    }
+//                    let conversationIndex = self.session.selectedPage!.conversations.firstIndex(of: self.conversation)
+//                    var conversation: Conversation? = nil
+//                    if conversationIndex != nil {
+//                        conversation = self.session.selectedPage!.conversations[conversationIndex!]
+//                    }
                     
-                    if conversation != nil {
-                        Task {
-                            await MainActor.run {
-                                let createdDate = Date(timeIntervalSince1970: NSDate().timeIntervalSince1970)
-                                print(Date().dateToFacebookString(date: createdDate), "sent", NSDate().timeIntervalSince1970)
-                                let lastDate = Calendar.current.dateComponents([.month, .day], from: self.conversation.messages.last!.createdTime)
-                                let messageDate = Calendar.current.dateComponents([.month, .day], from: createdDate)
-                                
-                                let dayStarter = lastDate.month! != messageDate.month! || lastDate.day! != messageDate.day!
-                                
-                                var newMesssage = Message(id: messageId!, message: message, to: to, from: page.pageUser!, dayStarter: dayStarter, createdTimeDate: createdDate)
-                                newMesssage.opened = true
-                                
-                                var newMessages = conversation!.messages
-                                newMessages.append(newMesssage)
-                                conversation!.messages = newMessages
-                                print("rearranged")
-                    
-                                self.typingMessage = ""
+                   // if conversation != nil {
+                    for conversation in self.session.selectedPage!.conversations {
+                        if conversation.correspondent != nil && conversation.correspondent!.id == self.conversation.correspondent!.id {
+                            
+                            let createdDate = Date(timeIntervalSince1970: NSDate().timeIntervalSince1970)
+                            print(Date().dateToFacebookString(date: createdDate), "sent", NSDate().timeIntervalSince1970)
+                            let lastDate = Calendar.current.dateComponents([.month, .day], from: self.conversation.messages.last!.createdTime)
+                            let messageDate = Calendar.current.dateComponents([.month, .day], from: createdDate)
+                            
+                            let dayStarter = lastDate.month! != messageDate.month! || lastDate.day! != messageDate.day!
+                            
+                            var newMesssage = Message(id: messageId!, message: message, to: conversation.correspondent!, from: page.pageUser!, dayStarter: dayStarter, createdTimeDate: createdDate)
+                            
+                            newMesssage.opened = true
+                            
+                            var newMessages = conversation.messages
+                            newMessages.append(newMesssage)
+                            
+                            Task {
+                                await MainActor.run {
+                                    
+                                    conversation.messages = sortMessages(messages: newMessages)
+                                    print("rearranged")
+                                    
+                                    self.typingMessage = ""
+                                }
                             }
-                        }
-                    }
+                            
+                            
+                            
+                            
+                        }}
+                    
+                    //}
                 }
                 completion(sentMessageData)
             }
@@ -1540,7 +1611,7 @@ struct MessageView : View {
     @EnvironmentObject var session: SessionStore
     let width: CGFloat
     var currentMessage: Message
-    var conversation: Conversation
+    @ObservedObject var conversation: Conversation
     let page: MetaPage
     @ObservedObject var correspondent: MetaUser
     
@@ -1647,7 +1718,7 @@ struct InstagramStoryMentionView: View {
                     .foregroundColor(.gray).font(.system(size: 10))
                 
                 if contentMessage.instagramStoryMention!.cdnUrl != "" {
-                    AsyncImage(url: URL(string: contentMessage.instagramStoryMention!.cdnUrl ?? "")) { image in image.resizable() } placeholder: { Image(systemName: "person.circle").foregroundColor(Color("aoBlue")) } .frame(width: 150, height: 250).clipShape(RoundedRectangle(cornerRadius: 16))
+                    AsyncImage(url: URL(string: contentMessage.instagramStoryMention!.cdnUrl ?? "")) { image in image.resizable() } placeholder: { LottieView(name: "97952-loading-animation-blue").frame(width: 50, height: 50, alignment: .leading) } .frame(width: 150, height: 250).clipShape(RoundedRectangle(cornerRadius: 16))
                 }
                 else {
                     Text("")

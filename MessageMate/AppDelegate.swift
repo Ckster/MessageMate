@@ -25,10 +25,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             super.init()
     }
 
-    func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+    func application(
+        _ application: UIApplication,
+        didFinishLaunchingWithOptions
+          launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
+      ) -> Bool {
         // Override point for customization after application launch.
             // [START set_messaging_delegate]
-//            Messaging.messaging().delegate = self
+            
 //            Auth.auth().currentUser?.reload(completion: {error in})
 
             // [END set_messaging_delegate]
@@ -56,7 +60,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                     didFinishLaunchingWithOptions: launchOptions
                 )
 
-
+        Messaging.messaging().delegate = self
         return true
     }
     
@@ -118,7 +122,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
         print("APNs token retrieved: \(deviceToken)")
         // With swizzling disabled you must set the APNs token here.
-       // Messaging.messaging().apnsToken = deviceToken
+        Messaging.messaging().apnsToken = deviceToken
       }
 }
 
@@ -147,18 +151,27 @@ extension AppDelegate {
     completionHandler(.banner)
     completionHandler(.sound)
   }
+    
+    
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void
+      ) {
+        completionHandler()
+      }
 
     // MARK: UISceneSession Lifecycle
 
-    func application(_ application: UIApplication, configurationForConnecting connectingSceneSession: UISceneSession, options: UIScene.ConnectionOptions) -> UISceneConfiguration {
-        // Called when a new scene session is being created.
-        // Use this method to select a configuration to create the new scene with.
-        let sceneConfig = UISceneConfiguration(name: nil, sessionRole: connectingSceneSession.role)
-        sceneConfig.delegateClass = SceneDelegate.self //
-        return sceneConfig
-
-        //return UISceneConfiguration(name: "Default Configuration", sessionRole: connectingSceneSession.role)
-    }
+//    func application(_ application: UIApplication, configurationForConnecting connectingSceneSession: UISceneSession, options: UIScene.ConnectionOptions) -> UISceneConfiguration {
+//        // Called when a new scene session is being created.
+//        // Use this method to select a configuration to create the new scene with.
+////        let sceneConfig = UISceneConfiguration(name: nil, sessionRole: connectingSceneSession.role)
+////        sceneConfig.delegateClass = SceneDelegate.self //
+////        return sceneConfig
+//
+//        //return UISceneConfiguration(name: "Default Configuration", sessionRole: connectingSceneSession.role)
+//    }
 
     func application(_ application: UIApplication, didDiscardSceneSessions sceneSessions: Set<UISceneSession>) {
         // Called when the user discards a scene session.
@@ -167,7 +180,7 @@ extension AppDelegate {
     }
 }
 
-extension AppDelegate {
+extension AppDelegate: MessagingDelegate {
     func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {
       let dataDict:[String: String] = ["token": fcmToken ?? ""]
       NotificationCenter.default.post(name: Notification.Name("FCMToken"), object: nil, userInfo: dataDict)
