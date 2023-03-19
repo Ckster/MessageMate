@@ -49,6 +49,8 @@ struct Pages {
 struct PagesFields {
     static let INSTAGRAM_ID = "instagram_id"
     static let STATIC_PROMPT = "static_prompt"
+    static let ACCESS_TOKEN = "access_token"
+    static let APNS_TOKENS = "apns_tokens"
 }
 
 

@@ -10,6 +10,7 @@ import AVKit
 import FBSDKLoginKit
 import FirebaseFirestore
 import FirebaseAuth
+import FirebaseMessaging
 
 
 var userRegistry: [String: MetaUser] = [:]
@@ -421,16 +422,24 @@ struct ConversationsView: View {
                     self.db.collection(Pages.name).document(page.id).setData(
                         [
                             Pages.fields.INSTAGRAM_ID: page.businessAccountId,
-                            Pages.fields.STATIC_PROMPT: ""
+                            Pages.fields.STATIC_PROMPT: "",
+                            Pages.fields.ACCESS_TOKEN: page.accessToken,
+                            Pages.fields.APNS_TOKENS: [Messaging.messaging().fcmToken ?? ""]
                         ]
                     ) {
                         _ in
                     }
                 }
+                else {
+                    doc!.reference.updateData([
+                        Pages.fields.INSTAGRAM_ID: page.businessAccountId,
+                        Pages.fields.ACCESS_TOKEN: page.accessToken,
+                        Pages.fields.APNS_TOKENS: FieldValue.arrayUnion([Messaging.messaging().fcmToken ?? ""])
+                    ])
+                }
             }
         }
     }
-    
     
     func getMessages(page: MetaPage, conversation: Conversation, cursor: String? = nil, completion: @escaping (([Message], PagingInfo?)) -> Void) {
         var urlString = "https://graph.facebook.com/v16.0/\(conversation.id)?fields=messages&access_token=\(page.accessToken)"

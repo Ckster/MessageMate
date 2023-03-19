@@ -159,7 +159,16 @@ class SessionStore : NSObject, ObservableObject {
         self.db.collection(Users.name).document(self.user.user!.uid).updateData(["tokens": FieldValue.arrayRemove([Messaging.messaging().fcmToken ?? ""])], completion: {
             error in
             if error == nil {
-                self.deAuth()
+                var completedPages = 0
+                for page in self.availablePages {
+                    self.db.collection(Pages.name).document(page.id).updateData([Pages.fields.APNS_TOKENS: FieldValue.arrayRemove([Messaging.messaging().fcmToken ?? ""])], completion: {
+                        error in
+                        completedPages = completedPages + 1
+                        if completedPages == self.availablePages.count {
+                            self.deAuth()
+                        }
+                    })
+                }
             }
         })
     }
