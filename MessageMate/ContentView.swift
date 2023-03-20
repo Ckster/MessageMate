@@ -34,9 +34,9 @@ struct ContentView: View {
     var badgePosition: CGFloat = 1
     let loginManager = LoginManager()
     
-    init() {
-        UITabBar.appearance().barTintColor = self.colorScheme == .light ? UIColor(Color.black) : UIColor(Color.black)
-    }
+//    init() {
+//        UITabBar.appearance().barTintColor = self.colorScheme == .light ? UIColor(Color.black) : UIColor(Color.black)
+//    }
     
     var body: some View {
             if self.session.isLoggedIn == .loading {

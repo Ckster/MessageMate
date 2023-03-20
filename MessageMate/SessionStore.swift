@@ -21,6 +21,13 @@ enum SignInState {
     case loading
   }
 
+
+class PushNotificationState: ObservableObject {
+    static let shared = PushNotificationState()
+    @Published var conversationToNavigateTo : Conversation?
+}
+
+
 /**
  Creates an instance of the users authentication state and other single instance attributes for the user's session
     - Parameters:

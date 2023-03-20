@@ -14,6 +14,7 @@ import FirebaseMessaging
 
 
 var userRegistry: [String: MetaUser] = [:]
+var userConversationRegistry: [String: Conversation] = [:]
 
 
 let monthMap: [Int: String] = [
@@ -255,7 +256,8 @@ struct ConversationsView: View {
                                                 newMessage.instagramStoryMention = instagramStoryMention
                                                 newMessage.instagramStoryReply = instagramStoryReply
                                                 newMessage.imageAttachment = imageAttachment
-            
+                                                
+                                                // TODO: Need to also test if the message is old / outside of conversation pagination
                                                 if !conversation.messages.contains(newMessage) {
                                                     print("Updating conversation \(senderId)")
                                                     var newMessages = conversation.messages
@@ -423,7 +425,7 @@ struct ConversationsView: View {
                         [
                             Pages.fields.INSTAGRAM_ID: page.businessAccountId,
                             Pages.fields.STATIC_PROMPT: "",
-                            Pages.fields.ACCESS_TOKEN: page.accessToken,
+                            Pages.fields.NAME: page.name,
                             Pages.fields.APNS_TOKENS: [Messaging.messaging().fcmToken ?? ""]
                         ]
                     ) {
@@ -433,7 +435,7 @@ struct ConversationsView: View {
                 else {
                     doc!.reference.updateData([
                         Pages.fields.INSTAGRAM_ID: page.businessAccountId,
-                        Pages.fields.ACCESS_TOKEN: page.accessToken,
+                        Pages.fields.NAME: page.name,
                         Pages.fields.APNS_TOKENS: FieldValue.arrayUnion([Messaging.messaging().fcmToken ?? ""])
                     ])
                 }
@@ -2068,11 +2070,15 @@ class Conversation: Hashable, Equatable, ObservableObject {
         for message in self.messages {
             if message.from.id != (platform == .instagram ? page.businessAccountId : page.id) {
                 self.correspondent = message.from
+                userConversationRegistry[message.from.id] = self
+                
                 rList = [message.from, message.to]
                 break
             }
             else {
                 self.correspondent = message.to
+                userConversationRegistry[message.to.id] = self
+                
                 rList = [message.to, message.from]
                 break
             }

@@ -17,7 +17,6 @@ import FirebaseAuth
 
 // MessagingDelegate
 class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate {
-
     var window: UIWindow?
     let gcmMessageIDKey = "gcm.message_id"
     override init() {
@@ -83,12 +82,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 
     // [START receive_message]
       func application(_ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable: Any]) {
-
-//         If you are receiving a notification message while your app is in the background,
-//         this callback will not be fired till the user taps on the notification launching the application.
-//         With swizzling disabled you must let Messaging know about the message, for Analytics
-//        Messaging.messaging().appDidReceiveMessage(userInfo)
-//         Print message ID.
         if let messageID = userInfo[gcmMessageIDKey] {
           print("Message ID: \(messageID)")
         }
@@ -100,19 +93,44 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 
     func application(_ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable: Any],
                        fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
-
-        // If you are receiving a notification message while your app is in the background,
-        // this callback will not be fired till the user taps on the notification launching the application.
-        // With swizzling disabled you must let Messaging know about the message, for Analytics
-        //Messaging.messaging().appDidReceiveMessage(userInfo)
-        // Print message ID.
         if let messageID = userInfo[gcmMessageIDKey] {
           print("Message ID: \(messageID)")
         }
-
+        
+        print("USERINFO")
         // Print full message.
         print(userInfo)
-//
+        let aps = userInfo["extraData"] as? [String: AnyObject]
+        print("AA")
+        print(aps)
+        if aps != nil {
+            print("BB")
+            let userId = aps!["user_id"] as? String
+            let body = aps!["body"] as? String
+            let page = aps!["page"] as? String
+            print(userId, body)
+            if userId != nil && body != nil {
+                print("CC")
+                let conversation = userConversationRegistry[userId!]
+                let name = conversation?.correspondent?.name ?? conversation?.correspondent?.username ?? "MessageMate"
+                
+                let content = UNMutableNotificationContent()
+                content.title = name + " [\(page ?? "")]"
+                content.subtitle = body!
+                content.sound = UNNotificationSound.default
+
+                // show this notification five seconds from now
+                let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
+
+                // choose a random identifier
+                let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: trigger)
+
+                // add our notification request
+                UNUserNotificationCenter.current().add(request)
+                
+            }
+        }
+
         completionHandler(UIBackgroundFetchResult.newData)
       }
 
