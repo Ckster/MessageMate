@@ -24,7 +24,7 @@ enum SignInState {
 
 class PushNotificationState: ObservableObject {
     static let shared = PushNotificationState()
-    @Published var conversationToNavigateTo : Conversation?
+    @Published var conversationToNavigateTo : String?
 }
 
 

@@ -116,8 +116,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 
                 let content = UNMutableNotificationContent()
                 content.title = name + " [\(page ?? "")]"
-                content.subtitle = body!
+                content.body = body!
                 content.sound = UNNotificationSound.default
+                
+                if conversation != nil {
+                    content.userInfo = ["conversation": conversation!.id]
+                }
 
                 // show this notification five seconds from now
                 let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
@@ -133,6 +137,24 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 
         completionHandler(UIBackgroundFetchResult.newData)
       }
+    
+    
+    // This function will be called right after user tap on the notification
+    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
+        let userInfo = response.notification.request.content.userInfo
+        print("userinfo")
+        print(userInfo)
+        let conversation = userInfo["conversation"] as? String
+        if conversation != nil {
+            DispatchQueue.main.async {
+                PushNotificationState.shared.conversationToNavigateTo = conversation!
+            }
+        }
+    
+      UIApplication.shared.applicationIconBadgeNumber = 0
+      completionHandler()
+    }
+    
 
     func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
         print("Unable to register for remote notifications: \(error.localizedDescription)")
@@ -171,15 +193,6 @@ extension AppDelegate {
     completionHandler(.sound)
   }
     
-    
-    func userNotificationCenter(
-        _ center: UNUserNotificationCenter,
-        didReceive response: UNNotificationResponse,
-        withCompletionHandler completionHandler: @escaping () -> Void
-      ) {
-        completionHandler()
-      }
-
     // MARK: UISceneSession Lifecycle
     func application(_ application: UIApplication, configurationForConnecting connectingSceneSession: UISceneSession, options: UIScene.ConnectionOptions) -> UISceneConfiguration {
             // Called when a new scene session is being created.

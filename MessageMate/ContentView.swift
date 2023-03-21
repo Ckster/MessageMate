@@ -33,6 +33,7 @@ struct ContentView: View {
     var tabsCount: CGFloat = 3
     var badgePosition: CGFloat = 1
     let loginManager = LoginManager()
+    @ObservedObject var pushNotificationState = PushNotificationState.shared
     
 //    init() {
 //        UITabBar.appearance().barTintColor = self.colorScheme == .light ? UIColor(Color.black) : UIColor(Color.black)
@@ -101,9 +102,18 @@ struct ContentView: View {
                                             .accentColor(Color("aoBlue"))
                                         
                                         if self.session.unreadMessages > 0 {
-                                            Image(systemName: "\(self.session.unreadMessages).circle").foregroundColor(Color.red).font(.system(size: 14))
-                                                .offset(x: ( ( 2 * self.badgePosition ) - 1 ) * ( geometry.size.width / ( 2 * self.tabsCount ) ) + 8, y: -35)
-                                                .opacity(self.session.unreadMessages == 0 ? 0 : 1)
+                                            // HAve to add all this in so keyboard avoidance works
+//                                            ZStack {
+//                                                Color.clear
+                                                VStack {
+                                                    Spacer()
+                                                    Image(systemName: "\(self.session.unreadMessages).circle").ignoresSafeArea(.keyboard).foregroundColor(Color.red).font(.system(size: 14))
+                                                        .offset(x: ( ( 2 * self.badgePosition ) - 1 ) * ( geometry.size.width / ( 2 * self.tabsCount ) ) + 8, y: -35)
+                                                        .opacity(self.session.unreadMessages == 0 ? 0 : 1)
+                                                }.ignoresSafeArea(.keyboard)
+//                                            }
+//                                            .ignoresSafeArea(.keyboard)
+                                            
                                         }
                                     }
                                     .disabled(self.showingMenu ? true : false)
@@ -123,6 +133,13 @@ struct ContentView: View {
                                         }
                                     }
                                 }.gesture(drag)
+                                // When a user taps on a conversation message notification navigate to the inbox
+                                .onReceive(self.pushNotificationState.$conversationToNavigateTo, perform: {
+                                    conversation in
+                                    if conversation != nil {
+                                        self.selection = 1
+                                    }
+                                })
     
                             case false:
                                 OnboardingView().environmentObject(self.session)

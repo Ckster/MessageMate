@@ -51,11 +51,9 @@ struct InboxView: View {
         if !self.session.loadingFacebookUserToken && self.session.facebookUserToken == nil {
             FacebookAuthenticateView().environmentObject(self.session)
         }
-        
         else {
             ConversationsView().environmentObject(self.session)
         }
-
     }
 }
 
@@ -87,6 +85,8 @@ struct ConversationsView: View {
                             })
                     }
                     else {
+                        
+                        
                         
                         Text("You have \(self.session.unreadMessages == 0 ? "no" : String(self.session.unreadMessages)) new \(self.session.unreadMessages != 1 ? "messages" : "message")").foregroundColor(.gray).font(.system(size: 15)).padding(.leading).padding(.bottom)
                         
@@ -797,7 +797,6 @@ struct ConversationsView: View {
         }
         return returnId
     }
-    
 }
 
 
@@ -819,7 +818,8 @@ struct ConversationNavigationView: View {
     let page: MetaPage
     @Environment(\.colorScheme) var colorScheme
     @ObservedObject var correspondent: MetaUser
-    //@State var openMessages: Bool = false
+    @ObservedObject var pushNotificationState = PushNotificationState.shared
+    @State var navigate: Bool = false
     
     init(conversation: Conversation, width: CGFloat, page: MetaPage) {
         self.conversation = conversation
@@ -831,7 +831,15 @@ struct ConversationNavigationView: View {
     var body: some View {
         VStack {
             let navTitle = conversation.correspondent?.name ?? conversation.correspondent?.username ?? conversation.correspondent?.email ?? ""
-            NavigationLink(destination: ConversationView(conversation: conversation, page: page).environmentObject(self.session)
+            
+//            if navigate {
+//                NavigationLink(
+//                    destination: ConversationView(conversation: self.pushNotificationState.conversationToNavigateTo!, page: self.pushNotificationState.conversationToNavigateTo!.page), isActive: $navigate ) {
+//                    EmptyView()
+//                }
+//            }
+            
+            NavigationLink(destination: ConversationView(conversation: conversation, page: page, navigate: self.$navigate).environmentObject(self.session)
                 .navigationBarTitleDisplayMode(.inline).toolbar {
                     ToolbarItem {
                         HStack {
@@ -855,7 +863,7 @@ struct ConversationNavigationView: View {
                             Image(systemName: "magnifyingglass")
                         }
                     }
-                }
+                }, isActive: $navigate
             ) {
                 ZStack {
                     HStack {
@@ -915,7 +923,12 @@ struct ConversationNavigationView: View {
             
             HorizontalLine(color: .gray, height: 0.75)
             
-        }
+        }.onReceive(self.pushNotificationState.$conversationToNavigateTo, perform: {
+            conversation in
+            if conversation != nil && conversation! == self.conversation.id {
+                navigate = true
+            }
+        })
 //        .onChange(of: self.openMessages) {
 //            _ in
 //            Task {
@@ -1145,19 +1158,22 @@ struct ConversationView: View {
     @State var messageSendError: String = ""
     @State var offset = CGSize.zero
     
+    @Binding var navigate: Bool
+    
    // @Binding var openMessages: Bool
     
     var maxHeight : CGFloat = 250
     
     let page: MetaPage
 
-    init(conversation: Conversation, page: MetaPage) {
+    init(conversation: Conversation, page: MetaPage, navigate: Binding<Bool>) {
         self.conversation = conversation
         self.page = page
         let appearance = UINavigationBarAppearance()
         appearance.configureWithOpaqueBackground()
             appearance.backgroundColor = UIColor.systemBackground
             UINavigationBar.appearance().standardAppearance = appearance
+        _navigate = navigate
     }
     
     var body: some View {
@@ -1273,9 +1289,10 @@ struct ConversationView: View {
         }
 //        .onAppear(perform: {
 //            self.openMessages.toggle()
-//        }).onDisappear(perform: {
-//            self.openMessages.toggle()
 //        })
+        .onDisappear(perform: {
+            self.navigate = false
+        })
     }
     
     func rectReader(_ binding: Binding<CGFloat>, _ space: CoordinateSpace = .global) -> some View {
