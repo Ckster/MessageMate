@@ -165,16 +165,22 @@ class SessionStore : NSObject, ObservableObject {
     func signOut () {
         self.db.collection(Users.name).document(self.user.user!.uid).updateData(["tokens": FieldValue.arrayRemove([Messaging.messaging().fcmToken ?? ""])], completion: {
             error in
+            print(error)
             if error == nil {
                 var completedPages = 0
+                print(self.availablePages)
                 for page in self.availablePages {
                     self.db.collection(Pages.name).document(page.id).updateData([Pages.fields.APNS_TOKENS: FieldValue.arrayRemove([Messaging.messaging().fcmToken ?? ""])], completion: {
                         error in
+                        print("A", error)
                         completedPages = completedPages + 1
                         if completedPages == self.availablePages.count {
                             self.deAuth()
                         }
                     })
+                }
+                if self.availablePages.count == 0 {
+                    self.deAuth()
                 }
             }
         })

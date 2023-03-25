@@ -28,10 +28,16 @@ struct SignInView: View {
             // TODO: Add new logo here
             VStack {
                 // Show the app title
-                Text(TITLE).font(.system(size: 25)).bold().padding().foregroundColor(colorScheme == .dark ? Color.white : Color.black).frame(height: geometry.size.height * 0.15)
                 
-                Text("Welcome").font(.system(size: 60)).bold().padding().foregroundColor(colorScheme == .dark ? Color.white : Color.black)
-                    .frame(height: geometry.size.height * 0.55).offset(y: geometry.size.height * -0.10)
+                VStack {
+                    HorizontalLine(color: colorScheme == .dark ? Color.white : Color.black, height: 3).frame(width: geometry.size.width * 0.6)
+                    Text("Message").font(Font.custom("Nunito-Bold", size: 40)).bold().foregroundColor(colorScheme == .dark ? Color.white : Color.black).frame(width: geometry.size.width * 0.55, alignment: .leading)
+                    Text("Mate").font(Font.custom("Nunito-Bold", size: 40)).bold().foregroundColor(colorScheme == .dark ? Color.white : Color.black).frame(width: geometry.size.width * 0.55, alignment: .trailing)
+                    HorizontalLine(color: colorScheme == .dark ? Color.white : Color.black, height: 3).frame(width: geometry.size.width * 0.6)
+                }.offset(y: -75).frame(height: geometry.size.height * 0.62)
+                
+//                Text("Welcome").font(Font.custom("Nunito-Black", size: 60)).bold().padding().foregroundColor(colorScheme == .dark ? Color.white : Color.black)
+//                    .frame(height: geometry.size.height * 0.55).offset(y: geometry.size.height * -0.10)
                 
                 // Show the sign up options
                 BottomScreen(width: geometry.size.width, height: geometry.size.height).environmentObject(self.session).frame(height: geometry.size.height * 0.30)
@@ -104,6 +110,13 @@ struct BottomScreen: View {
             VStack {
     //            VStack {
                     
+                    Button(action: {self.showingFBLegalAlert = true}) {
+                        Image("facebook_login").resizable().cornerRadius(3.0)
+                                .frame(width: self.width * 0.80, height: self.height * 0.065, alignment: .center)
+                    }.alert(isPresented: $showingFBLegalAlert) {
+                        FBlegalAlert
+                    }
+                
                     // Sign in with Apple
                     Button(action: {self.showingALegalAlert = true}) {
                         SignInWithApple(style: self.colorScheme == .light ? .black : .white).aspectRatio(contentMode: .fit).frame(width: self.width * 0.80, height: self.height * 0.10, alignment: .center).id(self.colorScheme)
@@ -111,12 +124,7 @@ struct BottomScreen: View {
                         AlegalAlert
                     }
                 
-                    Button(action: {self.showingFBLegalAlert = true}) {
-                        Image("facebook_login").resizable().cornerRadius(3.0)
-                                .frame(width: self.width * 0.80, height: self.height * 0.08, alignment: .center)
-                    }.alert(isPresented: $showingFBLegalAlert) {
-                        FBlegalAlert
-                    }
+                    
                     
     //                // Sign in with Google
     //                Button(action: {self.showingGoogleLegalAlert = true}) {
@@ -156,7 +164,6 @@ struct BottomScreen: View {
                 }
             }
                     
-        
     }
     private func showAppleLogin() {
         appleSignInDelegates = SignInWithAppleDelegates(window: window, session: self.session)

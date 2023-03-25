@@ -71,7 +71,7 @@ struct ConversationsView: View {
         NavigationView {
             GeometryReader { geometry in
                 VStack(alignment: .leading) {
-                    Text("Messages").bold().font(.system(size: 30)).offset(x: 0).padding(.leading)
+                    Text("Messages").bold().font(Font.custom("Nunito-Bold", size: 30)).offset(x: 0).padding(.leading)
                     if self.loading {
                         LottieView(name: "9844-loading-40-paperplane")
                             .onTapGesture(perform: {
@@ -88,7 +88,7 @@ struct ConversationsView: View {
                         
                         
                         
-                        Text("You have \(self.session.unreadMessages == 0 ? "no" : String(self.session.unreadMessages)) new \(self.session.unreadMessages != 1 ? "messages" : "message")").foregroundColor(.gray).font(.system(size: 15)).padding(.leading).padding(.bottom)
+                        Text("You have \(self.session.unreadMessages == 0 ? "no" : String(self.session.unreadMessages)) new \(self.session.unreadMessages != 1 ? "messages" : "message")").foregroundColor(.gray).font(Font.custom("Nunito-Black", size: 15)).padding(.leading).padding(.bottom)
                         
                         ScrollView {
                             if self.session.selectedPage != nil {
@@ -101,7 +101,7 @@ struct ConversationsView: View {
                                 }
                                 
                                 if self.session.selectedPage!.conversations.count == 0 {
-                                    Text("No conversations. Pull down to refresh.")
+                                    Text("No conversations. Pull down to refresh.").font(Font.custom("Nunito-Black", size: 30))
                                 }
                                 
                                 else {
@@ -124,7 +124,7 @@ struct ConversationsView: View {
                                         await self.updatePages()
                                     }
                                 }
-                                Text("There are no business accounts linked to you. Add a business account to your Messenger account to see it here.")
+                                Text("There are no business accounts linked to you. Add a business account to your Messenger account to see it here.").font(Font.custom("Nunito-Black", size: 30))
                             }
                         }.coordinateSpace(name: "pullToRefresh")
                     }
@@ -846,7 +846,7 @@ struct ConversationNavigationView: View {
                             HStack {
                                 AsyncImage(url: URL(string: conversation.correspondent?.profilePicURL ?? "")) { image in image.resizable() } placeholder: { EmptyView() } .frame(width: 37.5, height: 37.5) .clipShape(Circle())
                                 VStack(alignment: .leading, spacing: 0.5) {
-                                    Text(navTitle).bold()
+                                    Text(navTitle).font(Font.custom("Nunito-Bold", size: 18))
                                     switch conversation.correspondent?.platform {
                                     case .instagram:
                                         Image("instagram_logo").resizable().frame(width: 20.5, height: 20.5)
@@ -871,34 +871,34 @@ struct ConversationNavigationView: View {
                         
                         VStack(spacing: 0.5) {
                             HStack {
-                                Text(navTitle).foregroundColor(self.colorScheme == .dark ? .white : .black).font(.system(size: 22))
-                                Image(self.correspondent.platform == .instagram ? "instagram_logo" : "facebook_logo").resizable().frame(width: 15.5, height: 15.5)
+                                Text(navTitle).foregroundColor(self.colorScheme == .dark ? .white : .black).font(Font.custom("Nunito-Black", size: 22))
+//                                Image(self.correspondent.platform == .instagram ? "instagram_logo" : "facebook_logo").resizable().frame(width: 15.5, height: 15.5)
                             }.frame(width: width * 0.55, alignment: .leading)
                         
                             HStack {
                                 if conversation.messages.last!.instagramStoryMention != nil {
-                                    Text("\(conversation.correspondent?.name ?? "") mentioned you in their story").lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(.system(size: 15)).frame(width: width * 0.55, alignment: .leading)
+                                    Text("\(conversation.correspondent?.name ?? "") mentioned you in their story").lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(Font.custom("Nunito-Black", size: 15)).frame(width: width * 0.55, alignment: .leading)
                                 }
                                 else {
                                     
                                     if conversation.messages.last!.imageAttachment != nil {
-                                        Text("\(conversation.correspondent?.name ?? "") sent you an image").lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(.system(size: 15)).frame(width: width * 0.55, alignment: .leading)
+                                        Text("\(conversation.correspondent?.name ?? "") sent you an image").lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(Font.custom("Nunito-Black", size: 15)).frame(width: width * 0.55, alignment: .leading)
                                     }
                                     
                                     else {
                                         
                                         if conversation.messages.last!.instagramStoryReply != nil {
-                                            Text("\(conversation.correspondent?.name ?? "") replied to your story").lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(.system(size: 15)).frame(width: width * 0.55, alignment: .leading)
+                                            Text("\(conversation.correspondent?.name ?? "") replied to your story").lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(Font.custom("Nunito-Black", size: 15)).frame(width: width * 0.55, alignment: .leading)
                                         }
                                         
                                         else {
                                             
                                             if conversation.messages.last!.videoAttachment != nil {
-                                                Text("\(conversation.correspondent?.name ?? "") sent you a video").lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(.system(size: 15)).frame(width: width * 0.55, alignment: .leading)
+                                                Text("\(conversation.correspondent?.name ?? "") sent you a video").lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(Font.custom("Nunito-Black", size: 15)).frame(width: width * 0.55, alignment: .leading)
                                             }
                                             
                                             else {
-                                                Text((conversation.messages.last!).message).lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(.system(size: 15)).frame(width: width * 0.55, alignment: .leading)
+                                                Text((conversation.messages.last!).message).lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(Font.custom("Nunito-Black", size: 15)).frame(width: width * 0.55, alignment: .leading)
                                             }
                                         }
                                     }
@@ -907,7 +907,7 @@ struct ConversationNavigationView: View {
                         }
                         
                         let lastMessageIntervalString = self.makeTimeElapsedString(elapsedTime: conversation.messages.last!.createdTime.timeIntervalSinceNow)
-                        Text(lastMessageIntervalString).lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(.system(size: 10)).frame(width: width * 0.20)
+                        Text(lastMessageIntervalString).lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(Font.custom("Nunito-Black", size: 10)).frame(width: width * 0.20)
                         
                     }
                     //.offset(x: 10)
@@ -1665,7 +1665,7 @@ struct MessageView : View {
                 
                 Text("\(dates.hour! > 12 ? dates.hour! - 12 : dates.hour!):\(String(format: "%02d", dates.minute!)) \(dates.hour! > 12 ? "PM" : "AM")")
                     .frame(width: width * 0.875, alignment: .leading).padding(.trailing)
-                    .font(.system(size: 9))
+                    .font(Font.custom("Nunito-Black", size: 9))
                     .foregroundColor(.gray)
             }
         }
@@ -1675,7 +1675,7 @@ struct MessageView : View {
                     .frame(width: width * 0.875, alignment: .trailing).padding(.leading).padding(.trailing)
                 Text("\(dates.hour! > 12 ? dates.hour! - 12 : dates.hour!):\(String(format: "%02d", dates.minute!)) \(dates.hour! > 12 ? "PM" : "AM")")
                     .frame(width: width * 0.875, alignment: .trailing).padding(.leading).padding(.trailing)
-                    .font(.system(size: 9))
+                    .font(Font.custom("Nunito-Black", size: 9))
                     .foregroundColor(.gray)
             }
         }
@@ -1837,6 +1837,7 @@ struct MessageBlurbView: View {
                             .foregroundColor(isCurrentUser ? Color.white : Color.black)
                             .background(isCurrentUser ? Color("aoBlue") : Color.offWhite)
                             .cornerRadius(10)
+                            .font(Font.custom("Nunito-Black", size: 17))
                     }
                 }
             }
@@ -1853,7 +1854,7 @@ struct PullToRefresh: View {
 
     var body: some View {
         GeometryReader { geo in
-            if (geo.frame(in: .named(coordinateSpaceName)).midY > 50) {
+            if (geo.frame(in: .named(coordinateSpaceName)).midY > 80) {
                 Spacer()
                     .onAppear {
                         let impactMed = UIImpactFeedbackGenerator(style: .heavy)

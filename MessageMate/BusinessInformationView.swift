@@ -87,12 +87,12 @@ struct BusinessInformationView: View {
                 NavigationView {
                     GeometryReader { geometry in
                         VStack(alignment: .center) {
-                            Text("Business Information").bold().font(.system(size: 30)).padding(.bottom)
+                            Text("Business Information").font(Font.custom("Nunito-Bold", size: 30)).padding(.bottom)
                                 ForEach(self.subViewDict.keys.sorted(), id:\.self) { category in
                                    
                                         NavigationLink(destination: subViewDict[category]) {
-                                            Text(category).font(.system(size: 30))
-                                                .foregroundColor(.white).frame(width: geometry.size.width * 0.80, height: geometry.size.height * 0.1)
+                                            Text(category).font(Font.custom("Nunito-Black", size: 30))
+                                                .foregroundColor(self.colorScheme == .light ? .black : .white).frame(width: geometry.size.width * 0.80, height: geometry.size.height * 0.1)
                                              .background(Color("aoBlue"))
                                              .clipShape(Rectangle()).cornerRadius(10)
                                              .padding()
