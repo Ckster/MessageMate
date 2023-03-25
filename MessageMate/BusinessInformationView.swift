@@ -92,7 +92,7 @@ struct BusinessInformationView: View {
                                    
                                         NavigationLink(destination: subViewDict[category]) {
                                             Text(category).font(Font.custom("Nunito-Black", size: 30))
-                                                .foregroundColor(self.colorScheme == .light ? .black : .white).frame(width: geometry.size.width * 0.80, height: geometry.size.height * 0.1)
+                                                .foregroundColor(self.colorScheme == .light ? .white : .black).frame(width: geometry.size.width * 0.80, height: geometry.size.height * 0.1)
                                              .background(Color("aoBlue"))
                                              .clipShape(Rectangle()).cornerRadius(10)
                                              .padding()
