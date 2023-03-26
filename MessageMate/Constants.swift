@@ -23,3 +23,7 @@ let CANCEL_UI = "Cancel"
 let CONNECTION_ERROR = "Error connecting to database"
 let SETTINGS_UI = "Settings"
 let TUTORIAL = "Tutorial"
+
+let REGULAR_FONT = "Montserrat-Regular"
+let BOLD_FONT = "Montserrat-Bold"
+let EXTRA_BOLD_FONT = "Montserrat-ExtraBold"

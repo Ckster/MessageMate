@@ -13,25 +13,22 @@ struct SelectPageView: View {
     @EnvironmentObject var session: SessionStore
     
     var body: some View {
-        ScrollView {
-            VStack(spacing: 25) {
+        // TODO: If no pages add an indication here
+        VStack(spacing: 25) {
                 ForEach(self.session.availablePages, id: \.self) {
                     page in
-                    HStack {
-                        Text(page.name).font(.system(size: 25)).frame(width: width * 0.80, alignment: .leading)
-                            .contentShape(Rectangle())
-                            .onTapGesture {
-                            self.session.selectedPage = page
-                        }.padding(.leading)
+                    ZStack {
+                        Text(page.name).font(Font.custom(REGULAR_FONT, size: 35)).frame(width: width * 0.95, alignment: .leading)
                         if page == self.session.selectedPage {
-                            Image(systemName: "checkmark.circle").font(.system(size: 25)).frame(width: width * 0.20, alignment: .leading)
-                        }
-                        else {
-                            Spacer()
+                            Image(systemName: "checkmark.circle").font(.system(size: 35)).foregroundColor(Color("Purple")).frame(width: width * 0.95, alignment: .trailing)
                         }
                     }
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        self.session.selectedPage = page
+                        }
                 }
-            }
-        }.frame(height: height).offset(y: 45)
+        }.frame(height: height)
+    
     }
 }

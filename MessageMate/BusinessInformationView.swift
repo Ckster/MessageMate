@@ -68,43 +68,59 @@ struct BusinessInformationView: View {
             disableAutoCapitalization: false)
         )
     ]
+    
 
     var body: some View {
-        if self.session.selectedPage == nil {
-            Text("Please go to Inbox view and connect a business page")
-        }
-        
-        else {
-            if self.loading {
-                LottieView(name: "97952-loading-animation-blue")
-                    .onAppear(perform: {
-                        initializePage(session: self.session) {
-                            self.loading = false
-                        }
-                    })
+        GeometryReader { geometry in
+            if self.session.selectedPage == nil {
+                
+                VStack(alignment: .center) {
+                    Image("undraw_account_re_o7id").resizable().frame(width: geometry.size.width * 0.9, height: geometry.size.height * 0.30).offset(y: 0).padding()
+                    
+                    Text("Please connect a business page to your Facebook account so you can add information about it here").bold().font(Font.custom(REGULAR_FONT, size: 30)).frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.30, alignment: .leading).multilineTextAlignment(.center).lineSpacing(10)
+                }.offset(y: 50)
             }
+            
             else {
-                NavigationView {
-                    GeometryReader { geometry in
+                if self.loading {
+                    LottieView(name: "Loading-2")
+                        .onAppear(perform: {
+                            initializePage(session: self.session) {
+                                self.loading = false
+                            }
+                        })
+                }
+                else {
+                    NavigationView {
+                        
                         VStack(alignment: .center) {
-                            Text("Business Information").font(Font.custom("Nunito-Bold", size: 30)).padding(.bottom)
-                                ForEach(self.subViewDict.keys.sorted(), id:\.self) { category in
-                                   
-                                        NavigationLink(destination: subViewDict[category]) {
-                                            Text(category).font(Font.custom("Nunito-Black", size: 30))
-                                                .foregroundColor(self.colorScheme == .light ? .white : .black).frame(width: geometry.size.width * 0.80, height: geometry.size.height * 0.1)
-                                             .background(Color("aoBlue"))
-                                             .clipShape(Rectangle()).cornerRadius(10)
-                                             .padding()
-                                        }
-                                 
+                            Text("Business Information").font(Font.custom(BOLD_FONT, size: 30)).padding()
+                            ForEach(self.subViewDict.keys.sorted(), id:\.self) { category in
+                                
+                                NavigationLink(destination: subViewDict[category]) {
+                                    Text(category)
+                                        .frame(minWidth: 0, maxWidth: .infinity)
+                                        .font(Font.custom(REGULAR_FONT, size: 30))
+                                        .foregroundColor(self.colorScheme == .dark ? .black : .white)
+                                        .padding()
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 25)
+                                                .stroke(self.colorScheme == .dark ? .white : .black, lineWidth: 2)
+                                        )
+                                        .lineLimit(1)
                                 }
+                                .background(Color("Purple"))
+                                .cornerRadius(25)
+                                .frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.1)
+                                .padding(.bottom)
+                            }
                         }.frame(width: geometry.size.width)
-                    }
-                }.navigationViewStyle(.stack).onChange(of: self.session.selectedPage ?? MetaPage(id: "", name: "", accessToken: "", category: ""), perform: {
-                    newPage in
-                    self.loading = true
-                })
+                        
+                    }.navigationViewStyle(.stack).onChange(of: self.session.selectedPage ?? MetaPage(id: "", name: "", accessToken: "", category: ""), perform: {
+                        newPage in
+                        self.loading = true
+                    })
+                }
             }
         }
     }
@@ -246,7 +262,7 @@ struct GeneralInfoSubView: View {
         let textColor = colorScheme == .dark ? Color.white : Color.black
         
         if self.loading {
-            LottieView(name: "97952-loading-animation-blue").onAppear {
+            LottieView(name: "Loading-2").onAppear {
                 self.getInfo()
             }
         }
@@ -325,7 +341,7 @@ struct BusinessInfoSubView: View {
         let textColor = colorScheme == .dark ? Color.white : Color.black
         
         if self.loading {
-            LottieView(name: "97952-loading-animation-blue").onAppear {
+            LottieView(name: "Loading-2").onAppear {
                 self.getInfo()
             }
         }

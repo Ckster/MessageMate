@@ -33,7 +33,7 @@ struct DynamicListSubView: View {
             geometry in
             
             if self.loading {
-                LottieView(name: "97952-loading-animation-blue").onAppear {
+                LottieView(name: "Loading-2").onAppear {
                     self.getItems()
                 }
             }

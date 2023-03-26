@@ -27,8 +27,7 @@ let industryExample = "Ex. Coffee shop and bakery"
 
 // TODO: Programatically add page for Facebook and maybe Instagram webhooks
 // TODO: Test onboarding when user signs in with Apple
-// TODO: Make tab selection a session attribute
-// TODO: Make account tab and get rid of slide out menu
+// TODO: Add rate limit UI
 
 
 struct OnboardingView: View {
@@ -41,8 +40,6 @@ struct OnboardingView: View {
     @State var senderCharacteristics: String = senderCharacteristicsExample
     @State var businessName: String = businessNameExample
     @State var industry: String = industryExample
-    
-    @Binding var selection: Int
 
     var db = Firestore.firestore()
     
@@ -62,7 +59,7 @@ struct OnboardingView: View {
                         .offset(x: self.viewState.width)
                         .animation(.easeInOut)
                     
-                    CompleteView(width: geometry.size.width, height: geometry.size.height, senderName: self.$senderName, senderCharacteristics: self.$senderCharacteristics, businessName: self.$businessName, industry: self.$industry, selection: self.$selection)
+                    CompleteView(width: geometry.size.width, height: geometry.size.height, senderName: self.$senderName, senderCharacteristics: self.$senderCharacteristics, businessName: self.$businessName, industry: self.$industry)
                         .offset(x: self.activeView == .complete ? 0 : self.activeView == .intro ? screenWidth * 2 : screenWidth)
                         .offset(x: self.activeView != .intro ? self.viewState.width : 0)
                         .animation(.easeInOut)
@@ -143,9 +140,9 @@ struct IntroView: View {
         VStack(alignment: .center) {
             Image("undraw_setup_wizard_re_nday").resizable().frame(width: width * 0.75, height: height * 0.35).offset(y: 0).padding()
             
-            Text("Let's Get Started").bold().frame(width: width * 0.75, height: height * 0.07).font(Font.custom("Montserrat-ExtraBold", size: 37)).lineLimit(1)
+            Text("Let's Get Started").bold().frame(width: width * 0.75, height: height * 0.07).font(Font.custom(EXTRA_BOLD_FONT, size: 37)).lineLimit(1)
             
-            Text("After adding some basic information about your business you'll be able to generate personalized replies at the click of a button").frame(width: width * 0.75, height: height * 0.25).lineSpacing(7).font(Font.custom("Montserrat-Regular", size: 20)).multilineTextAlignment(.center)
+            Text("After adding some basic information about your business you'll be able to generate personalized replies at the click of a button").frame(width: width * 0.75, height: height * 0.25).lineSpacing(7).font(Font.custom(REGULAR_FONT, size: 20)).multilineTextAlignment(.center)
             
                 //.offset(y: -50)
             //Spacer()
@@ -169,7 +166,7 @@ struct InfoView: View {
     var body: some View {
 
         if self.session.facebookUserToken == nil {
-            FacebookAuthenticateView()
+            FacebookAuthenticateView(width: width, height: height)
         }
         else {
             Group {
@@ -202,12 +199,12 @@ struct InfoView: View {
                 
                 else {
                     VStack {
-                        Text("Basic Information").bold().font(Font.custom("Montserrat-ExtraBold", size: 37)).lineLimit(1).frame(width: width, height: height * 0.10, alignment: .center)
+                        Text("Basic Information").bold().font(Font.custom(EXTRA_BOLD_FONT, size: 37)).lineLimit(1).frame(width: width, height: height * 0.10, alignment: .center)
                             //.padding(.leading)
                         //Text("Please input some general info:").font(.system(size: 18)).frame(width: geometry.size.width, alignment: .leading).padding().padding(.leading)
                         
                    //     ScrollView {
-                            Text("Business Name").bold().font(Font.custom("Montserrat-Bold", size: 20)).frame(width: width * 0.85, height: height * 0.08, alignment: .leading)
+                            Text("Business Name").bold().font(Font.custom(BOLD_FONT, size: 20)).frame(width: width * 0.85, height: height * 0.08, alignment: .leading)
                             TextEditor(text: $businessName)
                                 .frame(width: width * 0.85, height: height * 0.06)
                                 .overlay(RoundedRectangle(cornerRadius: 8)
@@ -219,7 +216,7 @@ struct InfoView: View {
                                     }
                                 }
                             
-                            Text("Industry").bold().font(Font.custom("Montserrat-Bold", size: 20)).frame(width: width * 0.85, height: height * 0.08, alignment: .leading)
+                            Text("Industry").bold().font(Font.custom(BOLD_FONT, size: 20)).frame(width: width * 0.85, height: height * 0.08, alignment: .leading)
                             TextEditor(text: $industry)
                                 .frame(width: width * 0.85, height: height * 0.06)
                                 .overlay(RoundedRectangle(cornerRadius: 8)
@@ -231,7 +228,7 @@ struct InfoView: View {
                                     }
                                 }
                             
-                            Text("Sender Name").bold().font(Font.custom("Montserrat-Bold", size: 20)).frame(width: width * 0.85, height: height * 0.08, alignment: .leading)
+                            Text("Sender Name").bold().font(Font.custom(BOLD_FONT, size: 20)).frame(width: width * 0.85, height: height * 0.08, alignment: .leading)
                             TextEditor(text: $senderName)
                                 .frame(width: width * 0.85, height: height * 0.06)
                                 .overlay(RoundedRectangle(cornerRadius: 8)
@@ -243,7 +240,7 @@ struct InfoView: View {
                                     }
                                 }
                                  
-                            Text("Sender Characteristics").bold().font(Font.custom("Montserrat-Bold", size: 20)).frame(width: width * 0.85, height: height * 0.08, alignment: .leading)
+                            Text("Sender Characteristics").bold().font(Font.custom(BOLD_FONT, size: 20)).frame(width: width * 0.85, height: height * 0.08, alignment: .leading)
                             TextEditor(text: $senderCharacteristics)
                                 .frame(width: width * 0.85, height: height * 0.20)
                                 .overlay(RoundedRectangle(cornerRadius: 8)
@@ -281,15 +278,16 @@ struct CompleteView: View {
     @Binding var senderCharacteristics: String
     @Binding var businessName: String
     @Binding var industry: String
-    @Binding var selection: Int
     @State var addInfoMessage: String = ""
+    
+    @ObservedObject var tabSelectionState = TabSelectionState.shared
     
     var body: some View {
         ZStack {
             VStack(alignment: .center) {
                 Image("undraw_add_information_j2wg").resizable().frame(width: width * 0.9, height: height * 0.30).offset(y: 0).padding()
                 
-                Text("MessageMate gets better at generating responses the more information you tell it about your business. You can go to the business information screen at any time to add business info, FAQs, products, services, and website links.").bold().font(Font.custom("Montserrat-Regular", size: 20)).frame(width: width * 0.85, height: height * 0.30, alignment: .leading).multilineTextAlignment(.center).lineSpacing(10)
+                Text("MessageMate gets better at generating responses the more information you tell it about your business. You can go to the business information screen at any time to add business info, FAQs, products, services, and website links.").bold().font(Font.custom(REGULAR_FONT, size: 20)).frame(width: width * 0.85, height: height * 0.30, alignment: .leading).multilineTextAlignment(.center).lineSpacing(10)
                 
                 Button(action: {
                     let minInfo = self.checkForMinInfo()
@@ -300,7 +298,9 @@ struct CompleteView: View {
                             error in
                             if error == nil {
                                 self.updateInfo()
-                                self.selection = 2 // Inbox tab
+                                DispatchQueue.main.async {
+                                    self.tabSelectionState.selectedTab = 2 // Inbox tab
+                                }
                                 self.session.onboardingCompleted = true
                             }
                             else {
@@ -312,7 +312,7 @@ struct CompleteView: View {
                     }) {
                         Text("Take me to fill out more info")
                             .frame(minWidth: 0, maxWidth: .infinity)
-                            .font(Font.custom("Montserrat-Regular", size: 18))
+                            .font(Font.custom(REGULAR_FONT, size: 18))
                             .foregroundColor(self.colorScheme == .dark ? .white : .black)
                             .padding()
                             .overlay(
@@ -335,7 +335,9 @@ struct CompleteView: View {
                             error in
                             if error == nil {
                                 self.updateInfo()
-                                self.selection = 2 // Inbox tab
+                                DispatchQueue.main.async {
+                                    self.tabSelectionState.selectedTab = 3 // Business info tab
+                                }
                                 self.session.onboardingCompleted = true
                             }
                             else {
@@ -347,7 +349,7 @@ struct CompleteView: View {
                     }) {
                         Text("I'll add more later, take me to my inbox")
                             .frame(minWidth: 0, maxWidth: .infinity)
-                            .font(Font.custom("Montserrat-Regular", size: 18))
+                            .font(Font.custom(REGULAR_FONT, size: 18))
                             .foregroundColor(self.colorScheme == .dark ? .white : .black)
                             .padding()
                             .overlay(

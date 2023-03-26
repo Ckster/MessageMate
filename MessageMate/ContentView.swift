@@ -28,61 +28,59 @@ struct FooAnchorPreferenceKey: PreferenceKey {
 struct ContentView: View {
     @Environment(\.colorScheme) var colorScheme
     @EnvironmentObject var session: SessionStore
-    @State var showingMenu: Bool = false
-    @State var selection = 1
     var tabsCount: CGFloat = 3
-    var badgePosition: CGFloat = 1
+    var badgePosition: CGFloat = 2
     let loginManager = LoginManager()
     @ObservedObject var pushNotificationState = PushNotificationState.shared
+    @ObservedObject var tabSelectionState = TabSelectionState.shared
     
 //    init() {
 //        UITabBar.appearance().barTintColor = self.colorScheme == .light ? UIColor(Color.black) : UIColor(Color.black)
 //    }
     
     var body: some View {
-            if self.session.isLoggedIn == .loading {
-                LottieView(name: "97952-loading-animation-blue")
-                    }
+        if self.session.isLoggedIn == .loading {
+            LottieView(name: "Loading-2")
+        }
     
         if self.session.isLoggedIn == .signedIn {
             
             Group {
                 GeometryReader { geometry in
 
-
                     switch self.session.onboardingCompleted {
                         case nil:
                         Text("Discerning onboarding status ...")
                             .onAppear(perform: {
                                 self.session.getOnboardingStatus()
-                            })
+                        })
 
                         case true:
                             ZStack {
                                 ZStack(alignment: .bottomLeading) {
-                                    TabView(selection: self.$selection) {
+                                    TabView(selection: self.$tabSelectionState.selectedTab) {
+                                        BusinessInformationView().environmentObject(self.session)
+                                            .tabItem {
+                                                Label("Business Info", systemImage: "building.2.crop.circle.fill")
+                                            }
+                                            .tag(1)
+                                        
                                         InboxView().environmentObject(self.session)
                                             .tabItem {
                                                 var text = "Inbox"
                                                 Label(text, systemImage: "mail.stack.fill")
                                             }
-                                            .tag(1)
-
-
-//                                            TutorialView().environmentObject(self.session)
-//                                                .tabItem {
-//                                                    Label("Instructions", systemImage: "graduationcap.circle.fill")
-//                                                }
-//                                                .tag(2)
-
-                                        BusinessInformationView().environmentObject(self.session)
+                                            .tag(2)
+                                        
+                                        AccountView(width: geometry.size.width, height: geometry.size.height).environmentObject(self.session)
                                             .tabItem {
-                                                Label("Business Info", systemImage: "building.2.crop.circle.fill")
+                                                var text = "Account"
+                                                Label(text, systemImage: "person.crop.circle.fill")
                                             }
                                             .tag(3)
-
+                                    
                                     }.ignoresSafeArea(.keyboard)
-                                        .accentColor(Color("aoBlue"))
+                                        .accentColor(Color("Purple"))
 
                                     if self.session.unreadMessages > 0 {
                                         // HAve to add all this in so keyboard avoidance works
@@ -99,33 +97,20 @@ struct ContentView: View {
 
                                     }
                                 }
-                                .disabled(self.showingMenu ? true : false)
-
-                                if self.showingMenu {
-                                    HStack {
-                                        MenuView(width: geometry.size.width, height: geometry.size.height)
-                                        .frame(width: geometry.size.width * 0.65, height: geometry.size.height).transition(.move(edge: .leading))
-
-                                        Color.black.opacity(0.00001).frame(width: geometry.size.width * 0.35, height: geometry.size.height).transition(.move(edge: .leading)).onTapGesture {
-                                            if self.showingMenu {
-                                                withAnimation {
-                                                    self.showingMenu = false
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
+                                
                             }
                             // When a user taps on a conversation message notification navigate to the inbox
                             .onReceive(self.pushNotificationState.$conversationToNavigateTo, perform: {
                                 conversation in
                                 if conversation != nil {
-                                    self.selection = 1
+                                    DispatchQueue.main.async {
+                                        self.tabSelectionState.selectedTab = 2
+                                    }
                                 }
                             })
 
                         case false:
-                            OnboardingView(selection: self.$selection).environmentObject(self.session)
+                            OnboardingView().environmentObject(self.session)
 
                         default :
                             Text("Discerning onboarding status ...")

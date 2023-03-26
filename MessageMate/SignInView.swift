@@ -31,8 +31,8 @@ struct SignInView: View {
                 
                 VStack {
                     HorizontalLine(color: colorScheme == .dark ? Color.white : Color.black, height: 3).frame(width: geometry.size.width * 0.6)
-                    Text("Message").font(Font.custom("Nunito-Bold", size: 40)).bold().foregroundColor(colorScheme == .dark ? Color.white : Color.black).frame(width: geometry.size.width * 0.55, alignment: .leading)
-                    Text("Mate").font(Font.custom("Nunito-Bold", size: 40)).bold().foregroundColor(colorScheme == .dark ? Color.white : Color.black).frame(width: geometry.size.width * 0.55, alignment: .trailing)
+                    Text("Message").font(Font.custom(BOLD_FONT, size: 40)).bold().foregroundColor(colorScheme == .dark ? Color.white : Color.black).frame(width: geometry.size.width * 0.55, alignment: .leading)
+                    Text("Mate").font(Font.custom(BOLD_FONT, size: 40)).bold().foregroundColor(colorScheme == .dark ? Color.white : Color.black).frame(width: geometry.size.width * 0.55, alignment: .trailing)
                     HorizontalLine(color: colorScheme == .dark ? Color.white : Color.black, height: 3).frame(width: geometry.size.width * 0.6)
                 }.offset(y: -75).frame(height: geometry.size.height * 0.62)
                 

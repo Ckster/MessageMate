@@ -44,6 +44,9 @@
 		ED30332B29CEA8FA008EC92A /* Montserrat-BoldItalic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = ED30331929CEA8FA008EC92A /* Montserrat-BoldItalic.ttf */; };
 		ED30332C29CEA8FA008EC92A /* Montserrat-ExtraLight.ttf in Resources */ = {isa = PBXBuildFile; fileRef = ED30331A29CEA8FA008EC92A /* Montserrat-ExtraLight.ttf */; };
 		ED30332D29CEA8FA008EC92A /* Montserrat-Black.ttf in Resources */ = {isa = PBXBuildFile; fileRef = ED30331B29CEA8FA008EC92A /* Montserrat-Black.ttf */; };
+		ED30333029D0E7B1008EC92A /* Paperplane.lottie in Resources */ = {isa = PBXBuildFile; fileRef = ED30332E29D0E7B1008EC92A /* Paperplane.lottie */; };
+		ED30333129D0E7B1008EC92A /* Loading-2.json in Resources */ = {isa = PBXBuildFile; fileRef = ED30332F29D0E7B1008EC92A /* Loading-2.json */; };
+		ED30333329D0EEC8008EC92A /* Paperplane.json in Resources */ = {isa = PBXBuildFile; fileRef = ED30333229D0EEC8008EC92A /* Paperplane.json */; };
 		ED53B9AF297F8A0E0013C03B /* InboxView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED53B9AE297F8A0E0013C03B /* InboxView.swift */; };
 		ED53B9B1297F8A250013C03B /* TutorialView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED53B9B0297F8A250013C03B /* TutorialView.swift */; };
 		ED53B9B3297F8A400013C03B /* BusinessInformationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED53B9B2297F8A400013C03B /* BusinessInformationView.swift */; };
@@ -63,7 +66,7 @@
 		EDB4B66629A2D33D004DE432 /* DynamicDictSubView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDB4B66529A2D33D004DE432 /* DynamicDictSubView.swift */; };
 		EDB4B66829A2D390004DE432 /* DynamicListSubView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDB4B66729A2D390004DE432 /* DynamicListSubView.swift */; };
 		EDBCF6252984F0E400C92448 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDBCF6242984F0E400C92448 /* SceneDelegate.swift */; };
-		EDC9CC4229AB1DC30036567C /* MenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDC9CC4129AB1DC30036567C /* MenuView.swift */; };
+		EDC9CC4229AB1DC30036567C /* AccountView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDC9CC4129AB1DC30036567C /* AccountView.swift */; };
 		EDC9CC4429AB35750036567C /* SelectPageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDC9CC4329AB35750036567C /* SelectPageView.swift */; };
 		EDFA8D062993660A00559DD4 /* 9844-loading-40-paperplane.json in Resources */ = {isa = PBXBuildFile; fileRef = EDFA8D052993660A00559DD4 /* 9844-loading-40-paperplane.json */; };
 /* End PBXBuildFile section */
@@ -109,6 +112,9 @@
 		ED30331929CEA8FA008EC92A /* Montserrat-BoldItalic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "Montserrat-BoldItalic.ttf"; path = "../../../../../Downloads/Montserrat/static/Montserrat-BoldItalic.ttf"; sourceTree = "<group>"; };
 		ED30331A29CEA8FA008EC92A /* Montserrat-ExtraLight.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "Montserrat-ExtraLight.ttf"; path = "../../../../../Downloads/Montserrat/static/Montserrat-ExtraLight.ttf"; sourceTree = "<group>"; };
 		ED30331B29CEA8FA008EC92A /* Montserrat-Black.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "Montserrat-Black.ttf"; path = "../../../../../Downloads/Montserrat/static/Montserrat-Black.ttf"; sourceTree = "<group>"; };
+		ED30332E29D0E7B1008EC92A /* Paperplane.lottie */ = {isa = PBXFileReference; lastKnownFileType = file; name = Paperplane.lottie; path = ../../../../../Downloads/Paperplane.lottie; sourceTree = "<group>"; };
+		ED30332F29D0E7B1008EC92A /* Loading-2.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; name = "Loading-2.json"; path = "../../../../../Downloads/Loading-2.json"; sourceTree = "<group>"; };
+		ED30333229D0EEC8008EC92A /* Paperplane.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; name = Paperplane.json; path = ../../../../../Downloads/Paperplane.json; sourceTree = "<group>"; };
 		ED53B9AE297F8A0E0013C03B /* InboxView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InboxView.swift; sourceTree = "<group>"; };
 		ED53B9B0297F8A250013C03B /* TutorialView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TutorialView.swift; sourceTree = "<group>"; };
 		ED53B9B2297F8A400013C03B /* BusinessInformationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BusinessInformationView.swift; sourceTree = "<group>"; };
@@ -131,7 +137,7 @@
 		EDB4B66529A2D33D004DE432 /* DynamicDictSubView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DynamicDictSubView.swift; sourceTree = "<group>"; };
 		EDB4B66729A2D390004DE432 /* DynamicListSubView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DynamicListSubView.swift; sourceTree = "<group>"; };
 		EDBCF6242984F0E400C92448 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
-		EDC9CC4129AB1DC30036567C /* MenuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuView.swift; sourceTree = "<group>"; };
+		EDC9CC4129AB1DC30036567C /* AccountView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountView.swift; sourceTree = "<group>"; };
 		EDC9CC4329AB35750036567C /* SelectPageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SelectPageView.swift; sourceTree = "<group>"; };
 		EDFA8D052993660A00559DD4 /* 9844-loading-40-paperplane.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = "9844-loading-40-paperplane.json"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -168,6 +174,9 @@
 		ED2CBB1D299362F6002161BE /* Lottie */ = {
 			isa = PBXGroup;
 			children = (
+				ED30333229D0EEC8008EC92A /* Paperplane.json */,
+				ED30332F29D0E7B1008EC92A /* Loading-2.json */,
+				ED30332E29D0E7B1008EC92A /* Paperplane.lottie */,
 				EDB4B66329A19401004DE432 /* 97952-loading-animation-blue.json */,
 				EDFA8D052993660A00559DD4 /* 9844-loading-40-paperplane.json */,
 			);
@@ -242,7 +251,7 @@
 				ED9536662984F4C400A391BE /* Info.plist */,
 				ED53B9B6297F8C7F0013C03B /* MessageMate.entitlements */,
 				ED700B6E297CA3F50058968B /* GoogleService-Info.plist */,
-				EDC9CC4129AB1DC30036567C /* MenuView.swift */,
+				EDC9CC4129AB1DC30036567C /* AccountView.swift */,
 				ED700B72297CA54E0058968B /* SignInView.swift */,
 				ED700B70297CA4930058968B /* SignInWithApple.swift */,
 				ED700B69297CA1AC0058968B /* AppDelegate.swift */,
@@ -339,10 +348,12 @@
 				ED30330629CBF326008EC92A /* Nunito-Italic.ttf in Resources */,
 				ED30330329CBF326008EC92A /* Nunito-Bold.ttf in Resources */,
 				ED30332829CEA8FA008EC92A /* Montserrat-BlackItalic.ttf in Resources */,
+				ED30333129D0E7B1008EC92A /* Loading-2.json in Resources */,
 				ED30330429CBF326008EC92A /* Nunito-BoldItalic.ttf in Resources */,
 				ED3032FB29CBF326008EC92A /* Nunito-ExtraLightItalic.ttf in Resources */,
 				ED30332229CEA8FA008EC92A /* Montserrat-ExtraBold.ttf in Resources */,
 				ED3032FA29CBF326008EC92A /* Nunito-Regular.ttf in Resources */,
+				ED30333029D0E7B1008EC92A /* Paperplane.lottie in Resources */,
 				ED30330829CBF326008EC92A /* Nunito-Light.ttf in Resources */,
 				ED99A912297C8F2C0029235B /* Preview Assets.xcassets in Resources */,
 				ED30332629CEA8FA008EC92A /* Montserrat-ExtraLightItalic.ttf in Resources */,
@@ -370,6 +381,7 @@
 				ED3032FC29CBF326008EC92A /* Nunito-BlackItalic.ttf in Resources */,
 				ED30332329CEA8FA008EC92A /* Montserrat-Bold.ttf in Resources */,
 				ED30332129CEA8FA008EC92A /* Montserrat-ThinItalic.ttf in Resources */,
+				ED30333329D0EEC8008EC92A /* Paperplane.json in Resources */,
 				ED3032FD29CBF326008EC92A /* Nunito-Black.ttf in Resources */,
 				ED30332929CEA8FA008EC92A /* Montserrat-ExtraBoldItalic.ttf in Resources */,
 				ED30331D29CEA8FA008EC92A /* Montserrat-Medium.ttf in Resources */,
@@ -433,7 +445,7 @@
 				ED700B6B297CA1AD0058968B /* SessionStore.swift in Sources */,
 				ED700B71297CA4930058968B /* SignInWithApple.swift in Sources */,
 				ED700B6D297CA1AD0058968B /* FirebaseNamespaces.swift in Sources */,
-				EDC9CC4229AB1DC30036567C /* MenuView.swift in Sources */,
+				EDC9CC4229AB1DC30036567C /* AccountView.swift in Sources */,
 				ED53B9AF297F8A0E0013C03B /* InboxView.swift in Sources */,
 				EDBCF6252984F0E400C92448 /* SceneDelegate.swift in Sources */,
 				EDB4B66829A2D390004DE432 /* DynamicListSubView.swift in Sources */,

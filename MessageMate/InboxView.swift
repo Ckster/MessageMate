@@ -43,18 +43,21 @@ enum MessagingPlatform: CaseIterable {
 // TODO: Add full screen for story mentions and replies
 // TODO: Check on local notifcations waking app up from termination
 // TODO: Do a check for minimum info before showing info
+// TODO: Better multi page management
 
 
 struct InboxView: View {
     @EnvironmentObject var session: SessionStore
     
     var body: some View {
-
-        if !self.session.loadingFacebookUserToken && self.session.facebookUserToken == nil {
-            FacebookAuthenticateView().environmentObject(self.session)
-        }
-        else {
-            ConversationsView().environmentObject(self.session)
+        GeometryReader {
+            geometry in
+            if !self.session.loadingFacebookUserToken && self.session.facebookUserToken == nil {
+                FacebookAuthenticateView(width: geometry.size.width, height: geometry.size.height).environmentObject(self.session)
+            }
+            else {
+                ConversationsView(width: geometry.size.width, height: geometry.size.height).environmentObject(self.session)
+            }
         }
     }
 }
@@ -69,75 +72,95 @@ struct ConversationsView: View {
     @State var sortedConvervations: [Conversation]? = nil
     let db = Firestore.firestore()
     
+    let width: CGFloat
+    let height: CGFloat
+    
     var body: some View {
         NavigationView {
-            GeometryReader { geometry in
-                VStack(alignment: .leading) {
-                    Text("Messages").bold().font(Font.custom("Nunito-Bold", size: 30)).offset(x: 0).padding(.leading)
-                    
-                    if self.loading {
-                        LottieView(name: "9844-loading-40-paperplane")
-                            .onTapGesture(perform: {
-                                if self.firstAppear {
-                                    self.firstAppear = false
-                                    Task {
-                                        print("Starting B")
-                                        await self.updatePages()
-                                    }
+          
+            VStack(alignment: .leading) {
+                Text("Messages").bold().font(Font.custom("Monsterrat-ExtraBold", size: 30)).offset(x: 0).padding(.leading)
+                
+                if self.loading {
+                    LottieView(name: "Paperplane")
+                        .onTapGesture(perform: {
+                            if self.firstAppear {
+                                self.firstAppear = false
+                                Task {
+                                    print("Starting B")
+                                    // Get the Business Pages associated with the account
+                                    await self.session.updateAvailablePages()
+                                    
+                                    print("Got pages", self.session.availablePages)
+                                    
+                                    // Set the selected page is the currently selected page is nil or no longer exists in the set of avaialable pages
+                                    self.session.updateSelectedPage()
+                                    
+                                    print("Updated selected page", self.session.selectedPage!.name)
+                                    
+                                    // Update the conversations for each page. When this is done the screen will stop loading
+                                    await self.updatePages()
+                                    
+                                    print("Done updating pages")
                                 }
-                            })
-                    }
-                    
-                    else {
-                        Text("You have \(self.session.unreadMessages == 0 ? "no" : String(self.session.unreadMessages)) new \(self.session.unreadMessages != 1 ? "messages" : "message")").foregroundColor(.gray).font(Font.custom("Nunito-Black", size: 15)).padding(.leading).padding(.bottom)
+                            }
+                        }
+                    )
+                }
+                
+                else {
+                    if self.session.selectedPage != nil {
+                        
+                        Text("You have \(self.session.unreadMessages == 0 ? "no" : String(self.session.unreadMessages)) new \(self.session.unreadMessages != 1 ? "messages" : "message")").foregroundColor(.gray).font(Font.custom(REGULAR_FONT, size: 15)).padding(.leading).padding(.bottom)
                         
                         ScrollView {
-                            if self.session.selectedPage != nil {
-                                
-                                PullToRefresh(coordinateSpaceName: "pullToRefresh") {
-                                    self.loading = true
-                                    Task {
-                                        await self.updateConversations(page: self.session.selectedPage!)
-                                    }
-                                }
-                                
-                                if self.session.selectedPage!.conversations.count == 0 {
-                                    Text("No conversations. Pull down to refresh.").font(Font.custom("Nunito-Black", size: 30))
-                                }
-                                
-                                else {
-                                    var sortedConversations = self.session.selectedPage!.conversations.sorted {$0.messages.last!.createdTime > $1.messages.last!.createdTime}
-                                    ForEach(sortedConversations, id:\.self) { conversation in
-                                        if conversation.messages.count > 0 {
-                                            ConversationNavigationView(conversation: conversation, width: geometry.size.width, page: self.session.selectedPage!).environmentObject(self.session).onAppear(perform: {
-                                                print("REFRESHING")
-                                            })
-                                        }
-                                    }
+                            
+                            PullToRefresh(coordinateSpaceName: "pullToRefresh") {
+                                self.loading = true
+                                Task {
+                                    await self.updateConversations(page: self.session.selectedPage!)
                                 }
                             }
                             
+                            if self.session.selectedPage!.conversations.count == 0 {
+                                Text("No conversations. Pull down to refresh.").font(Font.custom(REGULAR_FONT, size: 30))
+                            }
+                            
                             else {
-                                PullToRefresh(coordinateSpaceName: "pullToRefresh") {
-                                    self.loading = true
-                                    Task {
-                                        print("Starting A")
-                                        await self.updatePages()
+                                var sortedConversations = self.session.selectedPage!.conversations.sorted {$0.messages.last?.createdTime ?? Date() > $1.messages.last?.createdTime ?? Date()}
+                                ForEach(sortedConversations, id:\.self) { conversation in
+                                    if conversation.messages.count > 0 {
+                                        ConversationNavigationView(conversation: conversation, width: width, page: self.session.selectedPage!).environmentObject(self.session)
                                     }
                                 }
-                                Text("There are no business accounts linked to you. Add a business account to your Messenger account to see it here.").font(Font.custom("Nunito-Black", size: 30))
                             }
+                        }.onAppear(perform: {
+                            self.addConversationListeners(page: self.session.selectedPage!)
+                        })
+                    }
+                        
+                    else {
+                        ScrollView {
+                            PullToRefresh(coordinateSpaceName: "pullToRefresh") {
+                                Task {
+                                    self.loading = true
+                                    await self.session.updateAvailablePages()
+                                    self.session.updateSelectedPage()
+                                    await self.updatePages()
+                                }
+                            }
+                            Text("There are no business accounts linked to you. Add a business account to your Facebook account to see its messages here.").font(Font.custom(REGULAR_FONT, size: 30))
                         }.coordinateSpace(name: "pullToRefresh")
                     }
                 }
             }
         }
-        .accentColor(Color("aoBlue")) 
-        .onChange(of: self.session.selectedPage ?? MetaPage(id: "", name: "", accessToken: "", category: ""), perform: {
-            // TODO: Add de-listener here
-            newPage in
-            self.addConversationListeners(page: newPage)
-        })
+        .accentColor(Color("Purple"))
+//        .onChange(of: self.session.selectedPage ?? MetaPage(id: "", name: "", accessToken: "", category: ""), perform: {
+//            // TODO: Add de-listener here
+//            newPage in
+//            self.addConversationListeners(page: newPage)
+//        })
 //        .onChange(of: scenePhase) {
 //            newPhase in
 //            print("PHASE", newPhase)
@@ -182,6 +205,7 @@ struct ConversationsView: View {
     
     // TODO: Add an implement a listener remover
     func addConversationListeners(page: MetaPage) {
+        print("Adding conversation listeners")
         
         self.initializeConversationCollection(page: page) {
             self.db.collection(Pages.name).document(page.id).collection(Pages.collections.CONVERSATIONS.name).addSnapshotListener {
@@ -208,11 +232,15 @@ struct ConversationsView: View {
                         let isDeleted = data["is_deleted"] as? Bool
                         
                         if pageId != nil && recipientId != nil && senderId != nil && createdTime != nil && messageId != nil {
-                            if self.session.selectedPage != nil {
-                                if self.session.selectedPage!.businessAccountId ?? "" == pageId || self.session.selectedPage!.id == pageId {
+                            
+                            if page.businessAccountId ?? "" == pageId || page.id == pageId {
                                     var conversationFound: Bool = false
                                     
-                                    for conversation in self.session.selectedPage!.conversations {
+                                    for conversation in page.conversations {
+                                        print(conversation.correspondent!.id, conversation.correspondent!.name)
+                                        if conversation.correspondent == nil {
+                                            print("Correspondent is nil")
+                                        }
                                         if conversation.correspondent != nil && conversation.correspondent!.id == senderId {
                                             conversationFound = true
                                             let messageDate = Date(timeIntervalSince1970: createdTime! / 1000)
@@ -258,8 +286,9 @@ struct ConversationsView: View {
                                                 newMessage.instagramStoryReply = instagramStoryReply
                                                 newMessage.imageAttachment = imageAttachment
                                                 
-                                                // TODO: Need to also test if the message is old / outside of conversation pagination
-                                                if !conversation.messages.contains(newMessage) {
+                                                if !conversation.messages.contains(newMessage)
+                                                    && newMessage.createdTime > conversation.messages.last?.createdTime ?? Date(timeIntervalSince1970: .zero)
+                                                {
                                                     print("Updating conversation \(senderId)")
                                                     var newMessages = conversation.messages
                                                     newMessages.append(newMessage)
@@ -276,9 +305,10 @@ struct ConversationsView: View {
                                     }
                                     
                                     // TODO: Of course facebook doesn't send the conversation ID with the webhook... this should work for now but may be slow. Try to come up with a more efficient way later
-                                    if !conversationFound {
+                                    if !conversationFound && isDeleted != nil && !isDeleted! {
+                                        print("Not found", senderId)
                                         Task {
-                                            await self.updateConversations(page: self.session.selectedPage!)
+                                            await self.updateConversations(page: page)
                                             self.session.unreadMessages = self.session.unreadMessages + 1
                                         }
                                     }
@@ -286,7 +316,6 @@ struct ConversationsView: View {
                             }
                         }
                     }
-                }
             }
         }
     }
@@ -298,7 +327,7 @@ struct ConversationsView: View {
             var newConversations: [Conversation] = []
             for platform in MessagingPlatform.allCases {
                 let conversations = await self.getConversations(page: page, platform: platform)
-                print(platform, conversations.count, "Count")
+                print(platform, conversations.count, "Count", page.name)
                 newConversations = newConversations + conversations
             }
             
@@ -318,11 +347,15 @@ struct ConversationsView: View {
                     
                     let pagination = conversationTuple.1
                     if messages.count > 0 {
-                        conversation.messages = messages.sorted { $0.createdTime < $1.createdTime }
-                        conversation.pagination = pagination
-                        let userList = conversation.updateCorrespondent()
-                        if userList.count > 0 {
-                            page.pageUser = userList[1]
+                        Task {
+                            await MainActor.run {
+                                conversation.messages = messages.sorted { $0.createdTime < $1.createdTime }
+                                conversation.pagination = pagination
+                                let userList = conversation.updateCorrespondent()
+                                if userList.count > 0 {
+                                    page.pageUser = userList[1]
+                                }
+                            }
                         }
                     }
                     
@@ -344,13 +377,18 @@ struct ConversationsView: View {
                         
                         pagesLoaded = pagesLoaded + 1
                         if pagesLoaded == self.session.availablePages.count {
+                            print("All pages loaded")
                             self.loading = false
                         }
-                        
                     }
                 }
             }
         }
+        
+        if self.session.availablePages.count == 0 {
+            self.loading = false
+        }
+        
     }
     
     func updateConversations(page: MetaPage) async {
@@ -407,6 +445,7 @@ struct ConversationsView: View {
     }
     
     func getMessages(page: MetaPage, conversation: Conversation, cursor: String? = nil, completion: @escaping (([Message], PagingInfo?)) -> Void) {
+        print("Runing getMessages")
         var urlString = "https://graph.facebook.com/v16.0/\(conversation.id)?fields=messages&access_token=\(page.accessToken)"
         
         if cursor != nil {
@@ -430,6 +469,7 @@ struct ConversationsView: View {
                 }
                 
                 let messageData = conversationData!["data"] as? [[String: AnyObject]]
+                print("Number of messages: \(messageData!.count)")
                     
                     if messageData != nil {
                         let messagesLen = messageData!.count
@@ -437,7 +477,6 @@ struct ConversationsView: View {
                         var newMessages: [Message] = []
                         
                         for message in messageData! {
-                            print(message)
                             let id = message["id"] as? String
                             let createdTime = message["created_time"] as? String
                             
@@ -568,7 +607,6 @@ struct ConversationsView: View {
     }
     
     func parseInstagramMessage(messageDataDict: [String: Any], message_id: String, createdTime: String, previousMessage: Message? = nil) -> Message? {
-        print(messageDataDict)
         let fromDict = messageDataDict["from"] as? [String: AnyObject]
         let toDictList = messageDataDict["to"] as? [String: AnyObject]
         let message = messageDataDict["message"] as? String
@@ -750,9 +788,12 @@ struct ConversationNavigationView: View {
                     ToolbarItem {
                         HStack {
                             HStack {
-                                AsyncImage(url: URL(string: conversation.correspondent?.profilePicURL ?? "")) { image in image.resizable() } placeholder: { EmptyView() } .frame(width: 37.5, height: 37.5) .clipShape(Circle())
+                                AsyncImage(url: URL(string: conversation.correspondent?.profilePicURL ?? "")) { image in image.resizable() } placeholder: { EmptyView() } .frame(width: 37.5, height: 37.5) .overlay(
+                                    Circle()
+                                        .stroke(Color("Purple"), lineWidth: 3)
+                                ).clipShape(Circle())
                                 VStack(alignment: .leading, spacing: 0.5) {
-                                    Text(navTitle).font(Font.custom("Nunito-Bold", size: 18))
+                                    Text(navTitle).font(Font.custom(BOLD_FONT, size: 18))
                                     switch conversation.correspondent?.platform {
                                     case .instagram:
                                         Image("instagram_logo").resizable().frame(width: 20.5, height: 20.5)
@@ -773,38 +814,41 @@ struct ConversationNavigationView: View {
             ) {
                 ZStack {
                     HStack {
-                        AsyncImage(url: URL(string: self.correspondent.profilePicURL ?? "")) { image in image.resizable() } placeholder: { Image(systemName: "person.circle").foregroundColor(Color("aoBlue")) } .frame(width: 55, height: 55).clipShape(Circle()).offset(y: conversation.messages.last!.message == "" ? -6 : 0)
+                        AsyncImage(url: URL(string: self.correspondent.profilePicURL ?? "")) { image in image.resizable() } placeholder: { Image(systemName: "person.circle").foregroundColor(Color("Purple")).font(.system(size: 50)) } .frame(width: 55, height: 55).overlay(
+                            Circle()
+                                .stroke(Color("Purple"), lineWidth: 3)
+                        ).clipShape(Circle()).offset(y: conversation.messages.last!.message == "" ? -6 : 0)
                         
                         VStack(spacing: 0.5) {
                             HStack {
-                                Text(navTitle).foregroundColor(self.colorScheme == .dark ? .white : .black).font(Font.custom("Nunito-Black", size: 22))
+                                Text(navTitle).foregroundColor(self.colorScheme == .dark ? .white : .black).font(Font.custom(REGULAR_FONT, size: 22))
 //                                Image(self.correspondent.platform == .instagram ? "instagram_logo" : "facebook_logo").resizable().frame(width: 15.5, height: 15.5)
                             }.frame(width: width * 0.55, alignment: .leading)
                         
                             HStack {
                                 if conversation.messages.last!.instagramStoryMention != nil {
-                                    Text("\(conversation.correspondent?.name ?? "") mentioned you in their story").lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(Font.custom("Nunito-Black", size: 15)).frame(width: width * 0.55, alignment: .leading)
+                                    Text("\(conversation.correspondent?.name ?? "") mentioned you in their story").lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(Font.custom(REGULAR_FONT, size: 15)).frame(width: width * 0.55, alignment: .leading)
                                 }
                                 else {
                                     
                                     if conversation.messages.last!.imageAttachment != nil {
-                                        Text("\(conversation.correspondent?.name ?? "") sent you an image").lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(Font.custom("Nunito-Black", size: 15)).frame(width: width * 0.55, alignment: .leading)
+                                        Text("\(conversation.correspondent?.name ?? "") sent you an image").lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(Font.custom(REGULAR_FONT, size: 15)).frame(width: width * 0.55, alignment: .leading)
                                     }
                                     
                                     else {
                                         
                                         if conversation.messages.last!.instagramStoryReply != nil {
-                                            Text("\(conversation.correspondent?.name ?? "") replied to your story").lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(Font.custom("Nunito-Black", size: 15)).frame(width: width * 0.55, alignment: .leading)
+                                            Text("\(conversation.correspondent?.name ?? "") replied to your story").lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(Font.custom(REGULAR_FONT, size: 15)).frame(width: width * 0.55, alignment: .leading)
                                         }
                                         
                                         else {
                                             
                                             if conversation.messages.last!.videoAttachment != nil {
-                                                Text("\(conversation.correspondent?.name ?? "") sent you a video").lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(Font.custom("Nunito-Black", size: 15)).frame(width: width * 0.55, alignment: .leading)
+                                                Text("\(conversation.correspondent?.name ?? "") sent you a video").lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(Font.custom(REGULAR_FONT, size: 15)).frame(width: width * 0.55, alignment: .leading)
                                             }
                                             
                                             else {
-                                                Text((conversation.messages.last!).message).lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(Font.custom("Nunito-Black", size: 15)).frame(width: width * 0.55, alignment: .leading)
+                                                Text((conversation.messages.last!).message).lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(Font.custom(REGULAR_FONT, size: 15)).frame(width: width * 0.55, alignment: .leading)
                                             }
                                         }
                                     }
@@ -813,14 +857,14 @@ struct ConversationNavigationView: View {
                         }
                         
                         let lastMessageIntervalString = self.makeTimeElapsedString(elapsedTime: conversation.messages.last!.createdTime.timeIntervalSinceNow)
-                        Text(lastMessageIntervalString).lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(Font.custom("Nunito-Black", size: 10)).frame(width: width * 0.20)
+                        Text(lastMessageIntervalString).lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(Font.custom(REGULAR_FONT, size: 10)).frame(width: width * 0.20)
                         
                     }
                     //.offset(x: 10)
                     
                     if !conversation.messages.last!.opened {
                         HStack(spacing: 0) {
-                            Color("aoBlue").frame(width: width * 0.01, height: 75)
+                            Color("Purple").frame(width: width * 0.01, height: 75)
                             Color.offWhite.frame(width: width * 0.99, height: 75).opacity(0.10)
                         }
                     }
@@ -878,17 +922,20 @@ struct ConversationNavigationView: View {
 struct FacebookAuthenticateView: View {
     @EnvironmentObject var session: SessionStore
     
+    let width: CGFloat
+    let height: CGFloat
+    
     var body: some View {
-        GeometryReader {
-            geometry in
-            VStack {
-                Text("Please log in with Facebook to link your Messenger conversations").frame(height: geometry.size.height * 0.35, alignment: .center).padding()
-                Button(action: {self.session.facebookLogin(authWorkflow: false)}) {
-                    Image("facebook_login").resizable().cornerRadius(3.0).aspectRatio(contentMode: .fit)
-                        .frame(width: geometry.size.width * 0.80, height: geometry.size.height * 0.65, alignment: .center)
-                }
+        
+        VStack {
+            Image("undraw_access_account_re_8spm").resizable().frame(width: width * 0.75, height: height * 0.35).offset(y: 0).padding()
+            Text("Please log in with Facebook to link your Messenger conversations").font(Font.custom(REGULAR_FONT, size: 25)).frame(height: height * 0.35, alignment: .center).padding()
+            Button(action: {self.session.facebookLogin(authWorkflow: false)}) {
+                Image("facebook_login").resizable().cornerRadius(3.0).aspectRatio(contentMode: .fit)
+                    .frame(width: width * 0.80, height: height * 0.30, alignment: .center)
             }
         }
+        
     }
 }
 
@@ -913,7 +960,7 @@ struct TextControlView: View {
                 
                 // Input text box / loading when message is being generated
                 if self.loading {
-                    LottieView(name: "97952-loading-animation-blue").frame(width: width, height: height * 0.10, alignment: .leading)
+                    LottieView(name: "Loading-2").frame(width: width, height: height * 0.10, alignment: .leading)
                 }
                 
                 else {
@@ -1145,7 +1192,7 @@ struct ConversationView: View {
                             image in
                             image.resizable()
                         } placeholder: {
-                            LottieView(name: "97952-loading-animation-blue").frame(width: 50, height: 50, alignment: .leading)
+                            LottieView(name: "Loading-2").frame(width: 50, height: 50, alignment: .leading)
                         }
                             .frame(height: 1000).frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.90, alignment: .leading)
                             .clipShape(RoundedRectangle(cornerRadius: 16))
@@ -1225,6 +1272,7 @@ struct AutoGenerateButton: View {
     @Binding var loading: Bool
     @Binding var typingText: String
     @Binding var showCouldNotGenerateResponse: Bool
+    @Environment(\.colorScheme) var colorScheme
     
     var body: some View {
         Button(action: {
@@ -1245,7 +1293,7 @@ struct AutoGenerateButton: View {
                 }
             }
         }) {
-            Text(self.buttonText).font(.system(size: 13)).bold()
+            Text(self.buttonText).foregroundColor(self.colorScheme == .light ? .white : .black).font(.system(size: 13)).bold()
                 .frame(width: width * 0.185, height: height * 0.07)
         }
         .buttonStyle(SimpleButtonStyle(width: width, height: height))
@@ -1272,7 +1320,7 @@ struct SimpleButtonStyle: ButtonStyle {
                     Group {
                         if configuration.isPressed {
                             Circle()
-                                .fill(Color.offWhite)
+                                .fill(Color("Purple"))
                                 .overlay(
                                     Circle()
                                         .stroke(Color.gray, lineWidth: 4)
@@ -1292,11 +1340,11 @@ struct SimpleButtonStyle: ButtonStyle {
                                 .frame(width: width * 0.165, height: width * 0.165)
                         } else {
                             Circle()
-                                .fill(Color.offWhite)
+                                .fill(Color("Purple"))
                                 .shadow(color: Color.black.opacity(0.2), radius: 10, x: 10, y: 10)
                                 .shadow(color: Color.white.opacity(0.7), radius: 10, x: -5, y: -5)
                                 .frame(width: width * 0.165, height: width * 0.165)
-                               // .cornerRadius(6)
+                            // .cornerRadius(6)
                         }
                     }
                 )
@@ -1309,9 +1357,9 @@ struct SimpleButtonStyle: ButtonStyle {
                 .background(
                     DarkBackground(isHighlighted: configuration.isPressed, shape: Circle(), width: width, height: height)
                 )
-                
         }
     }
+        
 }
 
 
@@ -1332,14 +1380,14 @@ struct DarkBackground<S: Shape>: View {
         ZStack {
             if isHighlighted {
                 shape
-                    .fill(Color.darkEnd)
+                    .fill(Color("Purple"))
                     .shadow(color: Color.darkStart, radius: 5, x: 1.5, y: 1.5)
                     .shadow(color: Color.darkEnd, radius: 5, x: -1.5, y: -1.5)
                     .frame(width: width * 0.165, height: width * 0.165)
 
             } else {
                 shape
-                    .fill(Color.darkEnd)
+                    .fill(Color("Purple"))
                     .shadow(color: Color.darkStart, radius: 5, x: -1.5, y: -1.5)
                     .shadow(color: Color.darkEnd, radius: 5, x: 1.5, y: 1.5)
                     .frame(width: width * 0.165, height: width * 0.165)
@@ -1371,7 +1419,7 @@ struct DeleteTypingTextButton: View {
             self.typingText = ""
         }) {
             Image(systemName: "trash")
-                //.foregroundColor(.white)
+                .foregroundColor(.red)
                 .frame(width: width * 0.175, height: height * 0.07)
              //.background(Color.red)
             }.buttonStyle(SimpleButtonStyle(width: width, height: height))
@@ -1446,7 +1494,7 @@ struct DynamicHeightTextBox: View {
 //                        .scaledToFit()
                         .font(.system(size: 35))
                         .position(x: width * 0.85, y: 10)
-                        .frame(height: 20).foregroundColor(Color("aoBlue"))
+                        .frame(height: 20).foregroundColor(Color("Purple"))
                       //  .clipShape(Circle())
                 }
                 
@@ -1560,7 +1608,7 @@ struct MessageView : View {
         if !isCurrentUser {
             VStack(spacing: 1) {
                 HStack {
-                    AsyncImage(url: URL(string: self.correspondent.profilePicURL ?? "")) { image in image.resizable() } placeholder: { Image(systemName: "person.circle").foregroundColor(Color("aoBlue")) } .frame(width: 25, height: 25, alignment: .bottom) .clipShape(Circle()).padding(.leading).onTapGesture {
+                    AsyncImage(url: URL(string: self.correspondent.profilePicURL ?? "")) { image in image.resizable() } placeholder: { Image(systemName: "person.circle").foregroundColor(Color("Purple")) } .frame(width: 25, height: 25, alignment: .bottom) .clipShape(Circle()).padding(.leading).onTapGesture {
                             openProfile(correspondent: correspondent)
                     }
                     MessageBlurbView(contentMessage: currentMessage, isCurrentUser: isCurrentUser)
@@ -1568,7 +1616,7 @@ struct MessageView : View {
                 
                 Text("\(dates.hour! > 12 ? dates.hour! - 12 : dates.hour!):\(String(format: "%02d", dates.minute!)) \(dates.hour! > 12 ? "PM" : "AM")")
                     .frame(width: width * 0.875, alignment: .leading).padding(.trailing)
-                    .font(Font.custom("Nunito-Black", size: 9))
+                    .font(Font.custom(REGULAR_FONT, size: 9))
                     .foregroundColor(.gray)
             }
         }
@@ -1578,7 +1626,7 @@ struct MessageView : View {
                     .frame(width: width * 0.875, alignment: .trailing).padding(.leading).padding(.trailing)
                 Text("\(dates.hour! > 12 ? dates.hour! - 12 : dates.hour!):\(String(format: "%02d", dates.minute!)) \(dates.hour! > 12 ? "PM" : "AM")")
                     .frame(width: width * 0.875, alignment: .trailing).padding(.leading).padding(.trailing)
-                    .font(Font.custom("Nunito-Black", size: 9))
+                    .font(Font.custom(REGULAR_FONT, size: 9))
                     .foregroundColor(.gray)
             }
         }
@@ -1616,7 +1664,7 @@ struct InstagramStoryReplyView: View {
                         .foregroundColor(.gray)
                     
                     if contentMessage.instagramStoryReply!.cdnUrl != "" {
-                        AsyncImage(url: URL(string: contentMessage.instagramStoryReply!.cdnUrl ?? "")) { image in image.resizable() } placeholder: { Image(systemName: "person.circle").foregroundColor(Color("aoBlue")) } .frame(width: 150, height: 250).clipShape(RoundedRectangle(cornerRadius: 16))
+                        AsyncImage(url: URL(string: contentMessage.instagramStoryReply!.cdnUrl ?? "")) { image in image.resizable() } placeholder: { Image(systemName: "person.circle").foregroundColor(Color("Purple")) } .frame(width: 150, height: 250).clipShape(RoundedRectangle(cornerRadius: 16))
                     }
                     else {
                         Text("")
@@ -1649,7 +1697,7 @@ struct InstagramStoryMentionView: View {
                     .foregroundColor(.gray).font(.system(size: 10))
                 
                 if contentMessage.instagramStoryMention!.cdnUrl != "" {
-                    AsyncImage(url: URL(string: contentMessage.instagramStoryMention!.cdnUrl ?? "")) { image in image.resizable() } placeholder: { LottieView(name: "97952-loading-animation-blue").frame(width: 50, height: 50, alignment: .leading) } .frame(width: 150, height: 250).clipShape(RoundedRectangle(cornerRadius: 16))
+                    AsyncImage(url: URL(string: contentMessage.instagramStoryMention!.cdnUrl ?? "")) { image in image.resizable() } placeholder: { LottieView(name: "Loading-2").frame(width: 50, height: 50, alignment: .leading) } .frame(width: 150, height: 250).clipShape(RoundedRectangle(cornerRadius: 16))
                 }
                 else {
                     Text("")
@@ -1673,7 +1721,7 @@ struct ImageAttachmentView: View {
             image in
             image.resizable()
         } placeholder: {
-            LottieView(name: "97952-loading-animation-blue").frame(width: 50, height: 50, alignment: .leading)
+            LottieView(name: "Loading-2").frame(width: 50, height: 50, alignment: .leading)
         }.frame(width: 150, height: 250).clipShape(RoundedRectangle(cornerRadius: 16))
             .onTapGesture {
                 self.session.fullScreenImageUrlString = contentMessage.imageAttachment!.url
@@ -1713,6 +1761,7 @@ struct VideoAttachmentView: View {
 
 struct MessageBlurbView: View {
     @EnvironmentObject var session: SessionStore
+    @Environment(\.colorScheme) var colorScheme
     let contentMessage: Message
     let isCurrentUser: Bool
 
@@ -1737,10 +1786,10 @@ struct MessageBlurbView: View {
                     else {
                         Text(contentMessage.message)
                             .padding(10)
-                            .foregroundColor(isCurrentUser ? Color.white : Color.black)
-                            .background(isCurrentUser ? Color("aoBlue") : Color.offWhite)
+                            .foregroundColor(isCurrentUser ? self.colorScheme == .dark ? Color.black : Color.white : Color.black)
+                            .background(isCurrentUser ? Color("Purple") : Color.offWhite)
                             .cornerRadius(10)
-                            .font(Font.custom("Nunito-Black", size: 17))
+                            .font(Font.custom(REGULAR_FONT, size: 17))
                     }
                 }
             }

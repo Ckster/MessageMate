@@ -28,6 +28,11 @@ class PushNotificationState: ObservableObject {
 }
 
 
+class TabSelectionState: ObservableObject {
+    static let shared = TabSelectionState()
+    @Published var selectedTab : Int = 2
+}
+
 /**
  Creates an instance of the users authentication state and other single instance attributes for the user's session
     - Parameters:
@@ -79,7 +84,7 @@ class SessionStore : NSObject, ObservableObject {
                         data, error in
                         print("READ J")
                         if error == nil && data != nil {
-                            self.getFacebokUserToken()
+                            self.getFacebookUserToken()
                             self.isLoggedIn = .signedIn
                         }
                         else {
@@ -146,7 +151,6 @@ class SessionStore : NSObject, ObservableObject {
     }
     
     func updateAvailablePages() async {
-        var newPagesReturn: [MetaPage] = []
         if self.facebookUserToken != nil {
             let urlString = "https://graph.facebook.com/v16.0/me/accounts?access_token=\(self.facebookUserToken!)"
             
@@ -173,17 +177,22 @@ class SessionStore : NSObject, ObservableObject {
                             newPages.append(newPage)
                             initializePage(page: newPage)
                             if pageIndex == pageCount {
-                                newPagesReturn = newPages.sorted {$0.name.first! < $1.name.first!}
+                                self.availablePages = newPages.sorted {$0.name.first! < $1.name.first!}
                             }
                         }
                     }
                 }
             }
         }
-        self.availablePages = newPagesReturn
     }
     
-    func getFacebokUserToken() {
+    func updateSelectedPage() {
+        if (self.selectedPage == nil || !self.availablePages.contains(self.selectedPage!)) && self.availablePages.count > 0 {
+            self.selectedPage = self.availablePages[0]
+        }
+    }
+    
+    func getFacebookUserToken() {
         if self.user.uid != nil {
             self.db.collection(Users.name).document(self.user.uid!).getDocument(completion:  {
                 data, error in
@@ -202,7 +211,12 @@ class SessionStore : NSObject, ObservableObject {
     
     func signOut () {
         // TODO: Remove FB user token
-        self.db.collection(Users.name).document(self.user.user!.uid).updateData(["tokens": FieldValue.arrayRemove([Messaging.messaging().fcmToken ?? ""])], completion: {
+        self.db.collection(Users.name).document(self.user.user!.uid).updateData(
+            [
+                Users.fields.TOKENS: FieldValue.arrayRemove([Messaging.messaging().fcmToken ?? ""]),
+                Users.fields.FACEBOOK_USER_TOKEN: nil
+                
+            ], completion: {
             error in
             print(error)
             if error == nil {
