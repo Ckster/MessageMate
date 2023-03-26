@@ -38,12 +38,11 @@ enum MessagingPlatform: CaseIterable {
     case facebook
 }
 
-// TODO: Add support for post messages if possible
-// TODO: Look into audio message if possible
 // TODO: Add full screen for story mentions and replies
 // TODO: Check on local notifcations waking app up from termination
 // TODO: Do a check for minimum info before showing info
 // TODO: Better multi page management
+// TODO: New app icon
 
 
 struct InboxView: View {
@@ -134,8 +133,13 @@ struct ConversationsView: View {
                                     }
                                 }
                             }
-                        }.onAppear(perform: {
-                            self.addConversationListeners(page: self.session.selectedPage!)
+                        }
+                        .coordinateSpace(name: "pullToRefresh")
+                        .onChange(of: self.loading, perform: {
+                            newState in
+                            if !newState {
+                                self.addConversationListeners(page: self.session.selectedPage!)
+                            }
                         })
                     }
                         
@@ -926,13 +930,12 @@ struct FacebookAuthenticateView: View {
     let height: CGFloat
     
     var body: some View {
-        
         VStack {
             Image("undraw_access_account_re_8spm").resizable().frame(width: width * 0.75, height: height * 0.35).offset(y: 0).padding()
-            Text("Please log in with Facebook to link your Messenger conversations").font(Font.custom(REGULAR_FONT, size: 25)).frame(height: height * 0.35, alignment: .center).padding()
+            Text("Please log in with Facebook to link your Messenger conversations").font(Font.custom(REGULAR_FONT, size: 25)).frame(height: height * 0.25, alignment: .center).padding()
             Button(action: {self.session.facebookLogin(authWorkflow: false)}) {
                 Image("facebook_login").resizable().cornerRadius(3.0).aspectRatio(contentMode: .fit)
-                    .frame(width: width * 0.80, height: height * 0.30, alignment: .center)
+                    .frame(width: width * 0.80, height: height * 0.15, alignment: .top)
             }
         }
         

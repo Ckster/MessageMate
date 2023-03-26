@@ -26,7 +26,6 @@ let businessNameExample = "Ex. Noon Moon Coffee"
 let industryExample = "Ex. Coffee shop and bakery"
 
 // TODO: Programatically add page for Facebook and maybe Instagram webhooks
-// TODO: Test onboarding when user signs in with Apple
 // TODO: Add rate limit UI
 
 
@@ -299,7 +298,7 @@ struct CompleteView: View {
                             if error == nil {
                                 self.updateInfo()
                                 DispatchQueue.main.async {
-                                    self.tabSelectionState.selectedTab = 2 // Inbox tab
+                                    self.tabSelectionState.selectedTab = 1 // Business info tab
                                 }
                                 self.session.onboardingCompleted = true
                             }
@@ -336,7 +335,7 @@ struct CompleteView: View {
                             if error == nil {
                                 self.updateInfo()
                                 DispatchQueue.main.async {
-                                    self.tabSelectionState.selectedTab = 3 // Business info tab
+                                    self.tabSelectionState.selectedTab = 2 // Inbox tab
                                 }
                                 self.session.onboardingCompleted = true
                             }

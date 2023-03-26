@@ -28,7 +28,7 @@ struct AccountView: View {
                 // TODO: Add indication of no business account if there is none
                 AsyncImage(url: URL(string: self.session.selectedPage?.photoURL ?? "")) { image in image.resizable() } placeholder: { LottieView(name: "Loading-2") } .frame(width: width * 0.65, height: height * 0.1).overlay(
                     Circle()
-                        .stroke(Color("Purple"), lineWidth: 2)
+                        .stroke(self.colorScheme == .dark ? .white : .black, lineWidth: 2)
                 ).clipShape(Circle()).padding(.top)
                 
                 if self.session.selectedPage?.name != nil {

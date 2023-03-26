@@ -30,10 +30,10 @@ struct SignInView: View {
                 // Show the app title
                 
                 VStack {
-                    HorizontalLine(color: colorScheme == .dark ? Color.white : Color.black, height: 3).frame(width: geometry.size.width * 0.6)
-                    Text("Message").font(Font.custom(BOLD_FONT, size: 40)).bold().foregroundColor(colorScheme == .dark ? Color.white : Color.black).frame(width: geometry.size.width * 0.55, alignment: .leading)
-                    Text("Mate").font(Font.custom(BOLD_FONT, size: 40)).bold().foregroundColor(colorScheme == .dark ? Color.white : Color.black).frame(width: geometry.size.width * 0.55, alignment: .trailing)
-                    HorizontalLine(color: colorScheme == .dark ? Color.white : Color.black, height: 3).frame(width: geometry.size.width * 0.6)
+                    HorizontalLine(color: Color("Purple"), height: 3).frame(width: geometry.size.width * 0.6)
+                    Text("Message").font(Font.custom(BOLD_FONT, size: 40)).bold().foregroundColor(Color("Purple")).frame(width: geometry.size.width * 0.55, alignment: .leading)
+                    Text("Mate").font(Font.custom(BOLD_FONT, size: 40)).bold().foregroundColor(Color("Purple")).frame(width: geometry.size.width * 0.55, alignment: .trailing)
+                    HorizontalLine(color: Color("Purple"), height: 3).frame(width: geometry.size.width * 0.6)
                 }.offset(y: -75).frame(height: geometry.size.height * 0.62)
                 
 //                Text("Welcome").font(Font.custom("Nunito-Black", size: 60)).bold().padding().foregroundColor(colorScheme == .dark ? Color.white : Color.black)

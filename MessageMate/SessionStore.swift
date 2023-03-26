@@ -228,6 +228,7 @@ class SessionStore : NSObject, ObservableObject {
                         print("A", error)
                         completedPages = completedPages + 1
                         if completedPages == self.availablePages.count {
+                            self.onboardingCompleted = nil
                             self.deAuth()
                         }
                     })
