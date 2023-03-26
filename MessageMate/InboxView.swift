@@ -41,7 +41,9 @@ enum MessagingPlatform: CaseIterable {
 // TODO: Add support for post messages if possible
 // TODO: Look into audio message if possible
 // TODO: Add full screen for story mentions and replies
-// TODO: Finish adding push notifications. Back end mostly but also nav to conversation on app
+// TODO: Check on local notifcations waking app up from termination
+// TODO: Do a check for minimum info before showing info
+
 
 struct InboxView: View {
     @EnvironmentObject var session: SessionStore
@@ -72,6 +74,7 @@ struct ConversationsView: View {
             GeometryReader { geometry in
                 VStack(alignment: .leading) {
                     Text("Messages").bold().font(Font.custom("Nunito-Bold", size: 30)).offset(x: 0).padding(.leading)
+                    
                     if self.loading {
                         LottieView(name: "9844-loading-40-paperplane")
                             .onTapGesture(perform: {
@@ -84,10 +87,8 @@ struct ConversationsView: View {
                                 }
                             })
                     }
+                    
                     else {
-                        
-                        
-                        
                         Text("You have \(self.session.unreadMessages == 0 ? "no" : String(self.session.unreadMessages)) new \(self.session.unreadMessages != 1 ? "messages" : "message")").foregroundColor(.gray).font(Font.custom("Nunito-Black", size: 15)).padding(.leading).padding(.bottom)
                         
                         ScrollView {
@@ -292,9 +293,8 @@ struct ConversationsView: View {
     
     //@MainActor
     func updatePages() async {
-        let pages = await self.getPages()
         var pagesLoaded = 0
-        for page in pages {
+        for page in self.session.availablePages {
             var newConversations: [Conversation] = []
             for platform in MessagingPlatform.allCases {
                 let conversations = await self.getConversations(page: page, platform: platform)
@@ -343,19 +343,10 @@ struct ConversationsView: View {
                         }
                         
                         pagesLoaded = pagesLoaded + 1
-                        
-                        Task {
-                            await MainActor.run {
-                                if pagesLoaded == pages.count {
-                                    self.session.availablePages = pages
-                                    if self.session.selectedPage == nil && self.session.availablePages.count > 0 {
-                                        self.session.selectedPage = pages[0]
-                                    }
-                                    print("Done loading")
-                                    self.loading = false
-                                }
-                            }
+                        if pagesLoaded == self.session.availablePages.count {
+                            self.loading = false
                         }
+                        
                     }
                 }
             }
@@ -410,34 +401,6 @@ struct ConversationsView: View {
                     page.conversations = newConversations
                     print("Done updating")
                     self.loading = false
-                }
-            }
-        }
-    }
-    
-    func initializePage(page: MetaPage) {
-        let pageDoc = self.db.collection(Pages.name).document(page.id)
-        pageDoc.getDocument() {
-            doc, error in
-            if error == nil && doc != nil {
-                if !doc!.exists {
-                    self.db.collection(Pages.name).document(page.id).setData(
-                        [
-                            Pages.fields.INSTAGRAM_ID: page.businessAccountId,
-                            Pages.fields.STATIC_PROMPT: "",
-                            Pages.fields.NAME: page.name,
-                            Pages.fields.APNS_TOKENS: [Messaging.messaging().fcmToken ?? ""]
-                        ]
-                    ) {
-                        _ in
-                    }
-                }
-                else {
-                    doc!.reference.updateData([
-                        Pages.fields.INSTAGRAM_ID: page.businessAccountId,
-                        Pages.fields.NAME: page.name,
-                        Pages.fields.APNS_TOKENS: FieldValue.arrayUnion([Messaging.messaging().fcmToken ?? ""])
-                    ])
                 }
             }
         }
@@ -739,63 +702,6 @@ struct ConversationsView: View {
             }
         }
         return newConversations
-    }
-    
-    func getPages() async -> [MetaPage] {
-        var newPagesReturn: [MetaPage] = []
-        if self.session.facebookUserToken != nil {
-            let urlString = "https://graph.facebook.com/v16.0/me/accounts?access_token=\(self.session.facebookUserToken!)"
-            
-            let jsonDataDict = await getRequest(urlString: urlString)
-            if jsonDataDict != nil {
-                let pages = jsonDataDict!["data"] as? [[String: AnyObject]]
-                if pages != nil {
-                    var newPages: [MetaPage] = []
-                    let pageCount = pages!.count
-                    var pageIndex = 0
-                    
-                    for page in pages! {
-                        pageIndex = pageIndex + 1
-                        let pageAccessToken = page["access_token"] as? String
-                        let category = page["category"] as? String
-                        let name = page["name"] as? String
-                        let id = page["id"] as? String
-                        
-                        if pageAccessToken != nil && category != nil && name != nil && id != nil {
-                            let newPage = MetaPage(id: id!, name: name!, accessToken: pageAccessToken!, category: category!)
-                            let busAccountId = await self.getPageBusinessAccountId(page: newPage)
-                            
-                            newPage.businessAccountId = busAccountId
-                            await newPage.getProfilePicture(accountId: id!)
-                            
-                            newPages.append(newPage)
-                            self.initializePage(page: newPage)
-                            if pageIndex == pageCount {
-                                newPagesReturn = newPages.sorted {$0.name.first! < $1.name.first!}
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        return newPagesReturn
-    }
-    
-    func getPageBusinessAccountId(page: MetaPage) async -> String? {
-        let urlString = "https://graph.facebook.com/v16.0/\(page.id)?fields=instagram_business_account&access_token=\(page.accessToken)"
-        
-        let jsonDataDict = await getRequest(urlString: urlString)
-        var returnId: String? = nil
-        if jsonDataDict != nil {
-            let instaData = jsonDataDict!["instagram_business_account"] as? [String: String]
-            if instaData != nil {
-                let id = instaData!["id"]
-                if id != nil {
-                    returnId = id!
-                }
-            }
-        }
-        return returnId
     }
 }
 
@@ -1618,9 +1524,6 @@ struct DynamicHeightTextBox: View {
                                 }
                             }
                             
-                            
-                            
-                            
                         }}
                     
                     //}
@@ -2160,6 +2063,24 @@ class MetaPage: Hashable, Equatable, ObservableObject {
             }
         }
     }
+    
+    func getPageBusinessAccountId(page: MetaPage) async {
+        let urlString = "https://graph.facebook.com/v16.0/\(page.id)?fields=instagram_business_account&access_token=\(page.accessToken)"
+        
+        let jsonDataDict = await getRequest(urlString: urlString)
+        var returnId: String? = nil
+        if jsonDataDict != nil {
+            let instaData = jsonDataDict!["instagram_business_account"] as? [String: String]
+            if instaData != nil {
+                let id = instaData!["id"]
+                if id != nil {
+                    returnId = id!
+                }
+            }
+        }
+        self.businessAccountId = returnId
+    }
+    
 }
 
 
@@ -2298,6 +2219,37 @@ func postRequest(urlString: String, data: Data, completion: @escaping ([String: 
         
     }
     dataTask.resume()
+}
+
+
+func initializePage(page: MetaPage) {
+    let db = Firestore.firestore()
+    
+    let pageDoc = db.collection(Pages.name).document(page.id)
+    pageDoc.getDocument() {
+        doc, error in
+        if error == nil && doc != nil {
+            if !doc!.exists {
+                db.collection(Pages.name).document(page.id).setData(
+                    [
+                        Pages.fields.INSTAGRAM_ID: page.businessAccountId,
+                        Pages.fields.STATIC_PROMPT: "",
+                        Pages.fields.NAME: page.name,
+                        Pages.fields.APNS_TOKENS: [Messaging.messaging().fcmToken ?? ""]
+                    ]
+                ) {
+                    _ in
+                }
+            }
+            else {
+                doc!.reference.updateData([
+                    Pages.fields.INSTAGRAM_ID: page.businessAccountId,
+                    Pages.fields.NAME: page.name,
+                    Pages.fields.APNS_TOKENS: FieldValue.arrayUnion([Messaging.messaging().fcmToken ?? ""])
+                ])
+            }
+        }
+    }
 }
 
 

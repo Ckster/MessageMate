@@ -145,6 +145,44 @@ class SessionStore : NSObject, ObservableObject {
         }
     }
     
+    func updateAvailablePages() async {
+        var newPagesReturn: [MetaPage] = []
+        if self.facebookUserToken != nil {
+            let urlString = "https://graph.facebook.com/v16.0/me/accounts?access_token=\(self.facebookUserToken!)"
+            
+            let jsonDataDict = await getRequest(urlString: urlString)
+            if jsonDataDict != nil {
+                let pages = jsonDataDict!["data"] as? [[String: AnyObject]]
+                if pages != nil {
+                    var newPages: [MetaPage] = []
+                    let pageCount = pages!.count
+                    var pageIndex = 0
+                    
+                    for page in pages! {
+                        pageIndex = pageIndex + 1
+                        let pageAccessToken = page["access_token"] as? String
+                        let category = page["category"] as? String
+                        let name = page["name"] as? String
+                        let id = page["id"] as? String
+                        
+                        if pageAccessToken != nil && category != nil && name != nil && id != nil {
+                            let newPage = MetaPage(id: id!, name: name!, accessToken: pageAccessToken!, category: category!)
+                            await newPage.getPageBusinessAccountId(page: newPage)
+                            await newPage.getProfilePicture(accountId: id!)
+                            
+                            newPages.append(newPage)
+                            initializePage(page: newPage)
+                            if pageIndex == pageCount {
+                                newPagesReturn = newPages.sorted {$0.name.first! < $1.name.first!}
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        self.availablePages = newPagesReturn
+    }
+    
     func getFacebokUserToken() {
         if self.user.uid != nil {
             self.db.collection(Users.name).document(self.user.uid!).getDocument(completion:  {
@@ -163,6 +201,7 @@ class SessionStore : NSObject, ObservableObject {
     }
     
     func signOut () {
+        // TODO: Remove FB user token
         self.db.collection(Users.name).document(self.user.user!.uid).updateData(["tokens": FieldValue.arrayRemove([Messaging.messaging().fcmToken ?? ""])], completion: {
             error in
             print(error)
@@ -226,7 +265,6 @@ class SessionStore : NSObject, ObservableObject {
         
         // TODO: Try to make this a database record that is somehow accesible
         loginManager.logIn(permissions: [
-            //"instagram_basic",
             "instagram_manage_messages",
             "pages_manage_metadata",
             "pages_read_engagement",

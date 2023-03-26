@@ -78,7 +78,7 @@ struct BusinessInformationView: View {
             if self.loading {
                 LottieView(name: "97952-loading-animation-blue")
                     .onAppear(perform: {
-                        self.initializePage() {
+                        initializePage(session: self.session) {
                             self.loading = false
                         }
                     })
@@ -108,16 +108,57 @@ struct BusinessInformationView: View {
             }
         }
     }
+}
+
+
+// TODO: Clean this up
+func initializePage(session: SessionStore, completion: @escaping () -> Void) {
+    let db = Firestore.firestore()
     
-    // TODO: Clean this up
-    func initializePage(completion: @escaping () -> Void) {
-        if self.session.selectedPage != nil {
-            let pageDocument = self.db.collection(Pages.name).document(self.session.selectedPage!.id)
-            pageDocument.getDocument {
-                doc, error in
-                if error == nil && doc != nil {
-                    if doc!.exists {
-                        let pageBusinessInformation = self.db.collection("\(Pages.name)/\(self.session.selectedPage!.id)/\(Pages.collections.BUSINESS_INFO.name)").document(Pages.collections.BUSINESS_INFO.documents.FIELDS.name)
+    if session.selectedPage != nil {
+        let pageDocument = db.collection(Pages.name).document(session.selectedPage!.id)
+        pageDocument.getDocument {
+            doc, error in
+            if error == nil && doc != nil {
+                if doc!.exists {
+                    let pageBusinessInformation = db.collection("\(Pages.name)/\(session.selectedPage!.id)/\(Pages.collections.BUSINESS_INFO.name)").document(Pages.collections.BUSINESS_INFO.documents.FIELDS.name)
+                    
+                    pageBusinessInformation.getDocument {
+                        doc, error in
+                        if error == nil && doc != nil {
+                            if doc!.exists {
+                                completion()
+                                // TODO: Do some more granular checks
+                            }
+                            
+                            // Initialize the page
+                            else {
+                                let pageFields = Pages.collections.BUSINESS_INFO.documents.FIELDS.fields
+                                
+                                pageBusinessInformation.setData([
+                                    pageFields.BUSINESS_ADDRESS: nil,
+                                    pageFields.BUSINESS_NAME: nil,
+                                    pageFields.FAQS: nil,
+                                    pageFields.INDUSTRY: nil,
+                                    pageFields.LINKS: nil,
+                                    pageFields.PRODUCTS_SERVICES: nil,
+                                    pageFields.SENDER_CHARACTERISTICS: nil,
+                                    pageFields.SENDER_NAME: nil,
+                                    pageFields.SPECIFICS: nil
+                                ])
+                                completion()
+                            }
+                        }
+                        else {
+                            completion()
+                        }
+                    }
+                }
+                
+                else {
+                    pageDocument.setData([:]) {
+                        _ in
+                        let pageBusinessInformation = db.collection("\(Pages.name)/\(session.selectedPage!.id)/\(Pages.collections.BUSINESS_INFO.name)").document(Pages.collections.BUSINESS_INFO.documents.FIELDS.name)
                         
                         pageBusinessInformation.getDocument {
                             doc, error in
@@ -150,52 +191,46 @@ struct BusinessInformationView: View {
                             }
                         }
                     }
-                    
-                    else {
-                        pageDocument.setData([:]) {
-                            _ in
-                            let pageBusinessInformation = self.db.collection("\(Pages.name)/\(self.session.selectedPage!.id)/\(Pages.collections.BUSINESS_INFO.name)").document(Pages.collections.BUSINESS_INFO.documents.FIELDS.name)
-                            
-                            pageBusinessInformation.getDocument {
-                                doc, error in
-                                if error == nil && doc != nil {
-                                    if doc!.exists {
-                                        completion()
-                                        // TODO: Do some more granular checks
-                                    }
-                                    
-                                    // Initialize the page
-                                    else {
-                                        let pageFields = Pages.collections.BUSINESS_INFO.documents.FIELDS.fields
-                                        
-                                        pageBusinessInformation.setData([
-                                            pageFields.BUSINESS_ADDRESS: nil,
-                                            pageFields.BUSINESS_NAME: nil,
-                                            pageFields.FAQS: nil,
-                                            pageFields.INDUSTRY: nil,
-                                            pageFields.LINKS: nil,
-                                            pageFields.PRODUCTS_SERVICES: nil,
-                                            pageFields.SENDER_CHARACTERISTICS: nil,
-                                            pageFields.SENDER_NAME: nil,
-                                            pageFields.SPECIFICS: nil
-                                        ])
-                                        completion()
-                                    }
-                                }
-                                else {
-                                    completion()
-                                }
-                            }
-                        }
-                    }
                 }
-                else {
-                    completion()
-                }
+            }
+            else {
+                completion()
             }
         }
     }
 }
+
+
+
+//struct RequiredInfoSubView: View {
+//    @EnvironmentObject var session: SessionStore
+//    @Environment(\.colorScheme) var colorScheme
+//    @State var senderName: String = senderNameExample
+//    @State var senderCharacteristics: String = senderCharacteristicsExample
+//    @State var businessName: String = businessNameExample
+//    @State var industry: String = industryExample
+//    @FocusState var isFieldFocused: Bool
+//    let db = Firestore.firestore()
+//
+//    let height: CGFloat
+//    let width: CGFloat
+//
+//    var body: some View {
+//
+//    }
+//
+//    func updateInfo() {
+//        self.db.collection(Pages.name).document("\(self.session.selectedPage!.id)/\(Pages.collections.BUSINESS_INFO.name)/\(Pages.collections.BUSINESS_INFO.documents.FIELDS.name)").updateData(
+//        [
+//            Pages.collections.BUSINESS_INFO.documents.FIELDS.fields.SENDER_NAME: self.senderName,
+//            Pages.collections.BUSINESS_INFO.documents.FIELDS.fields.SENDER_CHARACTERISTICS: self.senderCharacteristics,
+//            Pages.collections.BUSINESS_INFO.documents.FIELDS.fields.BUSINESS_NAME: self.businessName,
+//            Pages.collections.BUSINESS_INFO.documents.FIELDS.fields.INDUSTRY: self.industry
+//        ]
+//        )
+//    }
+//}
+
 
 
 struct GeneralInfoSubView: View {
