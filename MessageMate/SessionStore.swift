@@ -953,7 +953,7 @@ class SessionStore : NSObject, ObservableObject {
                                                     print("Updating conversation \(senderId)")
                                                     var newMessages = conversation.messages
                                                     newMessages.append(newMessage)
-                                                    Task {
+                                                    DispatchQueue.main.async {
                                                         conversation.messages = sortMessages(messages: newMessages)
                                                         self.unreadMessages = self.unreadMessages + 1
                                                     }
