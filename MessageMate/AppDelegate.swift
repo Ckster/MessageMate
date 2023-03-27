@@ -19,6 +19,7 @@ import FirebaseAuth
 class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate {
     var window: UIWindow?
     let gcmMessageIDKey = "gcm.message_id"
+    
     override init() {
         FirebaseApp.configure()
             super.init()

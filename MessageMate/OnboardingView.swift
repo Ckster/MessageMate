@@ -151,6 +151,7 @@ struct IntroView: View {
 }
 
 
+// TODO: Fix the lag on this screen
 struct InfoView: View {
     @EnvironmentObject var session: SessionStore
     @State var initializing: Bool = true
@@ -165,34 +166,26 @@ struct InfoView: View {
     var body: some View {
 
         if self.session.facebookUserToken == nil {
-            FacebookAuthenticateView(width: width, height: height)
+            FacebookAuthenticateView(width: width, height: height).environmentObject(session)
         }
+        
         else {
             Group {
                 if self.initializing {
-                    Text("Initializing page ...").onAppear {
-                        Task {
-                            await self.session.updateAvailablePages()
-                            
-                            if self.session.availablePages.count > 0 {
-                                self.session.selectedPage = self.session.availablePages[0]
-                                
-                                var loadedPages: Int = 0
-                                for page in self.session.availablePages {
-                                    initializePage(session: self.session) {
-                                        loadedPages = loadedPages + 1
-                                        if loadedPages == self.session.availablePages.count {
-                                            self.initializing = false
-                                        }
+                    VStack {
+                        LottieView(name: "Loading-2").frame(width: width * 0.25, height: height * 0.25)
+                        Text("Initializing page(s) ...")
+                    }.onAppear {
+                            Task {
+                                self.session.getPageInfo() {
+                                    if self.session.availablePages.count > 0 {
+                                        self.initializing = false
+                                    }
+                                    else {
+                                        // TODO: Tell user they need to add a business page and reauthenticate
                                     }
                                 }
                             }
-                            
-                            else {
-                                // TODO: Tell user they need to add a business page and reauthenticate
-                            }
-                            
-                        }
                     }
                 }
                 
@@ -261,7 +254,6 @@ struct InfoView: View {
                 
             }
         }
-        
     }
 }
 
@@ -296,11 +288,12 @@ struct CompleteView: View {
                         self.db.collection(Users.name).document(self.session.user.user!.uid).updateData([Users.fields.ONBOARDING_COMPLETED: true], completion: {
                             error in
                             if error == nil {
-                                self.updateInfo()
-                                DispatchQueue.main.async {
-                                    self.tabSelectionState.selectedTab = 1 // Business info tab
+                                self.updateInfo() {
+                                    DispatchQueue.main.async {
+                                        self.tabSelectionState.selectedTab = 1 // Inbox tab
+                                    }
+                                    self.session.onboardingCompleted = true
                                 }
-                                self.session.onboardingCompleted = true
                             }
                             else {
                                 Text("Oof, there was an error")
@@ -333,11 +326,12 @@ struct CompleteView: View {
                         self.db.collection(Users.name).document(self.session.user.user!.uid).updateData([Users.fields.ONBOARDING_COMPLETED: true], completion: {
                             error in
                             if error == nil {
-                                self.updateInfo()
-                                DispatchQueue.main.async {
-                                    self.tabSelectionState.selectedTab = 2 // Inbox tab
+                                self.updateInfo() {
+                                    DispatchQueue.main.async {
+                                        self.tabSelectionState.selectedTab = 2 // Inbox tab
+                                    }
+                                    self.session.onboardingCompleted = true
                                 }
-                                self.session.onboardingCompleted = true
                             }
                             else {
                                 Text("Oof, there was an error")
@@ -407,15 +401,23 @@ struct CompleteView: View {
         }
     }
     
-        func updateInfo() {
-            self.db.collection(Pages.name).document("\(self.session.selectedPage!.id)/\(Pages.collections.BUSINESS_INFO.name)/\(Pages.collections.BUSINESS_INFO.documents.FIELDS.name)").updateData(
+    func updateInfo(completion: @escaping () -> Void) {
+            self.db.collection(Pages.name).document("\(self.session.selectedPage!.id)/\(Pages.collections.BUSINESS_INFO.name)/\(Pages.collections.BUSINESS_INFO.documents.FIELDS.name)").setData(
             [
                 Pages.collections.BUSINESS_INFO.documents.FIELDS.fields.SENDER_NAME: self.senderName,
                 Pages.collections.BUSINESS_INFO.documents.FIELDS.fields.SENDER_CHARACTERISTICS: self.senderCharacteristics,
                 Pages.collections.BUSINESS_INFO.documents.FIELDS.fields.BUSINESS_NAME: self.businessName,
                 Pages.collections.BUSINESS_INFO.documents.FIELDS.fields.INDUSTRY: self.industry
-            ]
+            ], completion: {
+                error in
+                if error == nil {
+                    completion()
+                }
+                else {
+                    print("There was an error")
+                    // TODO: tell user there was an error
+                }
+            }
             )
         }
-    
 }

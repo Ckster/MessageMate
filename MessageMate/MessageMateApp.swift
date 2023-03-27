@@ -14,7 +14,7 @@ struct MessageMateApp: App {
     
     var body: some Scene {
         WindowGroup {
-            ContentView().environmentObject(SessionStore())
+            ContentView().environmentObject(SceneDelegate.session)
         }
     }
 }

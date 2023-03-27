@@ -40,7 +40,7 @@ struct ContentView: View {
     
     var body: some View {
         if self.session.isLoggedIn == .loading {
-            LottieView(name: "Loading-2")
+            LottieView(name: "Paperplane")
         }
     
         if self.session.isLoggedIn == .signedIn {
@@ -49,6 +49,7 @@ struct ContentView: View {
                 GeometryReader { geometry in
 
                     switch self.session.onboardingCompleted {
+                        
                         case nil:
                         Text("Discerning onboarding status ...")
                             .onAppear(perform: {
@@ -58,6 +59,7 @@ struct ContentView: View {
                         case true:
                             ZStack {
                                 ZStack(alignment: .bottomLeading) {
+                                    
                                     TabView(selection: self.$tabSelectionState.selectedTab) {
                                         BusinessInformationView().environmentObject(self.session)
                                             .tabItem {
