@@ -7,7 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		5FE661B142104780D7C8EE99 /* Pods_MessageMate.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D477F7C3E89B9C41DD0E7FEA /* Pods_MessageMate.framework */; };
 		ED2CBB1C29936275002161BE /* LottieView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED2CBB1B29936275002161BE /* LottieView.swift */; };
 		ED3032E729C2A73D008EC92A /* TestView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED3032E629C2A73D008EC92A /* TestView.swift */; };
 		ED3032FA29CBF326008EC92A /* Nunito-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = ED3032EA29CBF325008EC92A /* Nunito-Regular.ttf */; };
@@ -68,13 +67,20 @@
 		EDBCF6252984F0E400C92448 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDBCF6242984F0E400C92448 /* SceneDelegate.swift */; };
 		EDC9CC4229AB1DC30036567C /* AccountView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDC9CC4129AB1DC30036567C /* AccountView.swift */; };
 		EDC9CC4429AB35750036567C /* SelectPageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDC9CC4329AB35750036567C /* SelectPageView.swift */; };
+		EDCED56629D95D13005E28BC /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = EDCED56529D95D13005E28BC /* FirebaseAnalytics */; };
+		EDCED56829D95D13005E28BC /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = EDCED56729D95D13005E28BC /* FirebaseAuth */; };
+		EDCED56A29D95D13005E28BC /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = EDCED56929D95D13005E28BC /* FirebaseFirestore */; };
+		EDCED56C29D95D13005E28BC /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = EDCED56B29D95D13005E28BC /* FirebaseMessaging */; };
+		EDCED56E29D95D13005E28BC /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = EDCED56D29D95D13005E28BC /* FirebaseStorage */; };
+		EDCED57129D95E62005E28BC /* FacebookCore in Frameworks */ = {isa = PBXBuildFile; productRef = EDCED57029D95E62005E28BC /* FacebookCore */; };
+		EDCED57329D95E62005E28BC /* FacebookLogin in Frameworks */ = {isa = PBXBuildFile; productRef = EDCED57229D95E62005E28BC /* FacebookLogin */; };
+		EDCED57529D95E62005E28BC /* FacebookShare in Frameworks */ = {isa = PBXBuildFile; productRef = EDCED57429D95E62005E28BC /* FacebookShare */; };
+		EDCED57829D95E96005E28BC /* SwiftProtobuf in Frameworks */ = {isa = PBXBuildFile; productRef = EDCED57729D95E96005E28BC /* SwiftProtobuf */; };
+		EDCED57B29D95EFE005E28BC /* Lottie in Frameworks */ = {isa = PBXBuildFile; productRef = EDCED57A29D95EFE005E28BC /* Lottie */; };
 		EDFA8D062993660A00559DD4 /* 9844-loading-40-paperplane.json in Resources */ = {isa = PBXBuildFile; fileRef = EDFA8D052993660A00559DD4 /* 9844-loading-40-paperplane.json */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		A2963FAC614B8E20137FABE7 /* Pods-MessageMate.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-MessageMate.debug.xcconfig"; path = "Target Support Files/Pods-MessageMate/Pods-MessageMate.debug.xcconfig"; sourceTree = "<group>"; };
-		D477F7C3E89B9C41DD0E7FEA /* Pods_MessageMate.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_MessageMate.framework; sourceTree = BUILT_PRODUCTS_DIR; };
-		DC094F7B9A365A2903FD338C /* Pods-MessageMate.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-MessageMate.release.xcconfig"; path = "Target Support Files/Pods-MessageMate/Pods-MessageMate.release.xcconfig"; sourceTree = "<group>"; };
 		ED2CBB1B29936275002161BE /* LottieView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LottieView.swift; sourceTree = "<group>"; };
 		ED3032E629C2A73D008EC92A /* TestView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestView.swift; sourceTree = "<group>"; };
 		ED3032E829C58077008EC92A /* MessageMateRelease.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = MessageMateRelease.entitlements; sourceTree = "<group>"; };
@@ -147,26 +153,25 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				5FE661B142104780D7C8EE99 /* Pods_MessageMate.framework in Frameworks */,
+				EDCED56C29D95D13005E28BC /* FirebaseMessaging in Frameworks */,
+				EDCED57129D95E62005E28BC /* FacebookCore in Frameworks */,
+				EDCED57529D95E62005E28BC /* FacebookShare in Frameworks */,
+				EDCED56629D95D13005E28BC /* FirebaseAnalytics in Frameworks */,
+				EDCED56829D95D13005E28BC /* FirebaseAuth in Frameworks */,
+				EDCED57B29D95EFE005E28BC /* Lottie in Frameworks */,
+				EDCED56E29D95D13005E28BC /* FirebaseStorage in Frameworks */,
+				EDCED57329D95E62005E28BC /* FacebookLogin in Frameworks */,
+				EDCED56A29D95D13005E28BC /* FirebaseFirestore in Frameworks */,
+				EDCED57829D95E96005E28BC /* SwiftProtobuf in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		4B8236FEAA393934C17EA77D /* Frameworks */ = {
-			isa = PBXGroup;
-			children = (
-				D477F7C3E89B9C41DD0E7FEA /* Pods_MessageMate.framework */,
-			);
-			name = Frameworks;
-			sourceTree = "<group>";
-		};
 		982A831FC187589E44FCBD7D /* Pods */ = {
 			isa = PBXGroup;
 			children = (
-				A2963FAC614B8E20137FABE7 /* Pods-MessageMate.debug.xcconfig */,
-				DC094F7B9A365A2903FD338C /* Pods-MessageMate.release.xcconfig */,
 			);
 			path = Pods;
 			sourceTree = "<group>";
@@ -230,7 +235,6 @@
 				ED99A909297C8F2A0029235B /* MessageMate */,
 				ED99A908297C8F2A0029235B /* Products */,
 				982A831FC187589E44FCBD7D /* Pods */,
-				4B8236FEAA393934C17EA77D /* Frameworks */,
 			);
 			sourceTree = "<group>";
 		};
@@ -291,17 +295,27 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = ED99A915297C8F2C0029235B /* Build configuration list for PBXNativeTarget "MessageMate" */;
 			buildPhases = (
-				C73DD45CF90507597BD4F14F /* [CP] Check Pods Manifest.lock */,
 				ED99A903297C8F2A0029235B /* Sources */,
 				ED99A904297C8F2A0029235B /* Frameworks */,
 				ED99A905297C8F2A0029235B /* Resources */,
-				1E9E4E180CC60D8A27E7408A /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 			);
 			name = MessageMate;
+			packageProductDependencies = (
+				EDCED56529D95D13005E28BC /* FirebaseAnalytics */,
+				EDCED56729D95D13005E28BC /* FirebaseAuth */,
+				EDCED56929D95D13005E28BC /* FirebaseFirestore */,
+				EDCED56B29D95D13005E28BC /* FirebaseMessaging */,
+				EDCED56D29D95D13005E28BC /* FirebaseStorage */,
+				EDCED57029D95E62005E28BC /* FacebookCore */,
+				EDCED57229D95E62005E28BC /* FacebookLogin */,
+				EDCED57429D95E62005E28BC /* FacebookShare */,
+				EDCED57729D95E96005E28BC /* SwiftProtobuf */,
+				EDCED57A29D95EFE005E28BC /* Lottie */,
+			);
 			productName = MessageMate;
 			productReference = ED99A907297C8F2A0029235B /* MessageMate.app */;
 			productType = "com.apple.product-type.application";
@@ -330,6 +344,12 @@
 				Base,
 			);
 			mainGroup = ED99A8FE297C8F2A0029235B;
+			packageReferences = (
+				EDCED56429D95D13005E28BC /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+				EDCED56F29D95E62005E28BC /* XCRemoteSwiftPackageReference "facebook-ios-sdk" */,
+				EDCED57629D95E96005E28BC /* XCRemoteSwiftPackageReference "swift-protobuf" */,
+				EDCED57929D95EFE005E28BC /* XCRemoteSwiftPackageReference "lottie-ios" */,
+			);
 			productRefGroup = ED99A908297C8F2A0029235B /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -390,48 +410,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
-
-/* Begin PBXShellScriptBuildPhase section */
-		1E9E4E180CC60D8A27E7408A /* [CP] Embed Pods Frameworks */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-MessageMate/Pods-MessageMate-frameworks-${CONFIGURATION}-input-files.xcfilelist",
-			);
-			name = "[CP] Embed Pods Frameworks";
-			outputFileListPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-MessageMate/Pods-MessageMate-frameworks-${CONFIGURATION}-output-files.xcfilelist",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-MessageMate/Pods-MessageMate-frameworks.sh\"\n";
-			showEnvVarsInLog = 0;
-		};
-		C73DD45CF90507597BD4F14F /* [CP] Check Pods Manifest.lock */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
-				"${PODS_ROOT}/Manifest.lock",
-			);
-			name = "[CP] Check Pods Manifest.lock";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-				"$(DERIVED_FILE_DIR)/Pods-MessageMate-checkManifestLockResult.txt",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
-			showEnvVarsInLog = 0;
-		};
-/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		ED99A903297C8F2A0029235B /* Sources */ = {
@@ -513,7 +491,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.4;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -567,7 +545,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.4;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = iphoneos;
@@ -579,18 +557,18 @@
 		};
 		ED99A916297C8F2C0029235B /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = A2963FAC614B8E20137FABE7 /* Pods-MessageMate.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = MessageMate/MessageMate.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 20;
+				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"MessageMate/Preview Content\"";
 				DEVELOPMENT_TEAM = WRFAAJL539;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = MessageMate/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = MessageMate;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -602,7 +580,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = erickverleye.MessageMate;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -616,18 +594,18 @@
 		};
 		ED99A917297C8F2C0029235B /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = DC094F7B9A365A2903FD338C /* Pods-MessageMate.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = MessageMate/MessageMateRelease.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 20;
+				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"MessageMate/Preview Content\"";
 				DEVELOPMENT_TEAM = WRFAAJL539;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = MessageMate/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = MessageMate;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -639,7 +617,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = erickverleye.MessageMate;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -673,6 +651,94 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		EDCED56429D95D13005E28BC /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 10.0.0;
+			};
+		};
+		EDCED56F29D95E62005E28BC /* XCRemoteSwiftPackageReference "facebook-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/facebook/facebook-ios-sdk";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 14.0.0;
+			};
+		};
+		EDCED57629D95E96005E28BC /* XCRemoteSwiftPackageReference "swift-protobuf" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/apple/swift-protobuf.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.0.0;
+			};
+		};
+		EDCED57929D95EFE005E28BC /* XCRemoteSwiftPackageReference "lottie-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/airbnb/lottie-ios";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 4.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		EDCED56529D95D13005E28BC /* FirebaseAnalytics */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = EDCED56429D95D13005E28BC /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAnalytics;
+		};
+		EDCED56729D95D13005E28BC /* FirebaseAuth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = EDCED56429D95D13005E28BC /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAuth;
+		};
+		EDCED56929D95D13005E28BC /* FirebaseFirestore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = EDCED56429D95D13005E28BC /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseFirestore;
+		};
+		EDCED56B29D95D13005E28BC /* FirebaseMessaging */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = EDCED56429D95D13005E28BC /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseMessaging;
+		};
+		EDCED56D29D95D13005E28BC /* FirebaseStorage */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = EDCED56429D95D13005E28BC /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseStorage;
+		};
+		EDCED57029D95E62005E28BC /* FacebookCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = EDCED56F29D95E62005E28BC /* XCRemoteSwiftPackageReference "facebook-ios-sdk" */;
+			productName = FacebookCore;
+		};
+		EDCED57229D95E62005E28BC /* FacebookLogin */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = EDCED56F29D95E62005E28BC /* XCRemoteSwiftPackageReference "facebook-ios-sdk" */;
+			productName = FacebookLogin;
+		};
+		EDCED57429D95E62005E28BC /* FacebookShare */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = EDCED56F29D95E62005E28BC /* XCRemoteSwiftPackageReference "facebook-ios-sdk" */;
+			productName = FacebookShare;
+		};
+		EDCED57729D95E96005E28BC /* SwiftProtobuf */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = EDCED57629D95E96005E28BC /* XCRemoteSwiftPackageReference "swift-protobuf" */;
+			productName = SwiftProtobuf;
+		};
+		EDCED57A29D95EFE005E28BC /* Lottie */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = EDCED57929D95EFE005E28BC /* XCRemoteSwiftPackageReference "lottie-ios" */;
+			productName = Lottie;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = ED99A8FF297C8F2A0029235B /* Project object */;
 }

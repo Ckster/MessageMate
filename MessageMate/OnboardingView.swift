@@ -170,23 +170,29 @@ struct InfoView: View {
         }
         
         else {
-            Group {
-                if self.initializing {
-                    VStack {
-                        LottieView(name: "Loading-2").frame(width: width * 0.25, height: height * 0.25)
-                        Text("Initializing page(s) ...")
-                    }.onAppear {
-                            Task {
-                                self.session.getPageInfo() {
-                                    if self.session.availablePages.count > 0 {
-                                        self.initializing = false
-                                    }
-                                    else {
-                                        // TODO: Tell user they need to add a business page and reauthenticate
-                                    }
-                                }
-                            }
+            if self.initializing {
+                VStack {
+                    LottieView(name: "Loading-2")
+                    Text("Initializing page(s) ...").offset(y: -150).font(Font.custom(BOLD_FONT, size: 20))
+                }
+                .onAppear {
+                    Task {
+                        self.session.getPageInfo() {
+                            self.initializing = false
+                        }
                     }
+                }
+            }
+            
+            else {
+                if self.session.availablePages.count == 0 {
+                    NoBusinessAccountsLinkedView(width: width, height: height).environmentObject(self.session)
+                        .onChange(of: self.session.facebookUserToken, perform: {
+                            newToken in
+                            if newToken != nil {
+                                self.initializing = true
+                            }
+                        })
                 }
                 
                 else {
@@ -250,12 +256,12 @@ struct InfoView: View {
                         self.isFieldFocused = false
                     }
                     .offset(y: -50)
+                    }
                 }
-                
-            }
         }
     }
 }
+
 
 
 struct CompleteView: View {

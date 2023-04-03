@@ -139,27 +139,31 @@ struct ConversationsView: View {
                     }
                         
                     else {
-                        ScrollView {
-                            PullToRefresh(coordinateSpaceName: "pullToRefresh") {
-                                Task {
-                                    print("Refreshing")
-                                    self.session.getPageInfo() {}
-                                }
-                            }
-                            Text("There are no business accounts linked to you. Add a business account to your Facebook account to see its messages here.").font(Font.custom(REGULAR_FONT, size: 30))
-                        }.coordinateSpace(name: "pullToRefresh")
+                        NoBusinessAccountsLinkedView(width: width, height: height).environmentObject(self.session)
                     }
                 }
             }
         }
         .accentColor(Color("Purple"))
         // TODO: Add / remove listeners when page changes
-//        .onChange(of: self.session.selectedPage, perform: {
-//            newPage in
-//            if newPage != nil {
-//                self.session.addConversationListeners(page: newPage!)
-//            }
-//        })
+    }
+}
+
+
+struct NoBusinessAccountsLinkedView: View {
+    @EnvironmentObject var session: SessionStore
+    let width: CGFloat
+    let height: CGFloat
+    
+    var body: some View {
+        VStack {
+            Image("undraw_access_account_re_8spm").resizable().frame(width: width * 0.75, height: height * 0.35).offset(y: 0).padding()
+            Text("There are no business accounts linked to you. Please add a business account to your Facebook account and reauthenticate.").font(Font.custom(REGULAR_FONT, size: 30)).padding()
+            Button(action: {self.session.facebookLogin(authWorkflow: false)}) {
+                Image("facebook_login").resizable().cornerRadius(3.0).aspectRatio(contentMode: .fit)
+                    .frame(width: width * 0.80, height: height * 0.15, alignment: .top)
+            }
+        }
     }
 }
 
@@ -273,7 +277,6 @@ struct ConversationNavigationView: View {
                         Text(lastMessageIntervalString).lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(Font.custom(REGULAR_FONT, size: 10)).frame(width: width * 0.20)
                         
                     }
-                    //.offset(x: 10)
                     
                     if !conversation.messages.last!.opened {
                         HStack(spacing: 0) {
@@ -354,8 +357,6 @@ struct TextControlView: View {
         
     
     var body: some View {
-//        GeometryReader {
-//            geometry in
             VStack {
                 
                 // Input text box / loading when message is being generated
@@ -367,37 +368,27 @@ struct TextControlView: View {
                     DynamicHeightTextBox(typingMessage: self.$typingMessage, messageSendError: self.$messageSendError, height: height, width: width, conversation: conversation, page: page).frame(width: width * 0.925).environmentObject(self.session)
                 }
                 
-           //     ZStack {
-//                RoundedRectangle(cornerRadius: 16)
-//                    .foregroundColor(Color.gray)
-//                    .frame(width: width * 0.95, height: height * 0.07, alignment: .center).padding()
-//                    .overlay(
                 HStack(spacing: 2) {
                             
                             // Auto Generation buttons
                             AutoGenerateButton(buttonText: "Respond", width: width, height: height, conversationId: self.conversation.id, pageAccessToken: self.page.accessToken, pageName: self.page.name, accountId: self.page.id, loading: self.$loading, typingText: self.$typingMessage, showCouldNotGenerateResponse: self.$showCouldNotGenerateResponse)
-                                //.frame(width: width * 0.19, height: height * 0.07)
+            
                             
                             AutoGenerateButton(buttonText: "Sell", width: width, height: height, conversationId: self.conversation.id, pageAccessToken: self.page.accessToken, pageName: self.page.name, accountId: self.page.id, loading: self.$loading, typingText: self.$typingMessage, showCouldNotGenerateResponse: self.$showCouldNotGenerateResponse)
-                                //.frame(width: width * 0.19, height: height * 0.07)
+                  
                             
                             AutoGenerateButton(buttonText: "Yes", width: width, height: height, conversationId: self.conversation.id, pageAccessToken: self.page.accessToken, pageName: self.page.name, accountId: self.page.id, loading: self.$loading, typingText: self.$typingMessage, showCouldNotGenerateResponse: self.$showCouldNotGenerateResponse)
-                               // .frame(width: width * 0.19, height: height * 0.07)
+            
                             
                             AutoGenerateButton(buttonText: "No", width: width, height: height, conversationId: self.conversation.id, pageAccessToken: self.page.accessToken, pageName: self.page.name, accountId: self.page.id, loading: self.$loading, typingText: self.$typingMessage, showCouldNotGenerateResponse: self.$showCouldNotGenerateResponse)
-                                //.frame(width: width * 0.19, height: height * 0.07)
+              
                             
                             DeleteTypingTextButton(width: self.width, height: self.height, typingText: self.$typingMessage)
-                                //.frame(width: width * 0.19, height: height * 0.07)
                             
                 }.padding(.top).padding(.bottom)
-                            //.frame(width: width * 0.90, height: height * 0.06)
-                 //   )
-              //  }
             }
             .padding(.bottom)
             .padding(.top)
-       // }
     }
 }
 
@@ -640,9 +631,6 @@ struct ConversationView: View {
                 
             }
         }
-//        .onAppear(perform: {
-//            self.openMessages.toggle()
-//        })
         .onDisappear(perform: {
             self.navigate = false
         })
@@ -744,7 +732,6 @@ struct SimpleButtonStyle: ButtonStyle {
                                 .shadow(color: Color.black.opacity(0.2), radius: 10, x: 10, y: 10)
                                 .shadow(color: Color.white.opacity(0.7), radius: 10, x: -5, y: -5)
                                 .frame(width: width * 0.165, height: width * 0.165)
-                            // .cornerRadius(6)
                         }
                     }
                 )
@@ -795,18 +782,6 @@ struct DarkBackground<S: Shape>: View {
         }
     }
 }
-
-
-//struct DarkButtonStyle: ButtonStyle {
-//    func makeBody(configuration: Self.Configuration) -> some View {
-//        configuration.label
-//            .padding(30)
-//            .contentShape(Circle())
-//            .background(
-//                DarkBackground(isHighlighted: configuration.isPressed, shape: Circle())
-//            )
-//    }
-//}
 
 
 struct DeleteTypingTextButton: View {
@@ -890,12 +865,9 @@ struct DynamicHeightTextBox: View {
                     }
                 ) {
                     Image(systemName: "paperplane.circle")
-//                        .resizable()
-//                        .scaledToFit()
                         .font(.system(size: 35))
                         .position(x: width * 0.85, y: 10)
                         .frame(height: 20).foregroundColor(Color("Purple"))
-                      //  .clipShape(Circle())
                 }
                 
                 Text(typingMessage)
@@ -936,15 +908,8 @@ struct DynamicHeightTextBox: View {
             postRequest(urlString: urlString, data: jsonData!) {
                 sentMessageData in
                 let messageId = sentMessageData["message_id"] as? String
-                
+            
                 if messageId != nil {
-//                    let conversationIndex = self.session.selectedPage!.conversations.firstIndex(of: self.conversation)
-//                    var conversation: Conversation? = nil
-//                    if conversationIndex != nil {
-//                        conversation = self.session.selectedPage!.conversations[conversationIndex!]
-//                    }
-                    
-                   // if conversation != nil {
                     for conversation in self.session.selectedPage!.conversations {
                         if conversation.correspondent != nil && conversation.correspondent!.id == self.conversation.correspondent!.id {
                             
@@ -973,8 +938,6 @@ struct DynamicHeightTextBox: View {
                             }
                             
                         }}
-                    
-                    //}
                 }
                 completion(sentMessageData)
             }
@@ -1723,3 +1686,6 @@ extension Date {
         return dateFormatter.string(from: date) ?? ""
     }
 }
+
+
+// EAAPjZCIdKOzEBAAFGha2IfCQtZCovoAvXsBKUJGKa6i7dWTF8Jj1z9j1mXTMo8iDOJXQxnsZCXoIvKa1LMSx35tHP37CZBDugNZAW99DXcaCTVa6OZAJv4QfkLbGhaslGWvHF9k2tSzBxq2uszgMm7BU56VEUhWSTt8mOsON6me4kveHuWnh798YNsfnZCSulBq5EKbLD9mHxGLDXtHznGYt1ZCKsfB3IplTDW0U4FZCvonoUmZCLiJElLcR6hHy9BTj6ZA7PubAmZBtygZDZD

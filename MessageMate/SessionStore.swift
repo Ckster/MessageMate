@@ -6,7 +6,7 @@
 //
 import SwiftUI
 import Firebase
-import GoogleSignIn
+//import GoogleSignIn
 import FirebaseMessaging
 import FBSDKLoginKit
 import FirebaseAuth
@@ -74,10 +74,6 @@ class SessionStore : NSObject, ObservableObject {
         
         // Check to see if the user is authenticated
         if self.user.user != nil {
-            
-            // See if the user has completed the onboarding
-            self.getOnboardingStatus()
-            
             // See if the user's document is in the database
             if self.user.uid != nil {
                 self.db.collection(Users.name).document(self.user.uid!).getDocument(
@@ -85,15 +81,18 @@ class SessionStore : NSObject, ObservableObject {
                         data, error in
                         print("READ J")
                         if error == nil && data != nil {
-                            self.getFacebookUserToken() {
-                                if self.facebookUserToken != nil {
-                                    self.getPageInfo() {
-                                        DispatchQueue.main.async {
-                                            self.isLoggedIn = .signedIn
-                                        }
-                                    }
-                                }
+                            self.onboardingCompleted = data![Users.fields.ONBOARDING_COMPLETED] as? Bool
+                            self.facebookUserToken = data![Users.fields.FACEBOOK_USER_TOKEN] as? String
+                            self.loadingFacebookUserToken = false
+                            
+                            DispatchQueue.main.async {
+                                self.isLoggedIn = .signedIn
                             }
+                                
+                            if self.onboardingCompleted == true && self.facebookUserToken != nil {
+                                self.getPageInfo() {}
+                            }
+                                
                         }
                         else {
                             // For some reason the users UID could not be resolved
@@ -493,15 +492,11 @@ class SessionStore : NSObject, ObservableObject {
                     
                     let pagination = conversationTuple.1
                     if messages.count > 0 {
-                        Task {
-                            await MainActor.run {
-                                conversation.messages = messages.sorted { $0.createdTime < $1.createdTime }
-                                conversation.pagination = pagination
-                                let userList = conversation.updateCorrespondent()
-                                if userList.count > 0 {
-                                    page.pageUser = userList[1]
-                                }
-                            }
+                        conversation.messages = messages.sorted { $0.createdTime < $1.createdTime }
+                        conversation.pagination = pagination
+                        let userList = conversation.updateCorrespondent()
+                        if userList.count > 0 {
+                            page.pageUser = userList[1]
                         }
                     }
                     
@@ -898,7 +893,8 @@ class SessionStore : NSObject, ObservableObject {
                                     var conversationFound: Bool = false
                                     
                                     for conversation in page.conversations {
-                                        print(conversation.correspondent!.id, conversation.correspondent!.name)
+                                        
+                                        // TODO: Having some trouble with this
                                         if conversation.correspondent == nil {
                                             print("Correspondent is nil")
                                         }
@@ -968,7 +964,6 @@ class SessionStore : NSObject, ObservableObject {
                                         Task {
                                             // TODO: Add this back but in another way
                                             await self.updateConversations(page: page)
-                                            self.unreadMessages = self.unreadMessages + 1
                                         }
                                     }
                                 }
@@ -987,9 +982,7 @@ class SessionStore : NSObject, ObservableObject {
             newConversations = newConversations + conversations
         }
 
-        page.conversations = newConversations
-
-        for conversation in page.conversations {
+        for conversation in newConversations {
             self.getMessages(page: page, conversation: conversation) {
                 conversationTuple in
                 let messages = conversationTuple.0
@@ -1012,13 +1005,12 @@ class SessionStore : NSObject, ObservableObject {
                             }
                         }
                     }
-                    newConversations.append(conversation)
                 }
 
                 conversation.messagesInitialized = true
 
                 var allConversationsLoaded: Bool = true
-                for conversation in page.conversations {
+                for conversation in newConversations {
                     if !conversation.messagesInitialized {
                         allConversationsLoaded = false
                     }
@@ -1026,7 +1018,7 @@ class SessionStore : NSObject, ObservableObject {
                 if allConversationsLoaded {
 
                     // reset for the next reload
-                    for conversation in page.conversations {
+                    for conversation in newConversations {
                         conversation.messagesInitialized = false
                     }
 

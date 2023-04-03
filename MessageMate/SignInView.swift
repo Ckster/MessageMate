@@ -7,7 +7,7 @@
 
 import SwiftUI
 import Firebase
-import GoogleSignIn
+//import GoogleSignIn
 import FirebaseAuth
 import CryptoKit
 import AuthenticationServices
@@ -25,25 +25,16 @@ struct SignInView: View {
         
         NavigationView {
             GeometryReader { geometry in
-            // TODO: Add new logo here
-            VStack {
-                // Show the app title
-                
+                // TODO: Add new logo here
                 VStack {
-                    HorizontalLine(color: Color("Purple"), height: 3).frame(width: geometry.size.width * 0.6)
-                    Text("Message").font(Font.custom(BOLD_FONT, size: 40)).bold().foregroundColor(Color("Purple")).frame(width: geometry.size.width * 0.55, alignment: .leading)
-                    Text("Mate").font(Font.custom(BOLD_FONT, size: 40)).bold().foregroundColor(Color("Purple")).frame(width: geometry.size.width * 0.55, alignment: .trailing)
-                    HorizontalLine(color: Color("Purple"), height: 3).frame(width: geometry.size.width * 0.6)
-                }.offset(y: -75).frame(height: geometry.size.height * 0.62)
-                
-//                Text("Welcome").font(Font.custom("Nunito-Black", size: 60)).bold().padding().foregroundColor(colorScheme == .dark ? Color.white : Color.black)
-//                    .frame(height: geometry.size.height * 0.55).offset(y: geometry.size.height * -0.10)
-                
-                // Show the sign up options
-                BottomScreen(width: geometry.size.width, height: geometry.size.height).environmentObject(self.session).frame(height: geometry.size.height * 0.30)
+                    // Show the app logo
+                    LogoView(width: geometry.size.width, height: geometry.size.height)
+                    
+                    // Show the sign up options
+                    BottomScreen(width: geometry.size.width, height: geometry.size.height).environmentObject(self.session).frame(height: geometry.size.height * 0.30)
 
+                }
             }
-        }
         }.navigationViewStyle(StackNavigationViewStyle()).onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification), perform: { _ in
             // Remove all the messages and user text entries from the screen every time it appears
             self.session.signInError = ""
@@ -51,6 +42,20 @@ struct SignInView: View {
     }
 }
 
+
+struct LogoView: View {
+    let width: CGFloat
+    let height: CGFloat
+    
+    var body: some View {
+        VStack {
+            HorizontalLine(color: Color("Purple"), height: 3).frame(width: width * 0.6)
+            Text("Message").font(Font.custom(BOLD_FONT, size: 40)).bold().foregroundColor(Color("Purple")).frame(width: width * 0.55, alignment: .leading)
+            Text("Mate").font(Font.custom(BOLD_FONT, size: 40)).bold().foregroundColor(Color("Purple")).frame(width: width * 0.55, alignment: .trailing)
+            HorizontalLine(color: Color("Purple"), height: 3).frame(width: width * 0.6)
+        }.offset(y: -75).frame(height: height * 0.62)
+    }
+}
 
 /**
  Displays the sign in option buttons and legal information
