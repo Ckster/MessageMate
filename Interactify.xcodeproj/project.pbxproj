@@ -134,7 +134,7 @@
 		ED700B72297CA54E0058968B /* SignInView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignInView.swift; sourceTree = "<group>"; };
 		ED700B74297CA5AB0058968B /* Constants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Constants.swift; sourceTree = "<group>"; };
 		ED9536662984F4C400A391BE /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
-		ED99A907297C8F2A0029235B /* MessageMate.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MessageMate.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		ED99A907297C8F2A0029235B /* Interactify.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Interactify.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		ED99A90A297C8F2A0029235B /* MessageMateApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageMateApp.swift; sourceTree = "<group>"; };
 		ED99A90C297C8F2A0029235B /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		ED99A90E297C8F2C0029235B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -241,7 +241,7 @@
 		ED99A908297C8F2A0029235B /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				ED99A907297C8F2A0029235B /* MessageMate.app */,
+				ED99A907297C8F2A0029235B /* Interactify.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -291,9 +291,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		ED99A906297C8F2A0029235B /* MessageMate */ = {
+		ED99A906297C8F2A0029235B /* Interactify */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = ED99A915297C8F2C0029235B /* Build configuration list for PBXNativeTarget "MessageMate" */;
+			buildConfigurationList = ED99A915297C8F2C0029235B /* Build configuration list for PBXNativeTarget "Interactify" */;
 			buildPhases = (
 				ED99A903297C8F2A0029235B /* Sources */,
 				ED99A904297C8F2A0029235B /* Frameworks */,
@@ -303,7 +303,7 @@
 			);
 			dependencies = (
 			);
-			name = MessageMate;
+			name = Interactify;
 			packageProductDependencies = (
 				EDCED56529D95D13005E28BC /* FirebaseAnalytics */,
 				EDCED56729D95D13005E28BC /* FirebaseAuth */,
@@ -317,7 +317,7 @@
 				EDCED57A29D95EFE005E28BC /* Lottie */,
 			);
 			productName = MessageMate;
-			productReference = ED99A907297C8F2A0029235B /* MessageMate.app */;
+			productReference = ED99A907297C8F2A0029235B /* Interactify.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -335,7 +335,7 @@
 					};
 				};
 			};
-			buildConfigurationList = ED99A902297C8F2A0029235B /* Build configuration list for PBXProject "MessageMate" */;
+			buildConfigurationList = ED99A902297C8F2A0029235B /* Build configuration list for PBXProject "Interactify" */;
 			compatibilityVersion = "Xcode 13.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
@@ -354,7 +354,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				ED99A906297C8F2A0029235B /* MessageMate */,
+				ED99A906297C8F2A0029235B /* Interactify */,
 			);
 		};
 /* End PBXProject section */
@@ -562,13 +562,13 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = MessageMate/MessageMate.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_ASSET_PATHS = "\"MessageMate/Preview Content\"";
 				DEVELOPMENT_TEAM = WRFAAJL539;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = MessageMate/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = MessageMate;
+				INFOPLIST_KEY_CFBundleDisplayName = Interactify;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -599,13 +599,13 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = MessageMate/MessageMateRelease.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_ASSET_PATHS = "\"MessageMate/Preview Content\"";
 				DEVELOPMENT_TEAM = WRFAAJL539;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = MessageMate/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = MessageMate;
+				INFOPLIST_KEY_CFBundleDisplayName = Interactify;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -632,7 +632,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		ED99A902297C8F2A0029235B /* Build configuration list for PBXProject "MessageMate" */ = {
+		ED99A902297C8F2A0029235B /* Build configuration list for PBXProject "Interactify" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				ED99A913297C8F2C0029235B /* Debug */,
@@ -641,7 +641,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		ED99A915297C8F2C0029235B /* Build configuration list for PBXNativeTarget "MessageMate" */ = {
+		ED99A915297C8F2C0029235B /* Build configuration list for PBXNativeTarget "Interactify" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				ED99A916297C8F2C0029235B /* Debug */,

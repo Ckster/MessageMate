@@ -67,7 +67,7 @@ struct DynamicListSubView: View {
                             .frame(width: geometry.size.width * 0.80, height: 100, alignment: .center).offset(x: -20, y: 140).padding()
                             .overlay(
                                 VStack {
-                                    Text(self.completeBeforeText).font(.body).offset(x: -20, y: 140)
+                                    Text(self.completeBeforeText).font(Font.custom(REGULAR_FONT, size: 25)).font(.body).offset(x: -20, y: 140)
                                 }
                         )
                     }
@@ -133,9 +133,9 @@ struct ListHeaderView: View {
     
     var body: some View {
         VStack {
-            Text(self.header).bold().foregroundColor(textColor).font(.system(size: 25)).frame(width: width, alignment: .leading).padding(.leading)
-            Text(self.promptText).font(.system(size: 18)).frame(width: width, alignment: .leading).padding(.leading).padding(.bottom)
-            Text(self.listHeaderText).bold().font(.system(size: 21)).frame(width: width, alignment: .leading).padding(.leading)
+            Text(self.header).font(Font.custom(BOLD_FONT, size: 25)).foregroundColor(textColor).frame(width: width, alignment: .leading).padding(.leading)
+            Text(self.promptText).font(Font.custom(REGULAR_FONT, size: 15)).frame(width: width, alignment: .leading).padding(.leading).padding(.bottom)
+            Text(self.listHeaderText).font(Font.custom(BOLD_FONT, size: 21)).frame(width: width, alignment: .leading).padding(.leading)
         }
     }
 }
@@ -163,7 +163,7 @@ struct DynamicListScrollView: View {
                         item in
                         
                         let navView = HStack {
-                            Text(self.itemStrings[item.id]!).frame(width: width * 0.8, alignment: .leading).foregroundColor(textColor).lineLimit(5).font(.system(size: 21)).multilineTextAlignment(.leading)
+                            Text(self.itemStrings[item.id]!).frame(width: width * 0.8, alignment: .leading).foregroundColor(textColor).lineLimit(5).font(Font.custom(REGULAR_FONT, size: 21)).multilineTextAlignment(.leading)
                             Image(systemName: "chevron.right").foregroundColor(.gray).imageScale(.small).offset(x: -10)
                         }
                         
@@ -240,7 +240,7 @@ struct SingleInputBoxView: View, Equatable {
     var body: some View {
         
         let deleteAlert =
-            Alert(title: Text("Delete \(inputText)"), message: Text("Are you sure you would like to delete this \(inputText)?"), primaryButton: .default(Text("Cancel")), secondaryButton: .default(Text("Delete"), action: {
+        Alert(title: Text("Delete \(inputText)").font(Font.custom(REGULAR_FONT, size: 25)), message: Text("Are you sure you would like to delete this \(inputText)?"), primaryButton: .default(Text("Cancel")), secondaryButton: .default(Text("Delete"), action: {
                 self.inputToDelete = self.id
                 self.presentationMode.wrappedValue.dismiss()
             }))
@@ -256,7 +256,7 @@ struct SingleInputBoxView: View, Equatable {
                         deleteAlert
                     }
                     
-                    Text(listHeader).bold().font(.system(size: 20)).frame(width: geometry.size.width, height: geometry.size.height * 0.10, alignment: .leading).padding(.leading)
+                    Text(listHeader).font(Font.custom(BOLD_FONT, size: 21)).frame(width: geometry.size.width, height: geometry.size.height * 0.10, alignment: .leading).padding(.leading)
                     TextEditor(text: $item).frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.6)
                             .overlay(RoundedRectangle(cornerRadius: 8)
                                 .stroke(Color.secondary).opacity(0.75))

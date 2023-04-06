@@ -18,14 +18,11 @@ import Contacts
 struct SignInView: View {
     @EnvironmentObject var session: SessionStore
     @Environment(\.colorScheme) var colorScheme
-    let TITLE = "MessageMate"
+    let TITLE = "Interactify"
 
     var body: some View {
-        return
-        
         NavigationView {
             GeometryReader { geometry in
-                // TODO: Add new logo here
                 VStack {
                     // Show the app logo
                     LogoView(width: geometry.size.width, height: geometry.size.height)
@@ -50,8 +47,7 @@ struct LogoView: View {
     var body: some View {
         VStack {
             HorizontalLine(color: Color("Purple"), height: 3).frame(width: width * 0.6)
-            Text("Message").font(Font.custom(BOLD_FONT, size: 40)).bold().foregroundColor(Color("Purple")).frame(width: width * 0.55, alignment: .leading)
-            Text("Mate").font(Font.custom(BOLD_FONT, size: 40)).bold().foregroundColor(Color("Purple")).frame(width: width * 0.55, alignment: .trailing)
+            Text("Interactify").font(Font.custom(BOLD_FONT, size: 40)).bold().foregroundColor(Color("Purple")).frame(width: width * 0.55, alignment: .center)
             HorizontalLine(color: Color("Purple"), height: 3).frame(width: width * 0.6)
         }.offset(y: -75).frame(height: height * 0.62)
     }

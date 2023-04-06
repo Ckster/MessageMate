@@ -46,7 +46,7 @@ struct AccountView: View {
                     Text("Manage Pages")
                         .frame(minWidth: 0, maxWidth: .infinity)
                         .font(Font.custom(REGULAR_FONT, size: 30))
-                        .foregroundColor(self.colorScheme == .dark ? .black : .white)
+                        .foregroundColor(self.colorScheme == .dark ? .white: .black)
                         .padding()
                         .overlay(
                             RoundedRectangle(cornerRadius: 25)
@@ -66,7 +66,7 @@ struct AccountView: View {
                         Text("Sign Out")
                             .frame(minWidth: 0, maxWidth: .infinity)
                             .font(Font.custom(REGULAR_FONT, size: 30))
-                            .foregroundColor(self.colorScheme == .dark ? .black : .white)
+                            .foregroundColor(self.colorScheme == .dark ? .white : .black)
                             .padding()
                             .overlay(
                                 RoundedRectangle(cornerRadius: 25)
@@ -88,7 +88,7 @@ struct AccountView: View {
                         Text("Delete Account")
                             .frame(minWidth: 0, maxWidth: .infinity)
                             .font(Font.custom(REGULAR_FONT, size: 30))
-                            .foregroundColor(self.colorScheme == .dark ? .black : .white)
+                            .foregroundColor(self.colorScheme == .dark ? .white : .black)
                             .padding()
                             .overlay(
                                 RoundedRectangle(cornerRadius: 25)

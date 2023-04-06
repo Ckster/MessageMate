@@ -69,7 +69,7 @@ struct DynamicDictSubView: View {
                             .frame(width: geometry.size.width * 0.80, height: 100, alignment: .center).offset(x: -20, y: 140).padding()
                             .overlay(
                                 VStack {
-                                    Text(self.completeBeforeText).font(.body).offset(x: -20, y: 140)
+                                    Text(self.completeBeforeText).font(Font.custom(REGULAR_FONT, size: 25)).font(.body).offset(x: -20, y: 140)
                                 }
                         )
                     }
@@ -153,8 +153,8 @@ struct DynamicDictScrollView: View {
                         item in
                         
                         let navView = HStack {
-                            Text(self.itemStrings[item.id]![0]).frame(width: width * 0.3, alignment: .leading).foregroundColor(textColor).lineLimit(5).font(.system(size: 21)).multilineTextAlignment(.leading)
-                            Text(self.itemStrings[item.id]![1]).frame(width: width * 0.55, alignment: .leading).foregroundColor(textColor).lineLimit(5).font(.system(size: 21)).multilineTextAlignment(.leading)
+                            Text(self.itemStrings[item.id]![0]).frame(width: width * 0.3, alignment: .leading).foregroundColor(textColor).lineLimit(5).font(Font.custom(REGULAR_FONT, size: 21)).multilineTextAlignment(.leading)
+                            Text(self.itemStrings[item.id]![1]).frame(width: width * 0.55, alignment: .leading).foregroundColor(textColor).lineLimit(5).font(Font.custom(REGULAR_FONT, size: 21)).multilineTextAlignment(.leading)
                             Image(systemName: "chevron.right").foregroundColor(.gray).imageScale(.small).offset(x: -10)
                         }
                         
@@ -206,12 +206,12 @@ struct DictHeaderView: View {
     let textColor: Color
     
     var body: some View {
-        Text(self.header).bold().foregroundColor(textColor).font(.system(size: 25)).frame(width: width, alignment: .leading).padding(.leading)
-        Text(self.promptText).font(.system(size: 18)).frame(width: width, alignment: .leading).padding(.leading).padding(.bottom)
+        Text(self.header).font(Font.custom(BOLD_FONT, size: 25)).foregroundColor(textColor).frame(width: width, alignment: .leading).padding(.leading)
+        Text(self.promptText).font(Font.custom(REGULAR_FONT, size: 18)).frame(width: width, alignment: .leading).padding(.leading).padding(.bottom)
         
         HStack {
-            Text(self.keyHeader).bold().font(.system(size: 21)).frame(width: width * 0.3, alignment: .leading)
-            Text(self.valueHeader).bold().font(.system(size: 21)).frame(width: width * 0.59, alignment: .leading)
+            Text(self.keyHeader).font(Font.custom(BOLD_FONT, size: 21)).frame(width: width * 0.3, alignment: .leading)
+            Text(self.valueHeader).font(Font.custom(BOLD_FONT, size: 21)).frame(width: width * 0.59, alignment: .leading)
         }
     }
 }
@@ -255,7 +255,7 @@ struct DoubleInputBoxView: View, Equatable {
     var body: some View {
         
         let deleteAlert =
-            Alert(title: Text("Delete \(keyHeader)"), message: Text("Are you sure you would like to delete this \(keyHeader)?"), primaryButton: .default(Text("Cancel")), secondaryButton: .default(Text("Delete"), action: {
+            Alert(title: Text("Delete \(keyHeader)").font(Font.custom(REGULAR_FONT, size: 21)), message: Text("Are you sure you would like to delete this \(keyHeader)?"), primaryButton: .default(Text("Cancel")), secondaryButton: .default(Text("Delete"), action: {
                 self.inputToDelete = self.id
                 self.presentationMode.wrappedValue.dismiss()
             }))
@@ -271,14 +271,14 @@ struct DoubleInputBoxView: View, Equatable {
                         deleteAlert
                     }
                     
-                    Text(keyHeader).bold().font(.system(size: 20)).frame(width: geometry.size.width, height: geometry.size.height * 0.10, alignment: .leading).padding(.leading)
+                    Text(keyHeader).font(Font.custom(BOLD_FONT, size: 20)).frame(width: geometry.size.width, height: geometry.size.height * 0.10, alignment: .leading).padding(.leading)
                     TextEditor(text: $type).frame(width: geometry.size.width * 0.80, height: geometry.size.height * 0.15)
                         .padding(4)
                             .overlay(RoundedRectangle(cornerRadius: 8)
                                 .stroke(Color.secondary).opacity(0.75))
                             .focused($isFieldFocused)
                     
-                    Text(valueHeader).bold().font(.system(size: 20)).frame(width: geometry.size.width, height: geometry.size.height * 0.10, alignment: .leading).padding(.leading)
+                    Text(valueHeader).font(Font.custom(BOLD_FONT, size: 20)).frame(width: geometry.size.width, height: geometry.size.height * 0.10, alignment: .leading).padding(.leading)
                     TextEditor(text: $value).frame(width: geometry.size.width * 0.80, height: geometry.size.height * 0.45)
                         .padding(4)
                             .overlay(RoundedRectangle(cornerRadius: 8)

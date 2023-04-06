@@ -43,6 +43,8 @@ enum MessagingPlatform: CaseIterable {
 // TODO: Better multi page management
 // TODO: New app icon
 // TODO: Delete account workflow
+// TODO: Fix log in after already onboarded, make sure business info is not overwritten
+// TODO: Make sure business page is not unloaded
 
 
 struct InboxView: View {

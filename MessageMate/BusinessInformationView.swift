@@ -9,6 +9,14 @@ import SwiftUI
 import FirebaseFirestore
 
 
+let GENERAL_INFORMATION = "General Information"
+let PERSONAL = "Personal"
+let FAQS = "FAQs"
+let LINKS = "Links"
+let PRODUCTS_AND_SERVICES = "Products and Services"
+let OTHER = "Other"
+
+
 struct BusinessInformationView: View {
     @EnvironmentObject var session: SessionStore
     @Environment(\.colorScheme) var colorScheme
@@ -16,36 +24,12 @@ struct BusinessInformationView: View {
     let db = Firestore.firestore()
     
     // TODO: Make sure users can't delete everything
-    // TODO: Update when screen goes away in case user inputs info and then doesn't navigate back
+    // TODO: Update when screen goes away in case user inputs info and then doesn't navigate back. Maybe 'Done' button
 
     let subViewDict: Dictionary<String, AnyView> = [
-        "General": AnyView(GeneralInfoSubView()),
-        "Business Info": AnyView(BusinessInfoSubView()),
-        "Links": AnyView(DynamicDictSubView(
-            keyText: "Link type (Main website, scheduling, etc):",
-            valueText: "URL (ex. awakenpermanentcosmetics.com):",
-            keyHeader: "Link Type",
-            valueHeader: "URL",
-            promptText: "Please add links to your businesse's web services:",
-            header: "Links",
-            completeBeforeText: "Please fill out all links before adding more",
-            firebaseItemsField: Pages.collections.BUSINESS_INFO.documents.FIELDS.fields.LINKS,
-            disableAutoCorrect: true,
-            disableAutoCapitalization: true)
-        ),
-        "Products and Services": AnyView(DynamicDictSubView(
-            keyText: "Product or Service:",
-            valueText: "Pricing Info:",
-            keyHeader: "Product / Service",
-            valueHeader: "Pricing Info",
-            promptText: "Please add the products and services that your business offers:",
-            header: "Products & Services",
-            completeBeforeText: "Please fill out all products / services before adding more",
-            firebaseItemsField: Pages.collections.BUSINESS_INFO.documents.FIELDS.fields.PRODUCTS_SERVICES,
-            disableAutoCorrect: false,
-            disableAutoCapitalization: false)
-        ),
-        "FAQs": AnyView(DynamicDictSubView(
+        GENERAL_INFORMATION: AnyView(BusinessInfoSubView()),
+        PERSONAL: AnyView(GeneralInfoSubView()),
+        FAQS: AnyView(DynamicDictSubView(
             keyText: "Frequently asked question:",
             valueText: "Answer:",
             keyHeader: "FAQ",
@@ -57,7 +41,31 @@ struct BusinessInformationView: View {
             disableAutoCorrect: false,
             disableAutoCapitalization: false)
         ),
-        "Specifics": AnyView(DynamicListSubView(
+        LINKS: AnyView(DynamicDictSubView(
+            keyText: "Link type (Main website, scheduling, etc):",
+            valueText: "URL (ex. awakenpermanentcosmetics.com):",
+            keyHeader: "Link Type",
+            valueHeader: "URL",
+            promptText: "Please add links to your businesse's web services:",
+            header: "Links",
+            completeBeforeText: "Please fill out all links before adding more",
+            firebaseItemsField: Pages.collections.BUSINESS_INFO.documents.FIELDS.fields.LINKS,
+            disableAutoCorrect: true,
+            disableAutoCapitalization: true)
+        ),
+        PRODUCTS_AND_SERVICES: AnyView(DynamicDictSubView(
+            keyText: "Product or Service:",
+            valueText: "Pricing Info:",
+            keyHeader: "Product / Service",
+            valueHeader: "Pricing Info",
+            promptText: "Please add the products and services that your business offers:",
+            header: "Products & Services",
+            completeBeforeText: "Please fill out all products / services before adding more",
+            firebaseItemsField: Pages.collections.BUSINESS_INFO.documents.FIELDS.fields.PRODUCTS_SERVICES,
+            disableAutoCorrect: false,
+            disableAutoCapitalization: false)
+        ),
+        OTHER: AnyView(DynamicListSubView(
             listHeaderText: "Descriptions:",
             inputText: "Specifics",
             promptText: "Please add any specfic information about your business",
@@ -69,7 +77,6 @@ struct BusinessInformationView: View {
         )
     ]
     
-
     var body: some View {
         GeometryReader { geometry in
             if self.session.selectedPage == nil {
@@ -88,20 +95,20 @@ struct BusinessInformationView: View {
                             initializePage(session: self.session) {
                                 self.loading = false
                             }
-                        })
+                        }
+                    )
                 }
                 else {
                     NavigationView {
-                        
                         VStack(alignment: .center) {
                             Text("Business Information").font(Font.custom(BOLD_FONT, size: 30)).padding()
-                            ForEach(self.subViewDict.keys.sorted(), id:\.self) { category in
-                                
+                            ForEach([GENERAL_INFORMATION, PERSONAL, FAQS, LINKS, PRODUCTS_AND_SERVICES, OTHER], id:\.self) { category in
+                           
                                 NavigationLink(destination: subViewDict[category]) {
                                     Text(category)
                                         .frame(minWidth: 0, maxWidth: .infinity)
                                         .font(Font.custom(REGULAR_FONT, size: 30))
-                                        .foregroundColor(self.colorScheme == .dark ? .black : .white)
+                                        .foregroundColor(self.colorScheme == .dark ? .white : .black)
                                         .padding()
                                         .overlay(
                                             RoundedRectangle(cornerRadius: 25)
