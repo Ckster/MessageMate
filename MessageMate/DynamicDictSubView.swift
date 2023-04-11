@@ -17,11 +17,15 @@ struct DynamicDictSubView: View {
     @State var itemToDelete: UUID?
     @State var itemStrings: [UUID : [String]] = [:]
     @State var showFillOutFirst: Bool = false
+    @State var showingPopup: Bool = false
+    @State var workingWebsiteURL: String = ""
+    @State var crawlingWebpage: Bool = false
     let keyText: String
     let valueText: String
     let keyHeader: String
     let valueHeader: String
     let promptText: String
+    let websiteLinkPromptText: String?
     let header: String
     let completeBeforeText: String
     let firebaseItemsField: String
@@ -46,7 +50,7 @@ struct DynamicDictSubView: View {
                     // The scroll view with all items displayed
                     VStack {
                         
-                        DictHeaderView(header: self.header, promptText: self.promptText, keyHeader: self.keyHeader, valueHeader: self.valueHeader, width: geometry.size.width, textColor: textColor).onChange(of: self.itemToDelete, perform: {newItemId in
+                        DictHeaderView(header: self.header, promptText: self.promptText, websiteLinkPromptText: websiteLinkPromptText, keyHeader: self.keyHeader, valueHeader: self.valueHeader, width: geometry.size.width, height: geometry.size.height, textColor: textColor, showingPopup: $showingPopup).onChange(of: self.itemToDelete, perform: {newItemId in
                             if newItemId != nil {
                                 let deletionIndex = self.items.firstIndex(where: { $0.id == newItemId })
                                 if deletionIndex != nil {
@@ -56,11 +60,12 @@ struct DynamicDictSubView: View {
                             }
                         })
                         
-                        DynamicDictScrollView(items: $items, itemStrings: $itemStrings, showFillOutFirst: $showFillOutFirst, itemToDelete: $itemToDelete, width: geometry.size.width, height: geometry.size.height, textColor: textColor, keyText: self.keyText, valueText: self.valueText, disableAutoCorrect: self.disableAutoCorrect, disableAutoCapitalization: self.disableAutoCorrect)
+                        DynamicDictScrollView(items: $items, itemStrings: $itemStrings, showFillOutFirst: $showFillOutFirst, itemToDelete: $itemToDelete, width: geometry.size.width, height: geometry.size.height, textColor: textColor, keyText: self.keyText, valueText: self.valueText, disableAutoCorrect: self.disableAutoCorrect, disableAutoCapitalization: self.disableAutoCorrect).allowsHitTesting(!showingPopup)
                         
                     }.onDisappear(perform: {
                         self.updateItems()
                     })
+                    .opacity(self.showingPopup ? 0.15 : 1.0)
                     
                     // Tells user they need to fill out all items before adding a new one
                     if self.showFillOutFirst {
@@ -74,6 +79,8 @@ struct DynamicDictSubView: View {
                         )
                     }
                     
+                }.popup(isPresented: $showingPopup) {
+                    inputLinkPopup(websiteURL: $workingWebsiteURL, showingPopup: $showingPopup, crawlingWebpage: $crawlingWebpage, height: geometry.size.height, width: geometry.size.width).padding(.leading)
                 }
             }
         }
@@ -114,7 +121,6 @@ struct DynamicDictSubView: View {
                 }
             }
         }
-        
     }
     
     func updateItems() {
@@ -200,19 +206,48 @@ struct DynamicDictScrollView: View {
 struct DictHeaderView: View {
     let header: String
     let promptText: String
+    let websiteLinkPromptText: String?
     let keyHeader: String
     let valueHeader: String
     let width: CGFloat
+    let height: CGFloat
     let textColor: Color
+    @Binding var showingPopup: Bool
+    @Environment(\.colorScheme) var colorScheme
     
     var body: some View {
-        Text(self.header).font(Font.custom(BOLD_FONT, size: 25)).foregroundColor(textColor).frame(width: width, alignment: .leading).padding(.leading)
-        Text(self.promptText).font(Font.custom(REGULAR_FONT, size: 18)).frame(width: width, alignment: .leading).padding(.leading).padding(.bottom)
-        
-        HStack {
-            Text(self.keyHeader).font(Font.custom(BOLD_FONT, size: 21)).frame(width: width * 0.3, alignment: .leading)
-            Text(self.valueHeader).font(Font.custom(BOLD_FONT, size: 21)).frame(width: width * 0.59, alignment: .leading)
+        VStack {
+            Text(self.header).font(Font.custom(BOLD_FONT, size: 25)).foregroundColor(textColor).frame(width: width, alignment: .leading).padding(.leading)
+            
+            if self.websiteLinkPromptText != nil {
+                Text(self.websiteLinkPromptText!).font(Font.custom(REGULAR_FONT, size: 18)).frame(width: width * 0.85, alignment: .leading).padding(.bottom)
+                Button(action: {self.showingPopup = true}) {
+                    Text("Link a webpage")
+                        .frame(minWidth: 0, maxWidth: .infinity)
+                        .font(Font.custom(REGULAR_FONT, size: 25))
+                        .foregroundColor(self.colorScheme == .dark ? .white : .black)
+                        .padding()
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 25)
+                                .stroke(self.colorScheme == .dark ? .white : .black, lineWidth: 4)
+                        )
+                        .lineLimit(1)
+                }
+                .background(Color("Purple"))
+                .cornerRadius(25)
+                .frame(width: width * 0.85, height: height * 0.075)
+                .padding(.bottom).padding(.top).padding(.leading)
+                .allowsHitTesting(!showingPopup)
+            }
+            
+            Text(self.promptText).font(Font.custom(REGULAR_FONT, size: 18)).frame(width: width * 0.85, alignment: .leading).padding(.bottom)
+            
+            HStack {
+                Text(self.keyHeader).font(Font.custom(BOLD_FONT, size: 21)).frame(width: width * 0.3, alignment: .leading)
+                Text(self.valueHeader).font(Font.custom(BOLD_FONT, size: 21)).frame(width: width * 0.59, alignment: .leading)
+            }
         }
+        
     }
 }
 

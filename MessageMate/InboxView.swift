@@ -5,9 +5,11 @@
 //  Created by Erick Verleye on 1/23/23.
 //
 
+import UIKit
 import SwiftUI
 import AVKit
 import FBSDKLoginKit
+
 import FirebaseFirestore
 import FirebaseAuth
 import FirebaseMessaging
@@ -38,13 +40,25 @@ enum MessagingPlatform: CaseIterable {
     case facebook
 }
 
+
 // TODO: Add full screen for story mentions and replies
 // TODO: Check on local notifcations waking app up from termination
 // TODO: Better multi page management
-// TODO: New app icon
 // TODO: Delete account workflow
-// TODO: Fix log in after already onboarded, make sure business info is not overwritten
-// TODO: Make sure business page is not unloaded
+// TODO: Fix log in after already onboarded
+// TODO: Sending old messages not showing up
+// TODO: Fix account image
+// TODO: Add indication of no business account if there is none in place of account image
+// TODO: Add webhook registration for Facebook pages and database recording for Instagram pages
+// TODO: No business accounts connected showing instead of loading screen
+// TODO: Search in conversations view / individual conversations
+// TODO: Tell people why they are only seeing last 24hr of messages
+// TODO: Fix tapGesture in business info view so you can copy and paste
+// TODO: Put human tag in POST request after 24 hours
+// TODO: Multiline constraint for correspondents name in conversation navigation link
+// TODO: Add generate from website link to general, faq, and services
+
+// TODO: Calendar
 
 
 struct InboxView: View {
@@ -57,7 +71,7 @@ struct InboxView: View {
                 FacebookAuthenticateView(width: geometry.size.width, height: geometry.size.height).environmentObject(self.session)
             }
             else {
-                ConversationsView(width: geometry.size.width, height: geometry.size.height).environmentObject(self.session)
+                ConversationsView(width: geometry.size.width, height: geometry.size.height, geometryReader: geometry).environmentObject(self.session)
             }
         }
     }
@@ -75,6 +89,7 @@ struct ConversationsView: View {
     
     let width: CGFloat
     let height: CGFloat
+    let geometryReader: GeometryProxy
     
     var body: some View {
         NavigationView {
@@ -121,7 +136,7 @@ struct ConversationsView: View {
                                     var sortedConversations = self.session.selectedPage!.conversations.sorted {$0.messages.last?.createdTime ?? Date() > $1.messages.last?.createdTime ?? Date()}
                                     ForEach(sortedConversations, id:\.self) { conversation in
                                         if conversation.messages.count > 0 {
-                                            ConversationNavigationView(conversation: conversation, width: width, page: self.session.selectedPage!).environmentObject(self.session)
+                                            ConversationNavigationView(conversation: conversation, width: width, height: height, geometryReader: self.geometryReader, page: self.session.selectedPage!).environmentObject(self.session)
                                         }
                                         else {
                                             Text("").onAppear(perform: {print(conversation.id, "no messages")})
@@ -141,7 +156,9 @@ struct ConversationsView: View {
                     }
                         
                     else {
-                        NoBusinessAccountsLinkedView(width: width, height: height).environmentObject(self.session)
+                        NoBusinessAccountsLinkedView(width: width, height: height).environmentObject(self.session).onChange(of: self.session.facebookUserToken, perform: { newToken in
+                            self.session.getPageInfo() {}
+                        })
                     }
                 }
             }
@@ -185,15 +202,19 @@ struct ConversationNavigationView: View {
     @EnvironmentObject var session: SessionStore
     @ObservedObject var conversation: Conversation
     let width: CGFloat
+    let height: CGFloat
+    let geometryReader: GeometryProxy
     let page: MetaPage
     @Environment(\.colorScheme) var colorScheme
     @ObservedObject var correspondent: MetaUser
     @ObservedObject var pushNotificationState = PushNotificationState.shared
     @State var navigate: Bool = false
     
-    init(conversation: Conversation, width: CGFloat, page: MetaPage) {
+    init(conversation: Conversation, width: CGFloat, height: CGFloat, geometryReader: GeometryProxy, page: MetaPage) {
         self.conversation = conversation
         self.width = width
+        self.height = height
+        self.geometryReader = geometryReader
         self.page = page
         self.correspondent = conversation.correspondent!
     }
@@ -202,7 +223,7 @@ struct ConversationNavigationView: View {
         VStack {
             let navTitle = conversation.correspondent?.name ?? conversation.correspondent?.username ?? conversation.correspondent?.email ?? ""
             
-            NavigationLink(destination: ConversationView(conversation: conversation, page: page, navigate: self.$navigate).environmentObject(self.session)
+            NavigationLink(destination: ConversationView(conversation: conversation, page: page, navigate: self.$navigate, width: width, height: height, geometryReader: self.geometryReader).environmentObject(self.session)
                 .navigationBarTitleDisplayMode(.inline).toolbar {
                     ToolbarItem {
                         HStack {
@@ -240,8 +261,8 @@ struct ConversationNavigationView: View {
                         
                         VStack(spacing: 0.5) {
                             HStack {
-                                Text(navTitle).foregroundColor(self.colorScheme == .dark ? .white : .black).font(Font.custom(REGULAR_FONT, size: 22))
-//                                Image(self.correspondent.platform == .instagram ? "instagram_logo" : "facebook_logo").resizable().frame(width: 15.5, height: 15.5)
+                                Text(navTitle).foregroundColor(self.colorScheme == .dark ? .white : .black).font(Font.custom(REGULAR_FONT, size: 22)).lineLimit(1)
+                                Image(self.correspondent.platform == .instagram ? "instagram_logo" : "facebook_logo").resizable().frame(width: 15.5, height: 15.5)
                             }.frame(width: width * 0.55, alignment: .leading)
                         
                             HStack {
@@ -351,42 +372,30 @@ struct TextControlView: View {
     @Binding var messageSendError: String
     @Binding var typingMessage: String
     @ObservedObject var conversation: Conversation
-    @State var loading: Bool = false
     
     let height: CGFloat
     let width: CGFloat
     let page: MetaPage
+    let geometryReader: GeometryProxy
         
-    
     var body: some View {
             VStack {
                 
-                // Input text box / loading when message is being generated
-                if self.loading {
-                    LottieView(name: "Loading-2").frame(width: width, height: height * 0.10, alignment: .leading)
-                }
+                DynamicHeightTextBox(typingMessage: self.$typingMessage, messageSendError: self.$messageSendError, height: height, width: width, conversation: conversation, page: page, geometryReader: geometryReader).frame(width: width * 0.925).environmentObject(self.session)
                 
-                else {
-                    DynamicHeightTextBox(typingMessage: self.$typingMessage, messageSendError: self.$messageSendError, height: height, width: width, conversation: conversation, page: page).frame(width: width * 0.925).environmentObject(self.session)
-                }
-                
+                Spacer()
                 HStack(spacing: 2) {
+                    
+                    DeleteTypingTextButton(width: self.width, height: self.height, typingText: self.$typingMessage)
                             
-                            // Auto Generation buttons
-                            AutoGenerateButton(buttonText: "Respond", width: width, height: height, conversationId: self.conversation.id, pageAccessToken: self.page.accessToken, pageName: self.page.name, accountId: self.page.id, loading: self.$loading, typingText: self.$typingMessage, showCouldNotGenerateResponse: self.$showCouldNotGenerateResponse)
+                    AutoGenerateButton(buttonText: "Respond", width: width, height: height, conversationId: self.conversation.id, pageAccessToken: self.page.accessToken, pageName: self.page.name, accountId: self.page.id, typingText: self.$typingMessage, showCouldNotGenerateResponse: self.$showCouldNotGenerateResponse).environmentObject(self.session)
             
-                            
-                            AutoGenerateButton(buttonText: "Sell", width: width, height: height, conversationId: self.conversation.id, pageAccessToken: self.page.accessToken, pageName: self.page.name, accountId: self.page.id, loading: self.$loading, typingText: self.$typingMessage, showCouldNotGenerateResponse: self.$showCouldNotGenerateResponse)
-                  
-                            
-                            AutoGenerateButton(buttonText: "Yes", width: width, height: height, conversationId: self.conversation.id, pageAccessToken: self.page.accessToken, pageName: self.page.name, accountId: self.page.id, loading: self.$loading, typingText: self.$typingMessage, showCouldNotGenerateResponse: self.$showCouldNotGenerateResponse)
-            
-                            
-                            AutoGenerateButton(buttonText: "No", width: width, height: height, conversationId: self.conversation.id, pageAccessToken: self.page.accessToken, pageName: self.page.name, accountId: self.page.id, loading: self.$loading, typingText: self.$typingMessage, showCouldNotGenerateResponse: self.$showCouldNotGenerateResponse)
-              
-                            
-                            DeleteTypingTextButton(width: self.width, height: self.height, typingText: self.$typingMessage)
-                            
+                    AutoGenerateButton(buttonText: "Sell", width: width, height: height, conversationId: self.conversation.id, pageAccessToken: self.page.accessToken, pageName: self.page.name, accountId: self.page.id, typingText: self.$typingMessage, showCouldNotGenerateResponse: self.$showCouldNotGenerateResponse).environmentObject(self.session)
+          
+                    AutoGenerateButton(buttonText: "Yes", width: width, height: height, conversationId: self.conversation.id, pageAccessToken: self.page.accessToken, pageName: self.page.name, accountId: self.page.id, typingText: self.$typingMessage, showCouldNotGenerateResponse: self.$showCouldNotGenerateResponse).environmentObject(self.session)
+                                
+                    AutoGenerateButton(buttonText: "No", width: width, height: height, conversationId: self.conversation.id, pageAccessToken: self.page.accessToken, pageName: self.page.name, accountId: self.page.id, typingText: self.$typingMessage, showCouldNotGenerateResponse: self.$showCouldNotGenerateResponse).environmentObject(self.session)
+                    
                 }.padding(.top).padding(.bottom)
             }
             .padding(.bottom)
@@ -506,15 +515,22 @@ struct ConversationView: View {
     
     @Binding var navigate: Bool
     
+    let width: CGFloat
+    let height: CGFloat
+    let geometryReader: GeometryProxy
+    
    // @Binding var openMessages: Bool
     
     var maxHeight : CGFloat = 250
     
     let page: MetaPage
 
-    init(conversation: Conversation, page: MetaPage, navigate: Binding<Bool>) {
+    init(conversation: Conversation, page: MetaPage, navigate: Binding<Bool>, width: CGFloat, height: CGFloat, geometryReader: GeometryProxy) {
         self.conversation = conversation
         self.page = page
+        self.width = width
+        self.height = height
+        self.geometryReader = geometryReader
         let appearance = UINavigationBarAppearance()
         appearance.configureWithOpaqueBackground()
             appearance.backgroundColor = UIColor.systemBackground
@@ -523,17 +539,15 @@ struct ConversationView: View {
     }
     
     var body: some View {
-        GeometryReader {
-            geometry in
             
             ZStack {
                 VStack {
                     
-                    MessageThreadView(typingMessage: self.$typingMessage, conversation: self.conversation, height: geometry.size.height, width: geometry.size.width, page: page).onTapGesture {
-                        self.messageIsFocused = false
-                    }
+//                    MessageThreadView(typingMessage: self.$typingMessage, conversation: self.conversation, height: height, width: width, page: page).onTapGesture {
+//                        self.messageIsFocused = false
+//                    }
                     
-                    TextControlView(showCouldNotGenerateResponse: self.$showCouldNotGenerateResponse, messageSendError: self.$messageSendError, typingMessage: self.$typingMessage, conversation: self.conversation, height: geometry.size.height, width: geometry.size.width, page: page).focused($messageIsFocused).onDisappear(perform: {
+                    TextControlView(showCouldNotGenerateResponse: self.$showCouldNotGenerateResponse, messageSendError: self.$messageSendError, typingMessage: self.$typingMessage, conversation: self.conversation, height: height, width: width, page: page, geometryReader: geometryReader).focused($messageIsFocused).onDisappear(perform: {
                         print("ON DISAPPEAR")
                         self.session.selectedPage!.sortConversations()
                     }).environmentObject(self.session)
@@ -545,13 +559,13 @@ struct ConversationView: View {
                 if self.session.videoPlayerUrl != nil {
                     let player = AVPlayer(url: self.session.videoPlayerUrl!)
                     VStack {
-                        Image(systemName: "xmark").font(.system(size: 30)).frame(width: geometry.size.width, alignment: .leading).onTapGesture {
+                        Image(systemName: "xmark").font(.system(size: 30)).frame(width: width, alignment: .leading).onTapGesture {
                             self.session.videoPlayerUrl = nil
                             player.pause()
                         }.padding(.bottom).padding(.leading)
 
                         VideoPlayer(player: player)
-                            .frame(height: 1000).frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.90, alignment: .leading)
+                            .frame(height: 1000).frame(width: width * 0.85, height: height * 0.90, alignment: .leading)
                             .clipShape(RoundedRectangle(cornerRadius: 16))
                             .onAppear(perform: {
                                 player.play()
@@ -577,7 +591,7 @@ struct ConversationView: View {
                 
                 if self.session.fullScreenImageUrlString != nil {
                     VStack {
-                        Image(systemName: "xmark").font(.system(size: 30)).frame(width: geometry.size.width, alignment: .leading).onTapGesture {
+                        Image(systemName: "xmark").font(.system(size: 30)).frame(width: width, alignment: .leading).onTapGesture {
                             self.session.fullScreenImageUrlString = nil
                         }.padding(.bottom).padding(.leading)
 
@@ -587,7 +601,7 @@ struct ConversationView: View {
                         } placeholder: {
                             LottieView(name: "Loading-2").frame(width: 50, height: 50, alignment: .leading)
                         }
-                            .frame(height: 1000).frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.90, alignment: .leading)
+                            .frame(height: 1000).frame(width: width * 0.85, height: height * 0.90, alignment: .leading)
                             .clipShape(RoundedRectangle(cornerRadius: 16))
                             .onTapGesture(perform: {
                                 self.session.fullScreenImageUrlString = nil
@@ -614,10 +628,10 @@ struct ConversationView: View {
                 if self.showCouldNotGenerateResponse {
                     RoundedRectangle(cornerRadius: 16)
                         .foregroundColor(Color.blue)
-                        .frame(width: geometry.size.width * 0.85, height: 150, alignment: .center).padding()
+                        .frame(width: width * 0.85, height: 150, alignment: .center).padding()
                         .overlay(
                             VStack {
-                                Text("Could not generate a response").frame(width: geometry.size.width * 0.85, height: 150, alignment: .center)
+                                Text("Could not generate a response").frame(width: width * 0.85, height: 150, alignment: .center)
                             }
                         )
                 }
@@ -625,29 +639,15 @@ struct ConversationView: View {
                 if self.messageSendError != "" {
                     RoundedRectangle(cornerRadius: 16)
                         .foregroundColor(Color.blue)
-                        .frame(width: geometry.size.width * 0.85, height: 150, alignment: .center)
+                        .frame(width: width * 0.85, height: 150, alignment: .center)
                         .overlay(
-                            Text(self.messageSendError).frame(width: geometry.size.width * 0.85, height: 150, alignment: .center)
+                            Text(self.messageSendError).frame(width: width * 0.85, height: 150, alignment: .center)
                         ).padding(.leading)
                 }
-                
             }
-        }
         .onDisappear(perform: {
             self.navigate = false
         })
-    }
-    
-    func rectReader(_ binding: Binding<CGFloat>, _ space: CoordinateSpace = .global) -> some View {
-        GeometryReader { (geometry) -> Color in
-            let rect = geometry.frame(in: space)
-            Task {
-                await MainActor.run {
-                    binding.wrappedValue = rect.midY
-                }
-            }
-            return .clear
-        }
     }
 }
 
@@ -659,23 +659,31 @@ struct AutoGenerateButton: View {
     let pageAccessToken: String
     let pageName: String
     let accountId: String
-    @Binding var loading: Bool
     @Binding var typingText: String
     @Binding var showCouldNotGenerateResponse: Bool
+    @FocusState var textBoxIsFocused: Bool
     @Environment(\.colorScheme) var colorScheme
+    @EnvironmentObject var session: SessionStore
     
     var body: some View {
         Button(action: {
-            self.loading = true
+            DispatchQueue.main.async {
+                self.session.autoGeneratingMessage = true
+            }
             generateResponse(responseType: self.buttonText.lowercased(), conversationId: conversationId, pageAccessToken: pageAccessToken, pageName: pageName, accountId: accountId) {
                 message in
                 
                 if message != "" {
+                    self.textBoxIsFocused = false
                     self.typingText = message
-                    self.loading = false
+                    DispatchQueue.main.async {
+                        self.session.autoGeneratingMessage = false
+                    }
                 }
                 else {
-                    self.loading = false
+                    DispatchQueue.main.async {
+                        self.session.autoGeneratingMessage = false
+                    }
                     self.showCouldNotGenerateResponse = true
                     DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
                         self.showCouldNotGenerateResponse = false
@@ -838,66 +846,139 @@ func generateResponse(responseType: String, conversationId: String, pageAccessTo
 }
 
 
+struct GeometryGetter: View {
+    @Binding var rect: CGRect
+
+    var body: some View {
+        GeometryReader { (g) -> Path in
+            print("width: \(g.size.width), height: \(g.size.height)")
+            DispatchQueue.main.async { // avoids warning: 'Modifying state during view update.' Doesn't look very reliable, but works.
+                self.rect = g.frame(in: .global)
+            }
+            return Path() // could be some other dummy view
+        }
+    }
+}
+
+
 struct DynamicHeightTextBox: View {
     @EnvironmentObject var session: SessionStore
     @Binding var typingMessage: String
     @Binding var messageSendError: String
-    @State var textEditorHeight : CGFloat = 100
+    @State var textEditorHeight : CGFloat = 65
     @Environment(\.colorScheme) var colorScheme
-    
-    var maxHeight : CGFloat = 10000
+    @FocusState var textEditorIsFocused: Bool
+
     let height: CGFloat
     let width: CGFloat
     let conversation: Conversation
     let page: MetaPage
+    let geometryReader: GeometryProxy
     
     var body: some View {
-            ZStack(alignment: .leading) {
-                
-                // Send message button
-                Button(
-                    action: {
-                        self.sendMessage(message: self.typingMessage, to: conversation.correspondent!) {
-                            response in
-                            self.messageSendError = (response["error"] as? [String: Any])?["message"] as? String ?? ""
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
-                                  self.messageSendError = ""
+        ZStack {
+            VStack {
+                ScrollView {
+                    ScrollViewReader {
+                        value in
+                        VStack {
+                            ForEach(conversation.messages, id: \.self.uid) { msg in
+                                if msg.dayStarter != nil && msg.dayStarter! {
+                                    MessageDateHeaderView(msg: msg, width: width)
+                                }
+                                MessageView(width: width, currentMessage: msg, conversation: conversation, page: page).id(msg.id)
+                                    .onAppear(perform: {
+                                        if !msg.opened {
+                                            msg.opened = true
+                                            if self.session.unreadMessages > 0 {
+                                                self.session.unreadMessages = self.session.unreadMessages - 1
+                                            }
+                                        }
+                                    })
                             }
+                        }.onChange(of: typingMessage) { _ in
+                            value.scrollTo(conversation.messages.last?.id)
+                        }.onChange(of: conversation.messages) { _ in
+                            value.scrollTo(conversation.messages.last?.id)
+                        }.onChange(of: textEditorIsFocused) {
+                            _ in
+                            value.scrollTo(conversation.messages.last?.id)
                         }
+                        .onAppear(perform: {
+                            value.scrollTo(conversation.messages.last?.id)
+                        })
                     }
-                ) {
-                    Image(systemName: "paperplane.circle")
-                        .font(.system(size: 35))
-                        .position(x: width * 0.85, y: 10)
-                        .frame(height: 20).foregroundColor(Color("Purple"))
+                }
+                .frame(height: max(50, geometryReader.size.height - textEditorHeight - 200))
+                .onTapGesture {
+                    self.textEditorIsFocused = false
+                }
+                Spacer()
+            }
+            //.frame(height: max(0, geometryReader.size.height - pow(textEditorHeight, 1) - 150))
+            
+            VStack {
+                Spacer()
+                
+                if self.session.autoGeneratingMessage {
+                    LottieView(name: "Loading-2").frame(width: width, height: height * 0.10, alignment: .leading)
                 }
                 
-                Text(typingMessage)
-                    .lineLimit(5)
-                    .font(.system(.body))
-                    .foregroundColor(.clear)
-                    .padding(15)
-                    .background(GeometryReader {
-                        Color.clear.preference(key: ViewHeightKey.self,
-                                               value: $0.frame(in: .local).size.height)
-                    })
-                    .frame(width: width * 0.80)
-                
-                TextEditor(text: $typingMessage)
-                    .font(.system(.body))
-                    .padding(7)
-                    .frame(height: min(textEditorHeight, maxHeight))
-                    .background(self.colorScheme == .dark ? Color.black : Color.white)
-                    .frame(width: width * 0.80)
-               
+                else {
+                    HStack {
+                        
+                        ZStack(alignment: .bottomLeading) {
+                            Text(typingMessage)
+                                .font(.system(.body))
+                                .foregroundColor(.clear)
+                                .padding(14)
+                                .background(GeometryReader {
+                                    Color.clear.preference(key: ViewHeightKey.self,
+                                                           value: $0.frame(in: .local).size.height)
+                                })
+                            
+                            TextEditor(text: $typingMessage)
+                                .font(.system(.body))
+                                .padding(7)
+                                .frame(height: textEditorHeight)
+                                .background(self.colorScheme == .dark ? Color.black : Color.white)
+                                .focused(self.$textEditorIsFocused)
+                        }.frame(width: width * 0.85)
+                        
+                        VStack {
+                            Spacer()
+                            
+                            // Send message button
+                            Button(
+                                action: {
+                                    self.sendMessage(message: self.typingMessage, to: conversation.correspondent!) {
+                                        response in
+                                        self.messageSendError = (response["error"] as? [String: Any])?["message"] as? String ?? ""
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
+                                            self.messageSendError = ""
+                                        }
+                                    }
+                                }
+                            ) {
+                                Image(systemName: "paperplane.circle")
+                                    .offset(x: -5, y: self.typingMessage != "" ? -3 : -1)
+                                    .font(.system(size: 35))
+                                //.position(x: width * 0.85, y: 10)
+                                    .frame(height: 18, alignment: .bottom).foregroundColor(Color("Purple"))
+                            }
+                        }.frame(height: textEditorHeight)
+                    }
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .strokeBorder(Color("Purple"), lineWidth: 2)
+                    )
+                    .onPreferenceChange(ViewHeightKey.self) { textEditorHeight = $0 }
+                }
+            
             }
-            .overlay(
-                RoundedRectangle(cornerRadius: 5, style: .continuous)
-                    .strokeBorder(Color.gray, lineWidth: 1)
-            )
-            .onPreferenceChange(ViewHeightKey.self) { textEditorHeight = $0 }
+            
         }
-    
+    }
     
     func sendMessage(message: String, to: MetaUser, completion: @escaping ([String: Any]) -> Void) {
         /// API Reference: https://developers.facebook.com/docs/messenger-platform/reference/send-api/

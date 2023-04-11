@@ -25,8 +25,7 @@ struct AccountView: View {
 
             VStack(alignment: .center, spacing: 5) {
                 
-                // TODO: Add indication of no business account if there is none
-                AsyncImage(url: URL(string: self.session.selectedPage?.photoURL ?? "")) { image in image.resizable() } placeholder: { LottieView(name: "Loading-2") } .frame(width: width * 0.65, height: height * 0.1).overlay(
+                AsyncImage(url: URL(string: self.session.selectedPage?.photoURL ?? "")) { image in image.resizable() } placeholder: { LottieView(name: "Loading-2") } .frame(width: 75, height: 75).overlay(
                     Circle()
                         .stroke(self.colorScheme == .dark ? .white : .black, lineWidth: 2)
                 ).clipShape(Circle()).padding(.top)
@@ -50,7 +49,7 @@ struct AccountView: View {
                         .padding()
                         .overlay(
                             RoundedRectangle(cornerRadius: 25)
-                                .stroke(self.colorScheme == .dark ? .white : .black, lineWidth: 2)
+                                .stroke(self.colorScheme == .dark ? .white : .black, lineWidth: 4)
                         )
                         .lineLimit(1)
                     }
@@ -70,7 +69,7 @@ struct AccountView: View {
                             .padding()
                             .overlay(
                                 RoundedRectangle(cornerRadius: 25)
-                                    .stroke(self.colorScheme == .dark ? .white : .black, lineWidth: 2)
+                                    .stroke(self.colorScheme == .dark ? .white : .black, lineWidth: 4)
                             )
                             .lineLimit(1)
                     }
@@ -92,7 +91,7 @@ struct AccountView: View {
                             .padding()
                             .overlay(
                                 RoundedRectangle(cornerRadius: 25)
-                                    .stroke(self.colorScheme == .dark ? .white : .black, lineWidth: 2)
+                                    .stroke(self.colorScheme == .dark ? .white : .black, lineWidth: 4)
                             )
                             .lineLimit(1)
                     }
@@ -100,7 +99,7 @@ struct AccountView: View {
                     .cornerRadius(25)
                     .frame(width: width * 0.85, height: height * 0.1)
                 
-                Text("© MessageMate 2023").font(Font.custom(REGULAR_FONT, size: 20)).frame(width: width, height: height * 0.35, alignment: .bottom).offset(y: -20)
+                Text("© Interactify 2023").font(Font.custom(REGULAR_FONT, size: 20)).frame(width: width, height: height * 0.35, alignment: .bottom).offset(y: -20)
 
             }
 

@@ -113,7 +113,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             if userId != nil && body != nil {
                 print("CC")
                 let conversation = userConversationRegistry[userId!]
-                let name = conversation?.correspondent?.name ?? conversation?.correspondent?.username ?? "MessageMate"
+                let name = conversation?.correspondent?.name ?? conversation?.correspondent?.username ?? "Interactify"
                 
                 let content = UNMutableNotificationContent()
                 content.title = name + " [\(page ?? "")]"

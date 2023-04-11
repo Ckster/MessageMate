@@ -7,6 +7,7 @@
 
 import SwiftUI
 import FirebaseFirestore
+import FirebaseAuth
 
 
 let GENERAL_INFORMATION = "General Information"
@@ -27,14 +28,15 @@ struct BusinessInformationView: View {
     // TODO: Update when screen goes away in case user inputs info and then doesn't navigate back. Maybe 'Done' button
 
     let subViewDict: Dictionary<String, AnyView> = [
-        GENERAL_INFORMATION: AnyView(BusinessInfoSubView()),
-        PERSONAL: AnyView(GeneralInfoSubView()),
+        GENERAL_INFORMATION: AnyView(GeneralInfoSubView()),
+        PERSONAL: AnyView(PersonalInfoSubView()),
         FAQS: AnyView(DynamicDictSubView(
             keyText: "Frequently asked question:",
             valueText: "Answer:",
             keyHeader: "FAQ",
             valueHeader: "Answer",
-            promptText: "Please add any frequently asked questions of your business",
+            promptText: "Or add any frequently asked questions of your business manually:",
+            websiteLinkPromptText: "Add a link to your businesse's FAQ webpage to autofill information",
             header: "Frequently Asked Questions",
             completeBeforeText: "Please fill out all FAQs before adding more",
             firebaseItemsField: Pages.collections.BUSINESS_INFO.documents.FIELDS.fields.FAQS,
@@ -47,6 +49,7 @@ struct BusinessInformationView: View {
             keyHeader: "Link Type",
             valueHeader: "URL",
             promptText: "Please add links to your businesse's web services:",
+            websiteLinkPromptText: nil,
             header: "Links",
             completeBeforeText: "Please fill out all links before adding more",
             firebaseItemsField: Pages.collections.BUSINESS_INFO.documents.FIELDS.fields.LINKS,
@@ -58,7 +61,8 @@ struct BusinessInformationView: View {
             valueText: "Pricing Info:",
             keyHeader: "Product / Service",
             valueHeader: "Pricing Info",
-            promptText: "Please add the products and services that your business offers:",
+            promptText: "Or add the products and services that your business offers manually:",
+            websiteLinkPromptText: "Add a link to your businesse's pricing webpage to autofill information",
             header: "Products & Services",
             completeBeforeText: "Please fill out all products / services before adding more",
             firebaseItemsField: Pages.collections.BUSINESS_INFO.documents.FIELDS.fields.PRODUCTS_SERVICES,
@@ -112,7 +116,7 @@ struct BusinessInformationView: View {
                                         .padding()
                                         .overlay(
                                             RoundedRectangle(cornerRadius: 25)
-                                                .stroke(self.colorScheme == .dark ? .white : .black, lineWidth: 2)
+                                                .stroke(self.colorScheme == .dark ? .white : .black, lineWidth: 4)
                                         )
                                         .lineLimit(1)
                                 }
@@ -256,7 +260,7 @@ func initializePage(session: SessionStore, completion: @escaping () -> Void) {
 
 
 
-struct GeneralInfoSubView: View {
+struct PersonalInfoSubView: View {
     @EnvironmentObject var session: SessionStore
     @Environment(\.colorScheme) var colorScheme
     @State var senderName: String = ""
@@ -277,34 +281,33 @@ struct GeneralInfoSubView: View {
         else {
             GeometryReader { geometry in
                 VStack {
-                    Text("General Information").bold().foregroundColor(textColor).font(.system(size: 40)).frame(width: geometry.size.width, alignment: .center)
-                        //.padding(.leading)
-                    //Text("Please input some general info:").font(.system(size: 18)).frame(width: geometry.size.width, alignment: .leading).padding().padding(.leading)
-                    
-                    ScrollView {
-                        Text("Sender Name").bold().font(.system(size: 20)).frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.10, alignment: .leading)
-                        TextEditor(text: $senderName).frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.06)
-                                .overlay(RoundedRectangle(cornerRadius: 8)
-                                    .stroke(Color.secondary).opacity(0.75))
-                                .focused($isFieldFocused)
-                                //.offset(x: -20)
-                        
-                        Text("Sender Characteristics").bold().font(.system(size: 20)).frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.10, alignment: .leading)
-                        TextEditor(text: $senderCharacteristics).frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.35)
-                                .overlay(RoundedRectangle(cornerRadius: 8)
-                                    .stroke(Color.secondary).opacity(0.75))
-                                .focused($isFieldFocused)
-                                //.offset(x: -20)
-                                
+                    Text("Personal").foregroundColor(textColor).font(Font.custom(BOLD_FONT, size: 40)).frame(width: geometry.size.width, alignment: .center).contentShape(Rectangle()).onTapGesture {
+                        self.isFieldFocused = false
                     }
                     
+                    ScrollView {
+                        Text("Sender Name").font(Font.custom(BOLD_FONT, size: 20)).frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.10, alignment: .leading).contentShape(Rectangle()).onTapGesture {
+                            self.isFieldFocused = false
+                        }
+                        TextEditor(text: $senderName).frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.06)
+                            .overlay(RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color.secondary).opacity(0.75))
+                            .focused($isFieldFocused)
+                        
+                        Text("Sender Characteristics").font(Font.custom(BOLD_FONT, size: 20)).frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.10, alignment: .leading)                   .contentShape(Rectangle()).onTapGesture {
+                            self.isFieldFocused = false
+                        }
+                        TextEditor(text: $senderCharacteristics).frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.35)
+                            .overlay(RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color.secondary).opacity(0.75))
+                            .focused($isFieldFocused)
+                        
+                    }.frame(width: geometry.size.width)
+                
                 }
-                //.offset(x: -15)
-                    .onDisappear(perform: {
+                .onDisappear(perform: {
                     self.updateInfo()
-                }).onTapGesture {
-                    self.isFieldFocused = false
-                }
+                })
             }
         }
     }
@@ -334,7 +337,204 @@ struct GeneralInfoSubView: View {
 }
 
 
-struct BusinessInfoSubView: View {
+struct inputLinkPopup: View {
+    @Environment(\.colorScheme) var colorScheme
+    @Binding var websiteURL: String
+    @Binding var showingPopup: Bool
+    @Binding var crawlingWebpage: Bool
+    @FocusState var isPopupFocused: Bool
+    let height: CGFloat
+    let width: CGFloat
+    
+    var body: some View {
+        VStack {
+            Spacer()
+                .contentShape(Rectangle())
+                .onTapGesture {
+                self.isPopupFocused = false
+            }
+            ZStack {
+                let textColor: Color = self.colorScheme == .dark ? .black : .white
+                RoundedRectangle(cornerRadius: 25, style: .continuous).fill(Color("Purple")).frame(width: width * 0.90, height: height * 0.5)
+                VStack {
+                    Text("Webpage URL:").font(Font.custom(REGULAR_FONT, size: 20)).foregroundColor(textColor).frame(width: width * 0.85, height: height * 0.10, alignment: .leading)
+                    TextEditor(text: self.$websiteURL).frame(width: width * 0.85, height: height * 0.15)
+                        .padding(.bottom).focused($isPopupFocused).autocorrectionDisabled(true).onChange(of: websiteURL) { _ in
+                            if !websiteURL.filter({ $0.isNewline }).isEmpty {
+                                self.isPopupFocused = false
+                            }
+                        }
+                    
+                    HStack {
+                        Button(action: {
+                            self.showingPopup = false
+                            self.websiteURL = ""
+                            self.isPopupFocused = false
+                        }) {
+                            Text("Cancel")
+                                .frame(minWidth: 0, maxWidth: .infinity)
+                                .font(Font.custom(REGULAR_FONT, size: 15))
+                                .foregroundColor(textColor)
+                                .padding()
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 25)
+                                        .stroke(self.colorScheme == .dark ? .black : .white, lineWidth: 4)
+                                )
+                                .lineLimit(1)
+                        }
+                        .background(Color.red)
+                        .cornerRadius(25)
+                        .frame(width: width * 0.25)
+                        
+                        Button(action: {
+                            self.showingPopup = false
+                            self.isPopupFocused = false
+                            self.crawlingWebpage = true
+                        }) {
+                            Text("Done")
+                                .frame(minWidth: 0, maxWidth: .infinity)
+                                .font(Font.custom(REGULAR_FONT, size: 15))
+                                .foregroundColor(textColor)
+                                .padding()
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 25)
+                                        .stroke(self.colorScheme == .dark ? .black : .white, lineWidth: 4)
+                                )
+                                .lineLimit(1)
+                        }
+                        .background(Color("Purple"))
+                        .cornerRadius(25)
+                        .frame(width: width * 0.25)
+                    }
+                }
+            }
+            .offset(y: self.showingPopup ? -150 : 0)
+            Spacer()
+                .contentShape(Rectangle())
+                .onTapGesture {
+                self.isPopupFocused = false
+            }
+        }
+    }
+}
+
+
+extension View {
+
+    public func popup<PopupContent: View>(
+        isPresented: Binding<Bool>,
+        view: @escaping () -> PopupContent) -> some View {
+        self.modifier(
+            Popup(
+                isPresented: isPresented,
+                view: view)
+        )
+    }
+}
+
+
+public struct Popup<PopupContent>: ViewModifier where PopupContent: View {
+    
+    init(isPresented: Binding<Bool>,
+         view: @escaping () -> PopupContent) {
+        self._isPresented = isPresented
+        self.view = view
+    }
+    
+    /// Controls if the sheet should be presented or not
+    @Binding var isPresented: Bool
+    
+    /// The content to present
+    var view: () -> PopupContent
+    
+    public func body(content: Content) -> some View {
+        ZStack {
+            content
+              .frameGetter($presenterContentRect)
+        }
+        .overlay(sheet())
+    }
+
+    func sheet() -> some View {
+        ZStack {
+            self.view()
+//              .simultaneousGesture(
+//                  TapGesture().onEnded {
+//                      dismiss()
+//              })
+              .frameGetter($sheetContentRect)
+              .frame(width: screenWidth)
+              .offset(x: 0, y: currentOffset)
+              .animation(Animation.easeOut(duration: 0.3), value: currentOffset)
+        }
+    }
+
+    private func dismiss() {
+        isPresented = false
+    }
+    
+    @State private var presenterContentRect: CGRect = .zero
+
+    /// The rect of popup content
+    @State private var sheetContentRect: CGRect = .zero
+
+    /// The offset when the popup is displayed
+    private var displayedOffset: CGFloat {
+        -presenterContentRect.midY + screenHeight/2
+    }
+
+    /// The offset when the popup is hidden
+    private var hiddenOffset: CGFloat {
+        if presenterContentRect.isEmpty {
+            return 1000
+        }
+        return screenHeight - presenterContentRect.midY + sheetContentRect.height/2 + 5
+    }
+
+    /// The current offset, based on the "presented" property
+    private var currentOffset: CGFloat {
+        return isPresented ? displayedOffset : hiddenOffset
+    }
+    private var screenWidth: CGFloat {
+        UIScreen.main.bounds.size.width
+    }
+
+    private var screenHeight: CGFloat {
+        UIScreen.main.bounds.size.height
+    }
+    
+}
+    
+    
+    
+extension View {
+    func frameGetter(_ frame: Binding<CGRect>) -> some View {
+        modifier(FrameGetter(frame: frame))
+    }
+}
+  
+struct FrameGetter: ViewModifier {
+  
+    @Binding var frame: CGRect
+    
+    func body(content: Content) -> some View {
+        content
+            .background(
+                GeometryReader { proxy -> AnyView in
+                    let rect = proxy.frame(in: .global)
+                    // This avoids an infinite layout loop
+                    if rect.integral != self.frame.integral {
+                        DispatchQueue.main.async {
+                            self.frame = rect
+                        }
+                    }
+                return AnyView(EmptyView())
+            })
+    }
+}
+    
+
+struct GeneralInfoSubView: View {
     @EnvironmentObject var session: SessionStore
     @Environment(\.colorScheme) var colorScheme
     @FocusState var isFieldFocused: Bool
@@ -342,6 +542,9 @@ struct BusinessInfoSubView: View {
     @State var address: String = ""
     @State var industry: String = ""
     @State var loading: Bool = true
+    @State var showingPopup: Bool = false
+    @State var workingWebsiteURL: String = ""
+    @State var crawlingWebpage: Bool = false
     let db = Firestore.firestore()
     
     var body: some View {
@@ -354,40 +557,91 @@ struct BusinessInfoSubView: View {
         }
         
         else {
+            // TODO: Add hours field
             GeometryReader { geometry in
                 VStack {
-                    Text("Business Information").bold().foregroundColor(textColor).font(.system(size: 40)).frame(width: geometry.size.width, alignment: .center)
-//                    Text("Please input the following information about your business:").font(.system(size: 18)).frame(width: geometry.size.width, alignment: .leading).padding().padding(.leading)
-                    
-                    ScrollView {
-                        Text("Address").bold().font(.system(size: 20)).frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.10, alignment: .leading)
-                        TextEditor(text: $address).frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.06)
-                                .overlay(RoundedRectangle(cornerRadius: 8)
-                                    .stroke(Color.secondary).opacity(0.75))
-                                .focused($isFieldFocused)
-                                //.offset(x: -20)
-                        
-                        Text("Business Name").bold().font(.system(size: 20)).frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.10, alignment: .leading)
-                        TextEditor(text: $businessName).frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.06)
-                                .overlay(RoundedRectangle(cornerRadius: 8)
-                                    .stroke(Color.secondary).opacity(0.75))
-                                .focused($isFieldFocused)
-                                //.offset(x: -20)
-                        
-                        Text("Industry").bold().font(.system(size: 20)).frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.10, alignment: .leading).padding(.leading)
-                        TextEditor(text: $industry).frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.06)
-                                .overlay(RoundedRectangle(cornerRadius: 8)
-                                    .stroke(Color.secondary).opacity(0.75))
-                                .focused($isFieldFocused)
-                                //.offset(x: -20)
+                    Text("General Information").foregroundColor(textColor).font(Font.custom(BOLD_FONT, size: 40)).frame(width: geometry.size.width, alignment: .center)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                        self.isFieldFocused = false
                     }
                     
+                    Text("Add a link to your businesse's general information webpage to autofill information").font(Font.custom(REGULAR_FONT, size: 20)).frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.10, alignment: .leading).padding(.top).contentShape(Rectangle()).onTapGesture {
+                        self.isFieldFocused = false
+                    }
+                    Button(action: {self.showingPopup = true}) {
+                        Text("Link a webpage")
+                            .frame(minWidth: 0, maxWidth: .infinity)
+                            .font(Font.custom(REGULAR_FONT, size: 25))
+                            .foregroundColor(self.colorScheme == .dark ? .white : .black)
+                            .padding()
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 25)
+                                    .stroke(self.colorScheme == .dark ? .white : .black, lineWidth: 4)
+                            )
+                            .lineLimit(1)
+                    }
+                    .background(Color("Purple"))
+                    .cornerRadius(25)
+                    .frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.075)
+                    .padding(.bottom).padding(.top)
+                    .allowsHitTesting(!showingPopup)
+                    
+                    if self.crawlingWebpage {
+                        VStack {
+                            Text("Retrieving information from webpage ...").font(Font.custom(BOLD_FONT, size: 20))
+                            LottieView(name: "Loading-2").frame(width: 300, height: 300)
+                        }.onAppear(perform: {
+                            getCrawlerResults {
+                                self.crawlingWebpage = false
+                            }
+                        })
+                        .padding(.top)
+                    }
+                    
+                    else {
+                        Text("Or fill in fields manually:").font(Font.custom(REGULAR_FONT, size: 20)).frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.10, alignment: .leading).padding(.top).contentShape(Rectangle()).onTapGesture {
+                            self.isFieldFocused = false
+                        }
+                        
+                        ScrollView {
+                            Text("Address").bold().font(.system(size: 20)).frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.10, alignment: .leading).contentShape(Rectangle()).onTapGesture {
+                                self.isFieldFocused = false
+                            }
+                            TextEditor(text: $address).frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.06)
+                                .overlay(RoundedRectangle(cornerRadius: 8)
+                                    .stroke(Color.secondary).opacity(0.75))
+                                .focused($isFieldFocused)
+                                .allowsHitTesting(!showingPopup)
+                            
+                            Text("Business Name").bold().font(.system(size: 20)).frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.10, alignment: .leading).contentShape(Rectangle()).onTapGesture {
+                                self.isFieldFocused = false
+                            }
+                            TextEditor(text: $businessName).frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.06)
+                                .overlay(RoundedRectangle(cornerRadius: 8)
+                                    .stroke(Color.secondary).opacity(0.75))
+                                .focused($isFieldFocused)
+                                .allowsHitTesting(!showingPopup)
+                            
+                            Text("Industry").bold().font(.system(size: 20)).frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.10, alignment: .leading).padding(.leading).contentShape(Rectangle()).onTapGesture {
+                                self.isFieldFocused = false
+                            }
+                            TextEditor(text: $industry).frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.06)
+                                .overlay(RoundedRectangle(cornerRadius: 8)
+                                    .stroke(Color.secondary).opacity(0.75))
+                                .focused($isFieldFocused)
+                                .allowsHitTesting(!showingPopup)
+                        }
+                        
+                    }
                 }
-                //.offset(x: -15)
+             
                 .onDisappear(perform: {
                     self.updateInfo()
-                }).onTapGesture {
-                    self.isFieldFocused = false
+                })
+                .opacity(self.showingPopup ? 0.15 : 1.0)
+                .popup(isPresented: $showingPopup) {
+                    inputLinkPopup(websiteURL: $workingWebsiteURL, showingPopup: $showingPopup, crawlingWebpage: $crawlingWebpage, height: geometry.size.height, width: geometry.size.width)
                 }
             }
         }
@@ -421,6 +675,17 @@ struct BusinessInfoSubView: View {
         )
     }
     
+    func getCrawlerResults(completion: @escaping () -> Void) {
+        let crawlerResponse = webcrawlRequest(section: "homepage_link", url: self.workingWebsiteURL) {
+            response in
+            print(response)
+            self.address = response["business_address"] as? String ?? ""
+            self.businessName = response["business_name"] as? String ?? ""
+            self.industry = response["industry"] as? String ?? ""
+            self.updateInfo()
+            completion()
+        }
+    }
 }
 
 
@@ -556,6 +821,32 @@ struct HorizontalLine: View {
 
     var body: some View {
         HorizontalLineShape().fill(self.color ?? .black).frame(minWidth: 0, maxWidth: .infinity, minHeight: height, maxHeight: height)
+    }
+}
+
+func webcrawlRequest(section: String, url: String, completion: @escaping ([String: Any]) -> Void) {
+    let urlString = "https://us-central1-messagemate-2d9af.cloudfunctions.net/autofill_info_http"
+    let currentUser = Auth.auth().currentUser
+    
+    currentUser?.getIDTokenForcingRefresh(true) { idToken, error in
+        if let error = error {
+            // TODO: Tell user there was an issue and to try again
+            print(error, "ERROR")
+            return
+        }
+        
+        let header: [String: String] = [
+            "authorization": idToken!,
+            "section": section,
+            "url": url
+        ]
+        
+        Task {
+            let data = await getRequest(urlString: urlString, header: header)
+            if data != nil {
+                completion(data!["crawlResults"] as? [String: Any] ?? ["error": ""]) // TODO: Process an actual error message from response
+            }
+        }
     }
 }
 

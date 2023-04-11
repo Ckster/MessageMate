@@ -192,72 +192,69 @@ struct InfoView: View {
                             if newToken != nil {
                                 self.initializing = true
                             }
-                        })
+                        }
+                    )
                 }
                 
                 else {
                     VStack {
                         Text("Basic Information").bold().font(Font.custom(EXTRA_BOLD_FONT, size: 37)).lineLimit(1).frame(width: width, height: height * 0.10, alignment: .center)
-                            //.padding(.leading)
-                        //Text("Please input some general info:").font(.system(size: 18)).frame(width: geometry.size.width, alignment: .leading).padding().padding(.leading)
                         
-                   //     ScrollView {
-                            Text("Business Name").bold().font(Font.custom(BOLD_FONT, size: 20)).frame(width: width * 0.85, height: height * 0.08, alignment: .leading)
-                            TextEditor(text: $businessName)
-                                .frame(width: width * 0.85, height: height * 0.06)
-                                .overlay(RoundedRectangle(cornerRadius: 8)
-                                .stroke(Color.secondary).opacity(0.75))
-                                .focused($isFieldFocused)
-                                .onTapGesture {
-                                    if self.businessName == businessNameExample {
-                                        self.businessName = ""
-                                    }
+                        Text("Business Name").bold().font(Font.custom(BOLD_FONT, size: 20)).frame(width: width * 0.85, height: height * 0.08, alignment: .leading)
+                        TextEditor(text: $businessName)
+                            .frame(width: width * 0.85, height: height * 0.06)
+                            .overlay(RoundedRectangle(cornerRadius: 8)
+                            .stroke(Color.secondary).opacity(0.75))
+                            .focused($isFieldFocused)
+                            .onTapGesture {
+                                if self.businessName == businessNameExample {
+                                    self.businessName = ""
                                 }
+                            }
                             
-                            Text("Industry").bold().font(Font.custom(BOLD_FONT, size: 20)).frame(width: width * 0.85, height: height * 0.08, alignment: .leading)
-                            TextEditor(text: $industry)
-                                .frame(width: width * 0.85, height: height * 0.06)
-                                .overlay(RoundedRectangle(cornerRadius: 8)
-                                .stroke(Color.secondary).opacity(0.75))
-                                .focused($isFieldFocused)
-                                .onTapGesture {
-                                    if self.industry == industryExample {
-                                        self.industry = ""
-                                    }
+                        Text("Industry").bold().font(Font.custom(BOLD_FONT, size: 20)).frame(width: width * 0.85, height: height * 0.08, alignment: .leading)
+                        TextEditor(text: $industry)
+                            .frame(width: width * 0.85, height: height * 0.06)
+                            .overlay(RoundedRectangle(cornerRadius: 8)
+                            .stroke(Color.secondary).opacity(0.75))
+                            .focused($isFieldFocused)
+                            .onTapGesture {
+                                if self.industry == industryExample {
+                                    self.industry = ""
                                 }
-                            
-                            Text("Sender Name").bold().font(Font.custom(BOLD_FONT, size: 20)).frame(width: width * 0.85, height: height * 0.08, alignment: .leading)
-                            TextEditor(text: $senderName)
-                                .frame(width: width * 0.85, height: height * 0.06)
-                                .overlay(RoundedRectangle(cornerRadius: 8)
-                                .stroke(Color.secondary).opacity(0.75))
-                                .focused($isFieldFocused)
-                                .onTapGesture {
-                                    if self.senderName == senderNameExample {
-                                        self.senderName = ""
-                                    }
+                            }
+                        
+                        Text("Sender Name").bold().font(Font.custom(BOLD_FONT, size: 20)).frame(width: width * 0.85, height: height * 0.08, alignment: .leading)
+                        TextEditor(text: $senderName)
+                            .frame(width: width * 0.85, height: height * 0.06)
+                            .overlay(RoundedRectangle(cornerRadius: 8)
+                            .stroke(Color.secondary).opacity(0.75))
+                            .focused($isFieldFocused)
+                            .onTapGesture {
+                                if self.senderName == senderNameExample {
+                                    self.senderName = ""
                                 }
-                                 
-                            Text("Sender Characteristics").bold().font(Font.custom(BOLD_FONT, size: 20)).frame(width: width * 0.85, height: height * 0.08, alignment: .leading)
-                            TextEditor(text: $senderCharacteristics)
-                                .frame(width: width * 0.85, height: height * 0.20)
-                                .overlay(RoundedRectangle(cornerRadius: 8)
-                                .stroke(Color.secondary).opacity(0.75))
-                                .focused($isFieldFocused)
-                                .onTapGesture {
-                                    if self.senderCharacteristics == senderCharacteristicsExample {
-                                        self.senderCharacteristics = ""
-                                    }
+                            }
+                             
+                        Text("Sender Characteristics").bold().font(Font.custom(BOLD_FONT, size: 20)).frame(width: width * 0.85, height: height * 0.08, alignment: .leading)
+                        TextEditor(text: $senderCharacteristics)
+                            .frame(width: width * 0.85, height: height * 0.20)
+                            .overlay(RoundedRectangle(cornerRadius: 8)
+                            .stroke(Color.secondary).opacity(0.75))
+                            .focused($isFieldFocused)
+                            .onTapGesture {
+                                if self.senderCharacteristics == senderCharacteristicsExample {
+                                    self.senderCharacteristics = ""
                                 }
-                    //    }
+                            }
+                        }
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            self.isFieldFocused = false
+                        }
+                        .offset(y: -50)
                     }
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        self.isFieldFocused = false
-                    }
-                    .offset(y: -50)
-                    }
-                }
+            }
         }
     }
 }

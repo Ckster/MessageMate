@@ -33,6 +33,8 @@ class TabSelectionState: ObservableObject {
     @Published var selectedTab : Int = 2
 }
 
+let conversationDayLimit = 7
+
 /**
  Creates an instance of the users authentication state and other single instance attributes for the user's session
     - Parameters:
@@ -60,6 +62,7 @@ class SessionStore : NSObject, ObservableObject {
     // This is sort of abusive
     @Published var videoPlayerUrl: URL?
     @Published var fullScreenImageUrlString: String?
+    @Published var autoGeneratingMessage: Bool = false
     
     // TODO: Add in actual workflow to make this false when it needs to be
     @Published var onboardingCompleted: Bool? = nil
@@ -211,7 +214,7 @@ class SessionStore : NSObject, ObservableObject {
     }
     
     func updateSelectedPage() {
-        if (self.selectedPage == nil || (!self.availablePages.contains(self.selectedPage!)) && self.availablePages.count > 0) {
+        if (self.selectedPage == nil || !self.availablePages.contains(self.selectedPage!)) && self.availablePages.count > 0 {
             self.selectedPage = self.availablePages[0]
         }
     }
@@ -530,6 +533,21 @@ class SessionStore : NSObject, ObservableObject {
                     }
                 }
             }
+            
+            // If no conversations mark the page as loaded and see if all pages have been loaded
+            if page.conversations.count == 0 {
+                pagesLoaded = pagesLoaded + 1
+                if pagesLoaded == self.availablePages.count {
+                    print("All pages loaded")
+                    DispatchQueue.main.async {
+                        // Set the selected page is the currently selected page is nil or no longer exists in the set of avaialable pages
+                        self.updateSelectedPage()
+                        self.addConversationListeners(page: self.selectedPage!)
+                        self.loadingPageInformation = false
+                    }
+                    completion()
+                }
+            }
         }
         
         if self.availablePages.count == 0 {
@@ -831,7 +849,10 @@ class SessionStore : NSObject, ObservableObject {
                     let updatedTime = conversation["updated_time"] as? String
                     
                     if id != nil && updatedTime != nil {
-                        newConversations.append(Conversation(id: id!, updatedTime: updatedTime!, page: page, pagination: nil, platform: platform))
+                        let conversation = Conversation(id: id!, updatedTime: updatedTime!, page: page, pagination: nil, platform: platform)
+                        if conversation.updatedTime!.distance(to: Date(timeIntervalSince1970: NSDate().timeIntervalSince1970)) < Double(86400 * conversationDayLimit) {
+                            newConversations.append(conversation)
+                        }
                     }
                 }
             }
