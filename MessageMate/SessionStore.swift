@@ -33,7 +33,7 @@ class TabSelectionState: ObservableObject {
     @Published var selectedTab : Int = 2
 }
 
-let conversationDayLimit = 7
+let conversationDayLimit = 1
 
 /**
  Creates an instance of the users authentication state and other single instance attributes for the user's session
@@ -58,6 +58,7 @@ class SessionStore : NSObject, ObservableObject {
     @Published var availablePages: [MetaPage] = []
     @Published var loadingFacebookUserToken: Bool = true
     @Published var loadingPageInformation: Bool = true
+    @Published var webhooksSubscribed: Bool?
     
     // This is sort of abusive
     @Published var videoPlayerUrl: URL?
@@ -75,8 +76,12 @@ class SessionStore : NSObject, ObservableObject {
     override init() {
         super.init()
         
+        self.initWorkflow()
+    }
+    
+    func initWorkflow() {
         // Check to see if the user is authenticated
-        if self.user.user != nil {
+        if self.$user.user != nil {
             // See if the user's document is in the database
             if self.user.uid != nil {
                 self.db.collection(Users.name).document(self.user.uid!).getDocument(
@@ -216,6 +221,7 @@ class SessionStore : NSObject, ObservableObject {
     func updateSelectedPage() {
         if (self.selectedPage == nil || !self.availablePages.contains(self.selectedPage!)) && self.availablePages.count > 0 {
             self.selectedPage = self.availablePages[0]
+            self.subscribeToWebhooks(page: self.selectedPage!) {}
         }
     }
     
@@ -301,6 +307,9 @@ class SessionStore : NSObject, ObservableObject {
         do {
             try Auth.auth().signOut()
             self.loginManager.logOut()
+            self.facebookUserToken = nil
+            self.selectedPage = nil
+            self.availablePages = []
             self.isLoggedIn = .signedOut
            // GIDSignIn.sharedInstance().signOut()
             UIApplication.shared.unregisterForRemoteNotifications()
@@ -340,14 +349,16 @@ class SessionStore : NSObject, ObservableObject {
             "instagram_manage_messages",
             "pages_manage_metadata",
             "pages_read_engagement",
-            "pages_messaging"
+            "pages_messaging",
+            "pages_show_list",
+            "pages_read_engagement"
         ], from: nil) { (loginResult, error) in
             self.signInError = error?.localizedDescription ?? ""
             if error == nil {
                 if loginResult?.isCancelled == false {
                     let userAccessToken = AccessToken.current!.tokenString
                     self.facebookUserToken = userAccessToken
-                    
+                
                     if authWorkflow {
                         let credential = FacebookAuthProvider.credential(withAccessToken: AccessToken.current!.tokenString)
                         self.firebaseAuthWorkflow(credential: credential) {
@@ -360,6 +371,7 @@ class SessionStore : NSObject, ObservableObject {
                 }
             }
             else {
+                print("ERROR")
                 print(error)
                 // TODO: There was an error signing in, show something to the user
             }
@@ -418,7 +430,7 @@ class SessionStore : NSObject, ObservableObject {
                     // User already exists
                     if let document = document, document.exists {
                         // Show the user the home screen
-                        self.isLoggedIn = .signedIn
+                        self.initWorkflow()
                         self.addToken()
                         completion()
                     }
@@ -439,7 +451,7 @@ class SessionStore : NSObject, ObservableObject {
                         ])
         
                         // Finally, show the user the home screen
-                        self.isLoggedIn = .signedIn
+                        self.initWorkflow()
                         completion()
                     }
                 }
@@ -1050,7 +1062,59 @@ class SessionStore : NSObject, ObservableObject {
         }
     }
     
-    
+    func subscribeToWebhooks(page: MetaPage, completion: @escaping () -> Void ) {
+        print("SUBSCRIBING")
+        // First get a list of registered apps for this page to see if we even need to do this
+        let urlString: String = "https://graph.facebook.com/v16.0/\(page.id)/subscribed_apps?access_token=\(page.accessToken)"
+        Task {
+            let response = await getRequest(urlString: urlString)
+            var pageSubscribed = false
+            if response != nil {
+                print(response!)
+                let data = response!["data"] as? [[String: Any]]
+                if data != nil {
+                    print("SUBSCRIBED GET", data)
+                    for app in data! {
+                        let appName = app["name"] as? String
+                        let subscribedFields = app["subscribed_fields"] as? [String]
+                        if appName != nil && subscribedFields != nil {
+                            if appName! == "Interactify" && subscribedFields!.contains("messages") {
+                                pageSubscribed = true
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // POST request to subscription
+            if true {
+                let urlString = "https://graph.facebook.com/v16.0/\(page.id)/subscribed_apps"
+                let params = ["object": "page",
+                              "callback_url": "google.com",
+                              "subscribed_fields": "messages",
+                              "verify_token": self.facebookUserToken,
+                              "access_token": page.accessToken]
+                let jsonData = try? JSONSerialization.data(withJSONObject: params)
+                if jsonData != nil {
+                    postRequestJSON(urlString: urlString, data: jsonData!) {
+                        data in
+                        if data != nil {
+                            print("SUBSCRIBE POST", data)
+                            let success = data!["success"] as? Bool
+                            if success != nil && success! {
+                                print("SUCCESS")
+                                pageSubscribed = true
+                            }
+                        }
+                    }
+                }
+            }
+            else {
+                pageSubscribed = true
+            }
+            self.webhooksSubscribed = pageSubscribed
+        }
+    }
 }
 
 /**
@@ -1089,3 +1153,6 @@ class User: ObservableObject {
         }
     }
 }
+
+
+//https://graph.facebook.com/v16.0/me/accounts?access_token=\(self.facebookUserToken!)

@@ -26,6 +26,7 @@ struct DynamicDictSubView: View {
     let valueHeader: String
     let promptText: String
     let websiteLinkPromptText: String?
+    let websiteSection: String?
     let header: String
     let completeBeforeText: String
     let firebaseItemsField: String
@@ -60,7 +61,21 @@ struct DynamicDictSubView: View {
                             }
                         })
                         
-                        DynamicDictScrollView(items: $items, itemStrings: $itemStrings, showFillOutFirst: $showFillOutFirst, itemToDelete: $itemToDelete, width: geometry.size.width, height: geometry.size.height, textColor: textColor, keyText: self.keyText, valueText: self.valueText, disableAutoCorrect: self.disableAutoCorrect, disableAutoCapitalization: self.disableAutoCorrect).allowsHitTesting(!showingPopup)
+                        if self.crawlingWebpage {
+                            VStack {
+                                Text("Retrieving information from webpage ...").font(Font.custom(BOLD_FONT, size: 20))
+                                LottieView(name: "Loading-2").frame(width: 300, height: 300)
+                            }.onAppear(perform: {
+                                getCrawlerResults {
+                                    self.crawlingWebpage = false
+                                }
+                            })
+                            .padding(.top)
+                        }
+                        
+                        else {
+                            DynamicDictScrollView(items: $items, itemStrings: $itemStrings, showFillOutFirst: $showFillOutFirst, itemToDelete: $itemToDelete, width: geometry.size.width, height: geometry.size.height, textColor: textColor, keyText: self.keyText, valueText: self.valueText, disableAutoCorrect: self.disableAutoCorrect, disableAutoCapitalization: self.disableAutoCorrect).allowsHitTesting(!showingPopup)
+                        }
                         
                     }.onDisappear(perform: {
                         self.updateItems()
@@ -80,7 +95,7 @@ struct DynamicDictSubView: View {
                     }
                     
                 }.popup(isPresented: $showingPopup) {
-                    inputLinkPopup(websiteURL: $workingWebsiteURL, showingPopup: $showingPopup, crawlingWebpage: $crawlingWebpage, height: geometry.size.height, width: geometry.size.width).padding(.leading)
+                    inputLinkPopup(websiteURL: $workingWebsiteURL, showingPopup: $showingPopup, crawlingWebpage: $crawlingWebpage, height: geometry.size.height, width: geometry.size.width)
                 }
             }
         }
@@ -125,14 +140,39 @@ struct DynamicDictSubView: View {
     
     func updateItems() {
         var newItems: [String: String] = [:]
+    
         for newItem in self.itemStrings.values {
             if newItem[0] != "" {
                 newItems[typeToKey(input: newItem[0])] = newItem[1]
             }
         }
+        
         self.db.collection(Pages.name).document("\(self.session.selectedPage!.id)/\(Pages.collections.BUSINESS_INFO.name)/\(Pages.collections.BUSINESS_INFO.documents.FIELDS.name)").updateData(
             [self.firebaseItemsField: newItems]
         )
+    }
+    
+    func getCrawlerResults(completion: @escaping () -> Void) {
+        webcrawlRequest(section: self.websiteSection!, url: self.workingWebsiteURL) {
+            response in
+            print(response)
+            let responseData: [String: String] = response as? [String: String] ?? ["" : ""]  // TODO: Add alert if empty
+            var newExistingItems: [DoubleInputBoxView] = []
+            let itemTypes = Array(responseData.keys)
+            
+            for itemType in itemTypes {
+                let newItem = DoubleInputBoxView(keyType: itemType, value: responseData[itemType]!, deletable: true, keyHeader: self.keyText, valueHeader: self.valueText, inputToDelete: $itemToDelete, inputStrings: $itemStrings, justAdded: false, disableAutoCorrect: self.disableAutoCorrect, disableAutoCapitalization: self.disableAutoCorrect)
+                newExistingItems.append(newItem)
+                self.itemStrings[newItem.id] = [newItem.type, newItem.value]
+                if itemType == itemTypes.last {
+                    self.items = newExistingItems
+                    self.loading = false
+                }
+            }
+                        
+            self.updateItems()
+            completion()
+        }
     }
 }
 
@@ -216,11 +256,11 @@ struct DictHeaderView: View {
     @Environment(\.colorScheme) var colorScheme
     
     var body: some View {
-        VStack {
-            Text(self.header).font(Font.custom(BOLD_FONT, size: 25)).foregroundColor(textColor).frame(width: width, alignment: .leading).padding(.leading)
+        VStack(alignment: .center) {
+            Text(self.header).font(Font.custom(BOLD_FONT, size: 25)).foregroundColor(textColor).frame(width: width * 0.9, alignment: .leading).padding(.bottom)
             
             if self.websiteLinkPromptText != nil {
-                Text(self.websiteLinkPromptText!).font(Font.custom(REGULAR_FONT, size: 18)).frame(width: width * 0.85, alignment: .leading).padding(.bottom)
+                Text(self.websiteLinkPromptText!).font(Font.custom(REGULAR_FONT, size: 18)).frame(width: width * 0.9, alignment: .leading).padding(.bottom)
                 Button(action: {self.showingPopup = true}) {
                     Text("Link a webpage")
                         .frame(minWidth: 0, maxWidth: .infinity)
@@ -235,17 +275,17 @@ struct DictHeaderView: View {
                 }
                 .background(Color("Purple"))
                 .cornerRadius(25)
-                .frame(width: width * 0.85, height: height * 0.075)
-                .padding(.bottom).padding(.top).padding(.leading)
+                .frame(width: width * 0.9, height: height * 0.075)
+                .padding(.bottom).padding(.top)
                 .allowsHitTesting(!showingPopup)
             }
             
-            Text(self.promptText).font(Font.custom(REGULAR_FONT, size: 18)).frame(width: width * 0.85, alignment: .leading).padding(.bottom)
+            Text(self.promptText).font(Font.custom(REGULAR_FONT, size: 18)).frame(width: width * 0.9, alignment: .leading).padding(.bottom)
             
             HStack {
                 Text(self.keyHeader).font(Font.custom(BOLD_FONT, size: 21)).frame(width: width * 0.3, alignment: .leading)
                 Text(self.valueHeader).font(Font.custom(BOLD_FONT, size: 21)).frame(width: width * 0.59, alignment: .leading)
-            }
+            }.padding(.leading)
         }
         
     }

@@ -49,14 +49,10 @@ enum MessagingPlatform: CaseIterable {
 // TODO: Sending old messages not showing up
 // TODO: Fix account image
 // TODO: Add indication of no business account if there is none in place of account image
-// TODO: Add webhook registration for Facebook pages and database recording for Instagram pages
-// TODO: No business accounts connected showing instead of loading screen
 // TODO: Search in conversations view / individual conversations
-// TODO: Tell people why they are only seeing last 24hr of messages
-// TODO: Fix tapGesture in business info view so you can copy and paste
+
+// TODO: Tell people why they are only seeing last 24hr of messages OR
 // TODO: Put human tag in POST request after 24 hours
-// TODO: Multiline constraint for correspondents name in conversation navigation link
-// TODO: Add generate from website link to general, faq, and services
 
 // TODO: Calendar
 
@@ -133,7 +129,7 @@ struct ConversationsView: View {
                                 }
                                 
                                 else {
-                                    var sortedConversations = self.session.selectedPage!.conversations.sorted {$0.messages.last?.createdTime ?? Date() > $1.messages.last?.createdTime ?? Date()}
+                                    @State var sortedConversations = self.session.selectedPage!.conversations.sorted {$0.messages.last?.createdTime ?? Date() > $1.messages.last?.createdTime ?? Date()}
                                     ForEach(sortedConversations, id:\.self) { conversation in
                                         if conversation.messages.count > 0 {
                                             ConversationNavigationView(conversation: conversation, width: width, height: height, geometryReader: self.geometryReader, page: self.session.selectedPage!).environmentObject(self.session)
@@ -148,9 +144,11 @@ struct ConversationsView: View {
                         }
                         .coordinateSpace(name: "pullToRefresh")
                         .onAppear(perform: {
-                            self.session.getMissingRequiredFields(page: self.session.selectedPage!) {
-                                missingFields in
-                                self.missingFields = missingFields
+                            if self.session.selectedPage != nil {
+                                self.session.getMissingRequiredFields(page: self.session.selectedPage!) {
+                                    missingFields in
+                                    self.missingFields = missingFields
+                                }
                             }
                         })
                     }
@@ -988,41 +986,46 @@ struct DynamicHeightTextBox: View {
         
         if jsonData != nil {
             print("Message Data not Nil")
-            postRequest(urlString: urlString, data: jsonData!) {
+            postRequestJSON(urlString: urlString, data: jsonData!) {
                 sentMessageData in
-                let messageId = sentMessageData["message_id"] as? String
-            
-                if messageId != nil {
-                    for conversation in self.session.selectedPage!.conversations {
-                        if conversation.correspondent != nil && conversation.correspondent!.id == self.conversation.correspondent!.id {
-                            
-                            let createdDate = Date(timeIntervalSince1970: NSDate().timeIntervalSince1970)
-                            print(Date().dateToFacebookString(date: createdDate), "sent", NSDate().timeIntervalSince1970)
-                            let lastDate = Calendar.current.dateComponents([.month, .day], from: self.conversation.messages.last!.createdTime)
-                            let messageDate = Calendar.current.dateComponents([.month, .day], from: createdDate)
-                            
-                            let dayStarter = lastDate.month! != messageDate.month! || lastDate.day! != messageDate.day!
-                            
-                            var newMesssage = Message(id: messageId!, message: message, to: conversation.correspondent!, from: page.pageUser!, dayStarter: dayStarter, createdTimeDate: createdDate)
-                            
-                            newMesssage.opened = true
-                            
-                            var newMessages = conversation.messages
-                            newMessages.append(newMesssage)
-                            
-                            Task {
-                                await MainActor.run {
-                                    
-                                    conversation.messages = sortMessages(messages: newMessages)
-                                    print("rearranged")
-                                    
-                                    self.typingMessage = ""
+                if sentMessageData != nil {
+                    let messageId = sentMessageData!["message_id"] as? String
+                
+                    if messageId != nil {
+                        for conversation in self.session.selectedPage!.conversations {
+                            if conversation.correspondent != nil && conversation.correspondent!.id == self.conversation.correspondent!.id {
+                                
+                                let createdDate = Date(timeIntervalSince1970: NSDate().timeIntervalSince1970)
+                                print(Date().dateToFacebookString(date: createdDate), "sent", NSDate().timeIntervalSince1970)
+                                let lastDate = Calendar.current.dateComponents([.month, .day], from: self.conversation.messages.last!.createdTime)
+                                let messageDate = Calendar.current.dateComponents([.month, .day], from: createdDate)
+                                
+                                let dayStarter = lastDate.month! != messageDate.month! || lastDate.day! != messageDate.day!
+                                
+                                var newMesssage = Message(id: messageId!, message: message, to: conversation.correspondent!, from: page.pageUser!, dayStarter: dayStarter, createdTimeDate: createdDate)
+                                
+                                newMesssage.opened = true
+                                
+                                var newMessages = conversation.messages
+                                newMessages.append(newMesssage)
+                                
+                                Task {
+                                    await MainActor.run {
+                                        
+                                        conversation.messages = sortMessages(messages: newMessages)
+                                        print("rearranged")
+                                        
+                                        self.typingMessage = ""
+                                    }
                                 }
-                            }
-                            
-                        }}
+                                
+                            }}
+                    }
+                    completion(sentMessageData!)
                 }
-                completion(sentMessageData)
+                else {
+                    completion(["error": ["message": "Could not encode message data"]])
+                }
             }
         }
         else {
@@ -1078,6 +1081,9 @@ struct MessageView : View {
         }
     }
 }
+
+
+//"https://www.facebook.com/dialog/oauth?response_type=token&display=popup&client_id=1095098671184689&redirect_uri=https%3A%2F%2Fdevelopers.facebook.com%2Ftools%2Fexplorer%2Fcallback%3Fbusiness_id%3D857648335336354&scope=instagram_manage_messages%2Cpages_manage_metadata%2Cinstagram_basic"
 
 
 func openProfile(correspondent: MetaUser) {
@@ -1562,20 +1568,71 @@ class MetaPage: Hashable, Equatable, ObservableObject {
     func getPageBusinessAccountId(page: MetaPage) async {
         let urlString = "https://graph.facebook.com/v16.0/\(page.id)?fields=instagram_business_account&access_token=\(page.accessToken)"
         
-        let jsonDataDict = await getRequest(urlString: urlString)
+        let responseData: (HTTPURLResponse?, Data?)? = await getRequestResponse(urlString: urlString)
         var returnId: String? = nil
-        if jsonDataDict != nil {
-            let instaData = jsonDataDict!["instagram_business_account"] as? [String: String]
-            if instaData != nil {
-                let id = instaData!["id"]
-                if id != nil {
-                    returnId = id!
+        if responseData != nil {
+            let header = responseData!.0
+            let data = responseData!.1
+            
+            if header != nil {
+                // First look in the use case header field
+                let headerJson = header!.allHeaderFields[AnyHashable("x-business-use-case-usage")] as? String
+                if headerJson != nil {
+                    let businessUseCase = convertToDictionary(text: headerJson!)
+                    if businessUseCase != nil {
+                        for accountId in businessUseCase!.keys {
+                            let valueDict = businessUseCase![accountId] as? [[String: Any]]
+                            if valueDict != nil {
+                                let typeDict = valueDict!.first
+                                if typeDict != nil {
+                                    let type = typeDict!["type"] as? String
+                                    if type != nil && type == "instagram" {
+                                        returnId = accountId
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            // Otherwise look in the response data. This should only contain the business account ID for admin pages, because it is not a business use case then
+            else {
+                if data != nil {
+                    do {
+                        if let jsonDataDict = try JSONSerialization.jsonObject(with: data!, options: JSONSerialization.ReadingOptions.allowFragments) as? [String: AnyObject] {
+                            let instaData = jsonDataDict["instagram_business_account"] as? [String: String]
+                            if instaData != nil {
+                                let id = instaData!["id"]
+                                if id != nil {
+                                    returnId = id!
+                                }
+                            }
+                        }
+                    }
+                    catch {
+                        
+                    }
+
                 }
             }
         }
         self.businessAccountId = returnId
     }
-    
+}
+
+
+func convertToDictionary(text: String) -> [String: Any]? {
+    if let data = text.data(using: .utf8) {
+        print("GOT DATA")
+        do {
+            return try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any]
+        } catch {
+            print("JSON ERROR")
+            print(error.localizedDescription)
+        }
+    }
+    print("DID NOT GET DATA")
+    return nil
 }
 
 
@@ -1616,6 +1673,28 @@ class MetaUser: Hashable, Equatable, ObservableObject {
             }
         }
     }
+}
+
+
+func getRequestResponse(urlString: String, header: [String: String]? = nil) async -> (HTTPURLResponse?, Data?)? {
+    let url = URL(string: urlString)!
+    var request = URLRequest(url: url)
+    
+    if header != nil {
+        for key in header!.keys {
+            request.setValue(header![key]!, forHTTPHeaderField: key)
+        }
+    }
+    do {
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            return nil
+        }
+        return (httpResponse, data)
+      }
+      catch {
+          return nil
+      }
 }
 
 
@@ -1680,7 +1759,7 @@ func completionGetRequest(urlString: String, completion: @escaping ([String: Any
 }
 
 
-func postRequest(urlString: String, data: Data, completion: @escaping ([String: AnyObject]) -> Void) {
+func postRequestJSON(urlString: String, data: Data, completion: @escaping ([String: AnyObject]?) -> Void) {
     let url = URL(string: urlString)!
     var request = URLRequest(url: url)
     
@@ -1691,11 +1770,12 @@ func postRequest(urlString: String, data: Data, completion: @escaping ([String: 
     let dataTask = URLSession.shared.dataTask(with: request) {(data, response, error) in
         if let error = error {
             print("Request error:", error)
-            return
+            completion(nil)
         }
         
         guard let data = data else {
             print("Couldn't get data")
+            completion(nil)
             return
         }
 
@@ -1705,13 +1785,52 @@ func postRequest(urlString: String, data: Data, completion: @escaping ([String: 
             }
             else {
                 print("Couldn't deserialize data")
+                completion(nil)
             }
         }
         
         catch let error as NSError {
             print(error)
+            completion(nil)
+        }
+    }
+    dataTask.resume()
+}
+
+func postRequestXForm(urlString: String, completion: @escaping ([String: AnyObject]?) -> Void) {
+    print(urlString)
+    let url = URL(string: urlString)!
+    var request = URLRequest(url: url)
+    
+    request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+    request.httpMethod = "POST"
+    
+    let dataTask = URLSession.shared.dataTask(with: request) {(data, response, error) in
+        if let error = error {
+            print("Request error:", error)
+            completion(nil)
         }
         
+        guard let data = data else {
+            print("Couldn't get data")
+            completion(nil)
+            return
+        }
+
+        do {
+            if let jsonDataDict = try JSONSerialization.jsonObject(with: data, options: JSONSerialization.ReadingOptions.allowFragments) as? [String: AnyObject] {
+                completion(jsonDataDict)
+            }
+            else {
+                print("Couldn't deserialize data")
+                completion(nil)
+            }
+        }
+        
+        catch let error as NSError {
+            print(error)
+            completion(nil)
+        }
     }
     dataTask.resume()
 }
@@ -1772,3 +1891,11 @@ extension Date {
 
 
 // EAAPjZCIdKOzEBAAFGha2IfCQtZCovoAvXsBKUJGKa6i7dWTF8Jj1z9j1mXTMo8iDOJXQxnsZCXoIvKa1LMSx35tHP37CZBDugNZAW99DXcaCTVa6OZAJv4QfkLbGhaslGWvHF9k2tSzBxq2uszgMm7BU56VEUhWSTt8mOsON6me4kveHuWnh798YNsfnZCSulBq5EKbLD9mHxGLDXtHznGYt1ZCKsfB3IplTDW0U4FZCvonoUmZCLiJElLcR6hHy9BTj6ZA7PubAmZBtygZDZD
+
+
+//curl -X POST \
+//  -F 'subscribed_fields="messages"' \
+//  -F 'access_token=EAAPjZCIdKOzEBAONwvMuQgmIzX3t9LWaRrB8XZCsZBFVZBdYCOh31PSVmFQybe2LPsbBhy3S6MTZA4sCqcCkj8TgMivRljuD0TjtyiZAWzQKSKehmF6FtpaWdsavkXT4OIcoGaMRMNPZBoh2WpDFwjdnCZCc3wFKYCqcC4bWqpxe9KZAJbAnhX4IR7JTtTwmAxDw4GJld06o9ZCcKuUIaKg3iXITBYonm8v5sZD' \
+//  https://graph.facebook.com/v16.0/{page-id}/subscribed_apps
+
+//https://graph.facebook.com/v16.0/106484141882461?fields=instagram_business_account&access_token=

@@ -37,6 +37,7 @@ struct BusinessInformationView: View {
             valueHeader: "Answer",
             promptText: "Or add any frequently asked questions of your business manually:",
             websiteLinkPromptText: "Add a link to your businesse's FAQ webpage to autofill information",
+            websiteSection: "faqs_link",
             header: "Frequently Asked Questions",
             completeBeforeText: "Please fill out all FAQs before adding more",
             firebaseItemsField: Pages.collections.BUSINESS_INFO.documents.FIELDS.fields.FAQS,
@@ -50,6 +51,7 @@ struct BusinessInformationView: View {
             valueHeader: "URL",
             promptText: "Please add links to your businesse's web services:",
             websiteLinkPromptText: nil,
+            websiteSection: nil,
             header: "Links",
             completeBeforeText: "Please fill out all links before adding more",
             firebaseItemsField: Pages.collections.BUSINESS_INFO.documents.FIELDS.fields.LINKS,
@@ -63,6 +65,7 @@ struct BusinessInformationView: View {
             valueHeader: "Pricing Info",
             promptText: "Or add the products and services that your business offers manually:",
             websiteLinkPromptText: "Add a link to your businesse's pricing webpage to autofill information",
+            websiteSection: "products_services_link",
             header: "Products & Services",
             completeBeforeText: "Please fill out all products / services before adding more",
             firebaseItemsField: Pages.collections.BUSINESS_INFO.documents.FIELDS.fields.PRODUCTS_SERVICES,
@@ -83,54 +86,61 @@ struct BusinessInformationView: View {
     
     var body: some View {
         GeometryReader { geometry in
-            if self.session.selectedPage == nil {
-                
-                VStack(alignment: .center) {
-                    Image("undraw_account_re_o7id").resizable().frame(width: geometry.size.width * 0.9, height: geometry.size.height * 0.30).offset(y: 0).padding()
-                    
-                    Text("Please connect a business page to your Facebook account so you can add information about it here").bold().font(Font.custom(REGULAR_FONT, size: 30)).frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.30, alignment: .leading).multilineTextAlignment(.center).lineSpacing(10)
-                }.offset(y: 50)
+            
+            if self.session.loadingPageInformation {
+                LottieView(name: "Loading-2")
             }
             
             else {
-                if self.loading {
-                    LottieView(name: "Loading-2")
-                        .onAppear(perform: {
-                            initializePage(session: self.session) {
-                                self.loading = false
-                            }
-                        }
-                    )
-                }
-                else {
-                    NavigationView {
-                        VStack(alignment: .center) {
-                            Text("Business Information").font(Font.custom(BOLD_FONT, size: 30)).padding()
-                            ForEach([GENERAL_INFORMATION, PERSONAL, FAQS, LINKS, PRODUCTS_AND_SERVICES, OTHER], id:\.self) { category in
-                           
-                                NavigationLink(destination: subViewDict[category]) {
-                                    Text(category)
-                                        .frame(minWidth: 0, maxWidth: .infinity)
-                                        .font(Font.custom(REGULAR_FONT, size: 30))
-                                        .foregroundColor(self.colorScheme == .dark ? .white : .black)
-                                        .padding()
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 25)
-                                                .stroke(self.colorScheme == .dark ? .white : .black, lineWidth: 4)
-                                        )
-                                        .lineLimit(1)
-                                }
-                                .background(Color("Purple"))
-                                .cornerRadius(25)
-                                .frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.1)
-                                .padding(.bottom)
-                            }
-                        }.frame(width: geometry.size.width)
+                if self.session.selectedPage == nil {
+                    
+                    VStack(alignment: .center) {
+                        Image("undraw_account_re_o7id").resizable().frame(width: geometry.size.width * 0.9, height: geometry.size.height * 0.30).offset(y: 0).padding()
                         
-                    }.navigationViewStyle(.stack).onChange(of: self.session.selectedPage ?? MetaPage(id: "", name: "", accessToken: "", category: ""), perform: {
-                        newPage in
-                        self.loading = true
-                    })
+                        Text("Please connect a business page to your Facebook account so you can add information about it here").bold().font(Font.custom(REGULAR_FONT, size: 30)).frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.30, alignment: .leading).multilineTextAlignment(.center).lineSpacing(10)
+                    }.offset(y: 50)
+                }
+                
+                else {
+                    if self.loading {
+                        LottieView(name: "Loading-2")
+                            .onAppear(perform: {
+                                initializePage(session: self.session) {
+                                    self.loading = false
+                                }
+                            }
+                        )
+                    }
+                    else {
+                        NavigationView {
+                            VStack(alignment: .center) {
+                                Text("Business Information").font(Font.custom(BOLD_FONT, size: 30)).padding()
+                                ForEach([GENERAL_INFORMATION, PERSONAL, FAQS, LINKS, PRODUCTS_AND_SERVICES, OTHER], id:\.self) { category in
+                               
+                                    NavigationLink(destination: subViewDict[category]) {
+                                        Text(category)
+                                            .frame(minWidth: 0, maxWidth: .infinity)
+                                            .font(Font.custom(REGULAR_FONT, size: 30))
+                                            .foregroundColor(self.colorScheme == .dark ? .white : .black)
+                                            .padding()
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: 25)
+                                                    .stroke(self.colorScheme == .dark ? .white : .black, lineWidth: 4)
+                                            )
+                                            .lineLimit(1)
+                                    }
+                                    .background(Color("Purple"))
+                                    .cornerRadius(25)
+                                    .frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.1)
+                                    .padding(.bottom)
+                                }
+                            }.frame(width: geometry.size.width)
+                            
+                        }.navigationViewStyle(.stack).onChange(of: self.session.selectedPage ?? MetaPage(id: "", name: "", accessToken: "", category: ""), perform: {
+                            newPage in
+                            self.loading = true
+                        })
+                    }
                 }
             }
         }
@@ -281,7 +291,7 @@ struct PersonalInfoSubView: View {
         else {
             GeometryReader { geometry in
                 VStack {
-                    Text("Personal").foregroundColor(textColor).font(Font.custom(BOLD_FONT, size: 40)).frame(width: geometry.size.width, alignment: .center).contentShape(Rectangle()).onTapGesture {
+                    Text("Personal").font(Font.custom(BOLD_FONT, size: 25)).foregroundColor(textColor).frame(width: geometry.size.width * 0.9, alignment: .leading).padding(.bottom).contentShape(Rectangle()).onTapGesture {
                         self.isFieldFocused = false
                     }
                     
@@ -559,14 +569,14 @@ struct GeneralInfoSubView: View {
         else {
             // TODO: Add hours field
             GeometryReader { geometry in
-                VStack {
-                    Text("General Information").foregroundColor(textColor).font(Font.custom(BOLD_FONT, size: 40)).frame(width: geometry.size.width, alignment: .center)
+                VStack(alignment: .center) {
+                    Text("General Information").foregroundColor(textColor).font(Font.custom(BOLD_FONT, size: 25)).foregroundColor(textColor).frame(width: geometry.size.width * 0.9, alignment: .leading).padding(.bottom).padding(.leading)
                         .contentShape(Rectangle())
                         .onTapGesture {
                         self.isFieldFocused = false
                     }
                     
-                    Text("Add a link to your businesse's general information webpage to autofill information").font(Font.custom(REGULAR_FONT, size: 20)).frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.10, alignment: .leading).padding(.top).contentShape(Rectangle()).onTapGesture {
+                    Text("Add a link to your businesse's general information webpage to autofill information").font(Font.custom(REGULAR_FONT, size: 20)).frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.10, alignment: .leading).padding(.top).padding(.leading).contentShape(Rectangle()).onTapGesture {
                         self.isFieldFocused = false
                     }
                     Button(action: {self.showingPopup = true}) {
@@ -584,7 +594,7 @@ struct GeneralInfoSubView: View {
                     .background(Color("Purple"))
                     .cornerRadius(25)
                     .frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.075)
-                    .padding(.bottom).padding(.top)
+                    .padding(.bottom).padding(.top).padding(.leading)
                     .allowsHitTesting(!showingPopup)
                     
                     if self.crawlingWebpage {
@@ -600,7 +610,7 @@ struct GeneralInfoSubView: View {
                     }
                     
                     else {
-                        Text("Or fill in fields manually:").font(Font.custom(REGULAR_FONT, size: 20)).frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.10, alignment: .leading).padding(.top).contentShape(Rectangle()).onTapGesture {
+                        Text("Or fill in fields manually:").font(Font.custom(REGULAR_FONT, size: 20)).frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.10, alignment: .leading).padding(.top).padding(.leading).contentShape(Rectangle()).onTapGesture {
                             self.isFieldFocused = false
                         }
                         
