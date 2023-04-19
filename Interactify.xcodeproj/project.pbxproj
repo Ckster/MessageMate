@@ -169,13 +169,6 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		982A831FC187589E44FCBD7D /* Pods */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = Pods;
-			sourceTree = "<group>";
-		};
 		ED2CBB1D299362F6002161BE /* Lottie */ = {
 			isa = PBXGroup;
 			children = (
@@ -234,7 +227,6 @@
 			children = (
 				ED99A909297C8F2A0029235B /* MessageMate */,
 				ED99A908297C8F2A0029235B /* Products */,
-				982A831FC187589E44FCBD7D /* Pods */,
 			);
 			sourceTree = "<group>";
 		};
@@ -562,7 +554,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = MessageMate/MessageMate.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 7;
+				CURRENT_PROJECT_VERSION = 8;
 				DEVELOPMENT_ASSET_PATHS = "\"MessageMate/Preview Content\"";
 				DEVELOPMENT_TEAM = WRFAAJL539;
 				ENABLE_PREVIEWS = YES;
@@ -599,7 +591,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = MessageMate/MessageMateRelease.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 7;
+				CURRENT_PROJECT_VERSION = 8;
 				DEVELOPMENT_ASSET_PATHS = "\"MessageMate/Preview Content\"";
 				DEVELOPMENT_TEAM = WRFAAJL539;
 				ENABLE_PREVIEWS = YES;

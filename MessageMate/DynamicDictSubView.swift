@@ -8,6 +8,7 @@
 import SwiftUI
 import FirebaseFirestore
 
+// TODO: Variable names are all messed up, update them so they make more sense
 
 struct DynamicDictSubView: View {
     @Environment(\.colorScheme) var colorScheme
@@ -51,19 +52,23 @@ struct DynamicDictSubView: View {
                     // The scroll view with all items displayed
                     VStack {
                         
-                        DictHeaderView(header: self.header, promptText: self.promptText, websiteLinkPromptText: websiteLinkPromptText, keyHeader: self.keyHeader, valueHeader: self.valueHeader, width: geometry.size.width, height: geometry.size.height, textColor: textColor, showingPopup: $showingPopup).onChange(of: self.itemToDelete, perform: {newItemId in
-                            if newItemId != nil {
-                                let deletionIndex = self.items.firstIndex(where: { $0.id == newItemId })
-                                if deletionIndex != nil {
-                                    self.items.remove(at: deletionIndex!)
-                                    self.itemStrings.removeValue(forKey: newItemId!)
+                        DictHeaderView(header: self.header, promptText: self.promptText, websiteLinkPromptText: websiteLinkPromptText, keyHeader: self.keyHeader, valueHeader: self.valueHeader, width: geometry.size.width, height: geometry.size.height, textColor: textColor, showingPopup: $showingPopup)
+                            .onChange(of: self.itemToDelete, perform: {
+                                newItemId in
+                                if newItemId != nil {
+                                    let deletionIndex = self.items.firstIndex(where: { $0.id == newItemId })
+                                    if deletionIndex != nil {
+                                        
+                                        // Remove the view from list of views
+                                        self.items.remove(at: deletionIndex!)
+                                    }
                                 }
                             }
-                        })
+                        )
                         
                         if self.crawlingWebpage {
                             VStack {
-                                Text("Retrieving information from webpage ...").font(Font.custom(BOLD_FONT, size: 20))
+                                Text("Retrieving information from webpage. This may take a moment ...").font(Font.custom(BOLD_FONT, size: 20))
                                 LottieView(name: "Loading-2").frame(width: 300, height: 300)
                             }.onAppear(perform: {
                                 getCrawlerResults {
@@ -74,7 +79,7 @@ struct DynamicDictSubView: View {
                         }
                         
                         else {
-                            DynamicDictScrollView(items: $items, itemStrings: $itemStrings, showFillOutFirst: $showFillOutFirst, itemToDelete: $itemToDelete, width: geometry.size.width, height: geometry.size.height, textColor: textColor, keyText: self.keyText, valueText: self.valueText, disableAutoCorrect: self.disableAutoCorrect, disableAutoCapitalization: self.disableAutoCorrect).allowsHitTesting(!showingPopup)
+                            DynamicDictScrollView(items: $items, itemStrings: $itemStrings, showFillOutFirst: $showFillOutFirst, itemToDelete: $itemToDelete, width: geometry.size.width, height: geometry.size.height, textColor: textColor, keyText: self.keyText, valueText: self.valueText, disableAutoCorrect: self.disableAutoCorrect, disableAutoCapitalization: self.disableAutoCorrect, firebaseItemsField: self.firebaseItemsField).allowsHitTesting(!showingPopup)
                         }
                         
                     }.onDisappear(perform: {
@@ -114,7 +119,7 @@ struct DynamicDictSubView: View {
                     let itemTypes = Array(existingItems.keys)
                     
                     for itemType in itemTypes {
-                        let newItem = DoubleInputBoxView(keyType: itemType, value: existingItems[itemType]!, deletable: true, keyHeader: self.keyText, valueHeader: self.valueText, inputToDelete: $itemToDelete, inputStrings: $itemStrings, justAdded: false, disableAutoCorrect: self.disableAutoCorrect, disableAutoCapitalization: self.disableAutoCorrect)
+                        let newItem = DoubleInputBoxView(keyType: itemType, value: existingItems[itemType]!, deletable: true, keyHeader: self.keyText, valueHeader: self.valueText, inputToDelete: $itemToDelete, inputStrings: $itemStrings, justAdded: false, disableAutoCorrect: self.disableAutoCorrect, disableAutoCapitalization: self.disableAutoCorrect, firebaseItemsField: self.firebaseItemsField)
                         newExistingItems.append(newItem)
                         self.itemStrings[newItem.id] = [newItem.type, newItem.value]
                         if itemType == itemTypes.last {
@@ -124,7 +129,7 @@ struct DynamicDictSubView: View {
                     }
                     
                     if existingItems.count == 0 {
-                        let newItem = DoubleInputBoxView(keyType: "", value: "", deletable: false, keyHeader: self.keyText, valueHeader: self.valueText, inputToDelete: nil, inputStrings: $itemStrings, justAdded: false, disableAutoCorrect: self.disableAutoCorrect, disableAutoCapitalization: self.disableAutoCorrect)
+                        let newItem = DoubleInputBoxView(keyType: "", value: "", deletable: false, keyHeader: self.keyText, valueHeader: self.valueText, inputToDelete: nil, inputStrings: $itemStrings, justAdded: false, disableAutoCorrect: self.disableAutoCorrect, disableAutoCapitalization: self.disableAutoCorrect, firebaseItemsField: self.firebaseItemsField)
                         self.itemStrings[newItem.id] = [newItem.type, newItem.value]
                         self.items = [newItem]
                         self.loading = false
@@ -161,7 +166,7 @@ struct DynamicDictSubView: View {
             let itemTypes = Array(responseData.keys)
             
             for itemType in itemTypes {
-                let newItem = DoubleInputBoxView(keyType: itemType, value: responseData[itemType]!, deletable: true, keyHeader: self.keyText, valueHeader: self.valueText, inputToDelete: $itemToDelete, inputStrings: $itemStrings, justAdded: false, disableAutoCorrect: self.disableAutoCorrect, disableAutoCapitalization: self.disableAutoCorrect)
+                let newItem = DoubleInputBoxView(keyType: itemType, value: responseData[itemType]!, deletable: true, keyHeader: self.keyText, valueHeader: self.valueText, inputToDelete: $itemToDelete, inputStrings: $itemStrings, justAdded: false, disableAutoCorrect: self.disableAutoCorrect, disableAutoCapitalization: self.disableAutoCorrect, firebaseItemsField: self.firebaseItemsField)
                 newExistingItems.append(newItem)
                 self.itemStrings[newItem.id] = [newItem.type, newItem.value]
                 if itemType == itemTypes.last {
@@ -182,6 +187,7 @@ struct DynamicDictScrollView: View {
     @Binding var itemStrings: [UUID: [String]]
     @Binding var showFillOutFirst: Bool
     @Binding var itemToDelete: UUID?
+    @State private var viewToNavigateTo: UUID? = nil
     let width: CGFloat
     let height: CGFloat
     let textColor: Color
@@ -189,6 +195,7 @@ struct DynamicDictScrollView: View {
     let valueText: String
     let disableAutoCorrect: Bool
     let disableAutoCapitalization: Bool
+    let firebaseItemsField: String
     
     var body: some View {
         ScrollView {
@@ -197,16 +204,16 @@ struct DynamicDictScrollView: View {
                 VStack {
                     ForEach(self.items.sorted { $0.type.first ?? "z" < $1.type.first ?? "z" }, id:\.self.id) {
                         item in
-                        
                         let navView = HStack {
                             Text(self.itemStrings[item.id]![0]).frame(width: width * 0.3, alignment: .leading).foregroundColor(textColor).lineLimit(5).font(Font.custom(REGULAR_FONT, size: 21)).multilineTextAlignment(.leading)
                             Text(self.itemStrings[item.id]![1]).frame(width: width * 0.55, alignment: .leading).foregroundColor(textColor).lineLimit(5).font(Font.custom(REGULAR_FONT, size: 21)).multilineTextAlignment(.leading)
                             Image(systemName: "chevron.right").foregroundColor(.gray).imageScale(.small).offset(x: -10)
                         }
                         
-                        NavigationLink(destination: item) {
+                        NavigationLink(destination: item.navigationBarBackButtonHidden(true), tag: item.id, selection: self.$viewToNavigateTo) {
                             navView
-                        }.id(item.id)
+                        }
+                        .id(item.id)
 
                         HorizontalLine(color: .gray)
                     }.padding(.bottom)
@@ -220,7 +227,8 @@ struct DynamicDictScrollView: View {
                         }
                         
                         if count < 1 {
-                            let newDB = DoubleInputBoxView(keyType: "", value: "", deletable: true, keyHeader: self.keyText, valueHeader: self.valueText, inputToDelete: $itemToDelete, inputStrings: $itemStrings, justAdded: true, disableAutoCorrect: self.disableAutoCorrect, disableAutoCapitalization: self.disableAutoCorrect)
+                            let newDB = DoubleInputBoxView(keyType: "", value: "", deletable: true, keyHeader: self.keyText, valueHeader: self.valueText, inputToDelete: $itemToDelete, inputStrings: $itemStrings, justAdded: true, disableAutoCorrect: self.disableAutoCorrect, disableAutoCapitalization: self.disableAutoCorrect, firebaseItemsField: self.firebaseItemsField)
+                            self.viewToNavigateTo = newDB.id
                             self.itemStrings[newDB.id] = [newDB.type, newDB.value]
                             self.items.append(newDB)
                             
@@ -287,11 +295,11 @@ struct DictHeaderView: View {
                 Text(self.valueHeader).font(Font.custom(BOLD_FONT, size: 21)).frame(width: width * 0.59, alignment: .leading)
             }.padding(.leading)
         }
-        
     }
 }
 
 
+// TODO: Show something is user does not fill in both fields
 struct DoubleInputBoxView: View, Equatable {
     @Environment(\.colorScheme) var colorScheme
     @EnvironmentObject var session: SessionStore
@@ -311,9 +319,10 @@ struct DoubleInputBoxView: View, Equatable {
     @State var justAdded: Bool
     let disableAutoCorrect: Bool
     let disableAutoCapitalization: Bool
+    let firebaseItemsField: String
     
     init (keyType: String, value: String, deletable: Bool, keyHeader: String, valueHeader: String, inputToDelete: Binding<UUID?>?, inputStrings: Binding<[UUID: [String]]>, justAdded: Bool,
-          disableAutoCorrect: Bool, disableAutoCapitalization: Bool) {
+          disableAutoCorrect: Bool, disableAutoCapitalization: Bool, firebaseItemsField: String) {
         self.keyType = keyType
         self.deletable = deletable
         self.keyHeader = keyHeader
@@ -325,6 +334,7 @@ struct DoubleInputBoxView: View, Equatable {
         _justAdded = State(initialValue: justAdded)
         self.disableAutoCorrect = disableAutoCorrect
         self.disableAutoCapitalization = disableAutoCapitalization
+        self.firebaseItemsField = firebaseItemsField
     }
     
     var body: some View {
@@ -332,12 +342,18 @@ struct DoubleInputBoxView: View, Equatable {
         let deleteAlert =
             Alert(title: Text("Delete \(keyHeader)").font(Font.custom(REGULAR_FONT, size: 21)), message: Text("Are you sure you would like to delete this \(keyHeader)?"), primaryButton: .default(Text("Cancel")), secondaryButton: .default(Text("Delete"), action: {
                 self.inputToDelete = self.id
+                
+                // Remove the key / value pair from local storage and then firebase
+                self.removeItem()
+                self.updateItems()
+                
                 self.presentationMode.wrappedValue.dismiss()
             }))
         
         GeometryReader {
             geometry in
-                VStack {
+            VStack(alignment: .center) {
+                HStack {
                     Button(action: {
                         self.showingDeleteAlert = true
                     }) {
@@ -346,38 +362,67 @@ struct DoubleInputBoxView: View, Equatable {
                         deleteAlert
                     }
                     
-                    Text(keyHeader).font(Font.custom(BOLD_FONT, size: 20)).frame(width: geometry.size.width, height: geometry.size.height * 0.10, alignment: .leading).padding(.leading)
-                    TextEditor(text: $type).frame(width: geometry.size.width * 0.80, height: geometry.size.height * 0.15)
-                        .padding(4)
-                            .overlay(RoundedRectangle(cornerRadius: 8)
-                                .stroke(Color.secondary).opacity(0.75))
-                            .focused($isFieldFocused)
+                    Button(action: {
+                        self.updateItems()
+                        self.presentationMode.wrappedValue.dismiss()
+                    }) {
+                        Text("Done").frame(width: geometry.size.width * 0.2, alignment: .center)
+                    }
+                }
                     
-                    Text(valueHeader).font(Font.custom(BOLD_FONT, size: 20)).frame(width: geometry.size.width, height: geometry.size.height * 0.10, alignment: .leading).padding(.leading)
-                    TextEditor(text: $value).frame(width: geometry.size.width * 0.80, height: geometry.size.height * 0.45)
-                        .padding(4)
-                            .overlay(RoundedRectangle(cornerRadius: 8)
-                                .stroke(Color.secondary).opacity(0.75))
-                            .focused($isFieldFocused).autocorrectionDisabled(self.disableAutoCorrect).autocapitalization(self.disableAutoCorrect ? .none : .sentences)
-                    }
+                Text(keyHeader).font(Font.custom(BOLD_FONT, size: 20)).frame(width: geometry.size.width * 0.90, height: geometry.size.height * 0.10, alignment: .leading).minimumScaleFactor(0.2)
+                TextEditor(text: $type).frame(width: geometry.size.width * 0.80, height: geometry.size.height * 0.15)
+                    .padding(4)
+                        .overlay(RoundedRectangle(cornerRadius: 8)
+                            .stroke(Color.secondary).opacity(0.75))
+                        .focused($isFieldFocused)
+                
+                Text(valueHeader).font(Font.custom(BOLD_FONT, size: 20)).frame(width: geometry.size.width * 0.90, height: geometry.size.height * 0.10, alignment: .leading).minimumScaleFactor(0.2)
+                TextEditor(text: $value).frame(width: geometry.size.width * 0.80, height: geometry.size.height * 0.15)
+                    .padding(4)
+                        .overlay(RoundedRectangle(cornerRadius: 8)
+                            .stroke(Color.secondary).opacity(0.75))
+                        .focused($isFieldFocused).autocorrectionDisabled(self.disableAutoCorrect).autocapitalization(self.disableAutoCorrect ? .none : .sentences)
+                Spacer()
+                }
+                .frame(height: geometry.size.height)
                 .contentShape(Rectangle())
-                    .onTapGesture {
-                        self.isFieldFocused = false
-                    }
-                .onChange(of: self.type) {
-                    newType in
-                    self.inputStrings[self.id] = [self.type, self.value]
-                }.onChange(of: self.value) {
-                    newValue in
-                    self.inputStrings[self.id] = [self.type, self.value]
-                }.onAppear(perform: {
+                .onTapGesture {
+                    self.isFieldFocused = false
+                }
+                .onAppear(perform: {
                     self.type = self.inputStrings[self.id]![0]
                     self.value = self.inputStrings[self.id]![1]
-                }).onDisappear(perform: {
-                    self.justAdded = false
                 })
+                .onDisappear(perform: {
+                    //self.justAdded = false
+                }
+            )
+        }
+    }
+    
+    func removeItem() {
+        self.inputStrings.removeValue(forKey: self.id)
+    }
+    
+    func updateItems() {
+        if self.type == "" && self.value == "" {
+            return
+        }
+        var newItems: [String: String] = [:]
+        
+        self.inputStrings[self.id] = [self.type, self.value]
+    
+        for newItem in self.inputStrings.values {
+            if newItem[0] != "" {
+                newItems[typeToKey(input: newItem[0])] = newItem[1]
             }
         }
+        
+        self.db.collection(Pages.name).document("\(self.session.selectedPage!.id)/\(Pages.collections.BUSINESS_INFO.name)/\(Pages.collections.BUSINESS_INFO.documents.FIELDS.name)").updateData(
+            [self.firebaseItemsField: newItems]
+        )
+    }
     
     static func ==(lhs: DoubleInputBoxView, rhs: DoubleInputBoxView) -> Bool {
         return lhs.id == rhs.id
