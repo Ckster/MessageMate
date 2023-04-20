@@ -249,9 +249,9 @@ class SessionStore : NSObject, ObservableObject {
     func getMissingRequiredFields(page: MetaPage, completion: @escaping ([String]) -> Void) {
         let requiredFields = [
             Pages.collections.BUSINESS_INFO.documents.FIELDS.fields.BUSINESS_NAME,
-            Pages.collections.BUSINESS_INFO.documents.FIELDS.fields.INDUSTRY,
-            Pages.collections.BUSINESS_INFO.documents.FIELDS.fields.SENDER_NAME,
-            Pages.collections.BUSINESS_INFO.documents.FIELDS.fields.SENDER_CHARACTERISTICS
+//            Pages.collections.BUSINESS_INFO.documents.FIELDS.fields.INDUSTRY,
+//            Pages.collections.BUSINESS_INFO.documents.FIELDS.fields.SENDER_NAME,
+//            Pages.collections.BUSINESS_INFO.documents.FIELDS.fields.SENDER_CHARACTERISTICS
         ]
         
         self.db.collection("\(Pages.name)/\(page.id)/\(Pages.collections.BUSINESS_INFO.name)").document(Pages.collections.BUSINESS_INFO.documents.FIELDS.name).getDocument(completion:  {

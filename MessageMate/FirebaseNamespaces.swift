@@ -129,6 +129,7 @@ struct BusinessInfoFields {
     static let SENDER_CHARACTERISTICS = "sender_characteristics"
     static let SENDER_NAME = "sender_name"
     static let SPECIFICS = "specifics"
+    static let HOURS = "hours"
 }
 
 
