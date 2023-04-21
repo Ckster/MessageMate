@@ -201,10 +201,10 @@ struct InfoView: View {
                         Text("Basic Information").bold().font(Font.custom(EXTRA_BOLD_FONT, size: 37)).lineLimit(1).frame(width: width, height: height * 0.10, alignment: .center)
                         
                         Text("Business Name").bold().font(Font.custom(BOLD_FONT, size: 20)).frame(width: width * 0.85, height: height * 0.08, alignment: .leading)
-                        TextEditor(text: $businessName)
-                            .frame(width: width * 0.85, height: height * 0.06)
+                        GenericDynamicHeightTextBox(text: $businessName)
+                            .frame(width: width * 0.85)
                             .overlay(RoundedRectangle(cornerRadius: 8)
-                            .stroke(Color.secondary).opacity(0.75))
+                            .stroke(Color.secondary).opacity(1))
                             .focused($isFieldFocused)
                             .onTapGesture {
                                 if self.businessName == businessNameExample {
@@ -213,10 +213,10 @@ struct InfoView: View {
                             }
                             
                         Text("Industry").bold().font(Font.custom(BOLD_FONT, size: 20)).frame(width: width * 0.85, height: height * 0.08, alignment: .leading)
-                        TextEditor(text: $industry)
-                            .frame(width: width * 0.85, height: height * 0.06)
+                        GenericDynamicHeightTextBox(text: $industry)
+                            .frame(width: width * 0.85)
                             .overlay(RoundedRectangle(cornerRadius: 8)
-                            .stroke(Color.secondary).opacity(0.75))
+                            .stroke(Color.secondary).opacity(1))
                             .focused($isFieldFocused)
                             .onTapGesture {
                                 if self.industry == industryExample {
@@ -225,10 +225,10 @@ struct InfoView: View {
                             }
                         
                         Text("Sender Name").bold().font(Font.custom(BOLD_FONT, size: 20)).frame(width: width * 0.85, height: height * 0.08, alignment: .leading)
-                        TextEditor(text: $senderName)
-                            .frame(width: width * 0.85, height: height * 0.06)
+                        GenericDynamicHeightTextBox(text: $senderName)
+                            .frame(width: width * 0.85)
                             .overlay(RoundedRectangle(cornerRadius: 8)
-                            .stroke(Color.secondary).opacity(0.75))
+                            .stroke(Color.secondary).opacity(1))
                             .focused($isFieldFocused)
                             .onTapGesture {
                                 if self.senderName == senderNameExample {
@@ -237,10 +237,10 @@ struct InfoView: View {
                             }
                              
                         Text("Sender Characteristics").bold().font(Font.custom(BOLD_FONT, size: 20)).frame(width: width * 0.85, height: height * 0.08, alignment: .leading)
-                        TextEditor(text: $senderCharacteristics)
-                            .frame(width: width * 0.85, height: height * 0.20)
+                        GenericDynamicHeightTextBox(text: $senderCharacteristics)
+                            .frame(width: width * 0.85)
                             .overlay(RoundedRectangle(cornerRadius: 8)
-                            .stroke(Color.secondary).opacity(0.75))
+                            .stroke(Color.secondary).opacity(1))
                             .focused($isFieldFocused)
                             .onTapGesture {
                                 if self.senderCharacteristics == senderCharacteristicsExample {

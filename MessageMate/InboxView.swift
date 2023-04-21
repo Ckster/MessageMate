@@ -541,10 +541,6 @@ struct ConversationView: View {
             ZStack {
                 VStack {
                     
-//                    MessageThreadView(typingMessage: self.$typingMessage, conversation: self.conversation, height: height, width: width, page: page).onTapGesture {
-//                        self.messageIsFocused = false
-//                    }
-                    
                     TextControlView(showCouldNotGenerateResponse: self.$showCouldNotGenerateResponse, messageSendError: self.$messageSendError, typingMessage: self.$typingMessage, conversation: self.conversation, height: height, width: width, page: page, geometryReader: geometryReader).focused($messageIsFocused).onDisappear(perform: {
                         print("ON DISAPPEAR")
                         self.session.selectedPage!.sortConversations()
@@ -913,7 +909,6 @@ struct DynamicHeightTextBox: View {
                 }
                 Spacer()
             }
-            //.frame(height: max(0, geometryReader.size.height - pow(textEditorHeight, 1) - 150))
             
             VStack {
                 Spacer()
@@ -1331,13 +1326,39 @@ struct TextView: UIViewRepresentable {
 }
 
 
-
 struct ViewHeightKey: PreferenceKey {
-    static var defaultValue: CGFloat { 0 }
-    static func reduce(value: inout Value, nextValue: () -> Value) {
-        value = value + nextValue()
+    typealias Value = CGFloat
+    typealias Transform = ViewHeightKeyTransform
+
+    static var defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value += nextValue()
     }
 }
+
+
+struct ViewHeightKeyTransform: PreferenceKey {
+    typealias Value = CGRect?
+    typealias Transform = ViewHeightKeyTransform
+
+    static var defaultValue: CGRect? = nil
+
+    static func reduce(value: inout CGRect?, nextValue: () -> CGRect?) {
+        value = value ?? nextValue()
+    }
+
+    static func transformPreference(_ value: inout Value, _ nextValue: () -> Value) {
+        value = nextValue()
+    }
+}
+
+//struct ViewHeightKey: PreferenceKey {
+//    static var defaultValue: CGFloat { 0 }
+//    static func reduce(value: inout Value, nextValue: () -> Value) {
+//        value = value + nextValue()
+//    }
+//}
 
 
 class InstagramStoryMention: Hashable, Equatable {
@@ -1416,7 +1437,6 @@ class VideoAttachment: Hashable, Equatable {
     static func == (lhs: VideoAttachment, rhs: VideoAttachment) -> Bool {
         return lhs.url == rhs.url
     }
-
 }
 
 

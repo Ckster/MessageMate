@@ -33,7 +33,7 @@ class TabSelectionState: ObservableObject {
     @Published var selectedTab : Int = 2
 }
 
-let conversationDayLimit = 1
+let conversationDayLimit = 5
 
 /**
  Creates an instance of the users authentication state and other single instance attributes for the user's session

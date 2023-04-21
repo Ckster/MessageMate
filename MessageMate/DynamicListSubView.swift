@@ -242,9 +242,9 @@ struct SingleInputBoxView: View, Equatable {
                     
                     Text(listHeader).font(Font.custom(BOLD_FONT, size: 21)).frame(width: geometry.size.width, height: geometry.size.height * 0.10, alignment: .leading)
                         .padding(.leading)
-                    TextEditor(text: $item).frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.15)
+                    GenericDynamicHeightTextBox(text: $item).frame(width: geometry.size.width * 0.85)
                         .overlay(RoundedRectangle(cornerRadius: 8)
-                        .stroke(Color.secondary).opacity(0.75))
+                        .stroke(Color.secondary).opacity(1))
                         .focused($isFieldFocused)
                         .autocorrectionDisabled(self.disableAutoCorrect)
                         .autocapitalization(self.disableAutoCorrect ? .none : .sentences)

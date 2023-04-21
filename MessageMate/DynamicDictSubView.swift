@@ -19,6 +19,7 @@ struct DynamicDictSubView: View {
     @State var itemStrings: [UUID : [String]] = [:]
     @State var showingPopup: Bool = false
     @State var workingWebsiteURLTextEditors: [websiteURLTextEditor] = []
+    @State var urlValueDict: [UUID: String]
     @State var crawlingWebpage: Bool = false
     let keyText: String
     let valueText: String
@@ -47,7 +48,7 @@ struct DynamicDictSubView: View {
             
             else {
                 ZStack {
-                    Text("\(workingWebsiteURLTextEditors.count)")
+    
                     // The scroll view with all items displayed
                     VStack {
                         
@@ -81,13 +82,11 @@ struct DynamicDictSubView: View {
                             DynamicDictScrollView(items: $items, itemStrings: $itemStrings, itemToDelete: $itemToDelete, width: geometry.size.width, height: geometry.size.height, textColor: textColor, keyText: self.keyText, valueText: self.valueText, disableAutoCorrect: self.disableAutoCorrect, disableAutoCapitalization: self.disableAutoCorrect, firebaseItemsField: self.firebaseItemsField).allowsHitTesting(!showingPopup)
                         }
                         
-                    }.onDisappear(perform: {
-                        self.updateItems()
-                    })
+                    }
                     .opacity(self.showingPopup ? 0.15 : 1.0)
                     
                 }.popup(isPresented: $showingPopup) {
-                    multipleInputLinkPopup(urlTextEditors: $workingWebsiteURLTextEditors, showingPopup: $showingPopup, crawlingWebpage: $crawlingWebpage, height: geometry.size.height, width: geometry.size.width)
+                    multipleInputLinkPopup(urlTextEditors: $workingWebsiteURLTextEditors, urlValueDict: self.$urlValueDict, showingPopup: $showingPopup, crawlingWebpage: $crawlingWebpage, height: geometry.size.height, width: geometry.size.width)
                 }
             }
         }
@@ -146,11 +145,12 @@ struct DynamicDictSubView: View {
     
     func getCrawlerResults(completion: @escaping () -> Void) {
         // TODO: Combine results here or send all urls to backend and take care of it there
-        for urlTextEditorView in self.workingWebsiteURLTextEditors {
-            let url = urlTextEditorView.websiteURL
+        for url in self.urlValueDict.values {
+            
             if url == "" {
                 continue
             }
+            
             webcrawlRequest(section: self.websiteSection!, url: url) {
                 response in
                 print(response)
@@ -365,17 +365,17 @@ struct DoubleInputBoxView: View, Equatable {
                     }
                     
                     Text(keyHeader).font(Font.custom(BOLD_FONT, size: 20)).frame(width: geometry.size.width * 0.90, height: geometry.size.height * 0.10, alignment: .leading).minimumScaleFactor(0.2)
-                    TextEditor(text: $type).frame(width: geometry.size.width * 0.80, height: geometry.size.height * 0.15)
+                    GenericDynamicHeightTextBox(text: $type).frame(width: geometry.size.width * 0.80)
                         .padding(4)
                         .overlay(RoundedRectangle(cornerRadius: 8)
-                            .stroke(Color.secondary).opacity(0.75))
+                            .stroke(Color.secondary).opacity(1))
                         .focused($isFieldFocused)
                     
                     Text(valueHeader).font(Font.custom(BOLD_FONT, size: 20)).frame(width: geometry.size.width * 0.90, height: geometry.size.height * 0.10, alignment: .leading).minimumScaleFactor(0.2)
-                    TextEditor(text: $value).frame(width: geometry.size.width * 0.80, height: geometry.size.height * 0.15)
+                    GenericDynamicHeightTextBox(text: $value).frame(width: geometry.size.width * 0.80)
                         .padding(4)
                         .overlay(RoundedRectangle(cornerRadius: 8)
-                            .stroke(Color.secondary).opacity(0.75))
+                            .stroke(Color.secondary).opacity(1))
                         .focused($isFieldFocused).autocorrectionDisabled(self.disableAutoCorrect).autocapitalization(self.disableAutoCorrect ? .none : .sentences)
                     
                     if self.showFillOutBothFields {

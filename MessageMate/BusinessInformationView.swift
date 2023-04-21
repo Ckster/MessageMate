@@ -31,7 +31,7 @@ struct BusinessInformationView: View {
         GENERAL_INFORMATION: AnyView(GeneralInfoSubView()),
         PERSONAL: AnyView(PersonalInfoSubView()),
         FAQS: AnyView(DynamicDictSubView(
-            keyText: "Frequently asked question:",
+            urlValueDict: [:], keyText: "Frequently asked question:",
             valueText: "Answer:",
             keyHeader: "FAQ",
             valueHeader: "Answer",
@@ -45,6 +45,7 @@ struct BusinessInformationView: View {
             disableAutoCapitalization: false)
         ),
         LINKS: AnyView(DynamicDictSubView(
+            urlValueDict: [:],
             keyText: "Link type (Main website, scheduling, etc):",
             valueText: "URL (ex. awakenpermanentcosmetics.com):",
             keyHeader: "Link Type",
@@ -59,6 +60,7 @@ struct BusinessInformationView: View {
             disableAutoCapitalization: true)
         ),
         PRODUCTS_AND_SERVICES: AnyView(DynamicDictSubView(
+            urlValueDict: [:],
             keyText: "Product or Service:",
             valueText: "Pricing Info:",
             keyHeader: "Product / Service",
@@ -238,37 +240,6 @@ func initializePage(session: SessionStore, completion: @escaping () -> Void) {
 }
 
 
-
-//struct RequiredInfoSubView: View {
-//    @EnvironmentObject var session: SessionStore
-//    @Environment(\.colorScheme) var colorScheme
-//    @State var senderName: String = senderNameExample
-//    @State var senderCharacteristics: String = senderCharacteristicsExample
-//    @State var businessName: String = businessNameExample
-//    @State var industry: String = industryExample
-//    @FocusState var isFieldFocused: Bool
-//    let db = Firestore.firestore()
-//
-//    let height: CGFloat
-//    let width: CGFloat
-//
-//    var body: some View {
-//
-//    }
-//
-//    func updateInfo() {
-//        self.db.collection(Pages.name).document("\(self.session.selectedPage!.id)/\(Pages.collections.BUSINESS_INFO.name)/\(Pages.collections.BUSINESS_INFO.documents.FIELDS.name)").updateData(
-//        [
-//            Pages.collections.BUSINESS_INFO.documents.FIELDS.fields.SENDER_NAME: self.senderName,
-//            Pages.collections.BUSINESS_INFO.documents.FIELDS.fields.SENDER_CHARACTERISTICS: self.senderCharacteristics,
-//            Pages.collections.BUSINESS_INFO.documents.FIELDS.fields.BUSINESS_NAME: self.businessName,
-//            Pages.collections.BUSINESS_INFO.documents.FIELDS.fields.INDUSTRY: self.industry
-//        ]
-//        )
-//    }
-//}
-
-
 let SENDER_CHARACTERTIC_EXAMPLE = "Example: Kind, concise, says \"girl\" often, uses ❤️, etc."
 struct PersonalInfoSubView: View {
     @EnvironmentObject var session: SessionStore
@@ -307,17 +278,17 @@ struct PersonalInfoSubView: View {
                         Text("Sender Name").font(Font.custom(BOLD_FONT, size: 20)).frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.15, alignment: .leading).contentShape(Rectangle()).onTapGesture {
                             self.isFieldFocused = false
                         }
-                        TextEditor(text: $senderName).frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.06)
+                        GenericDynamicHeightTextBox(text: $senderName).frame(width: geometry.size.width * 0.85)
                             .overlay(RoundedRectangle(cornerRadius: 8)
-                                .stroke(Color.secondary).opacity(0.75))
+                                .stroke(Color.secondary).opacity(1))
                             .focused($isFieldFocused)
                         
                         Text("Sender Characteristics").font(Font.custom(BOLD_FONT, size: 20)).frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.15, alignment: .leading)                   .contentShape(Rectangle()).onTapGesture {
                             self.isFieldFocused = false
                         }
-                        TextEditor(text: $senderCharacteristics).frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.35)
+                        GenericDynamicHeightTextBox(text: $senderCharacteristics).frame(width: geometry.size.width * 0.85)
                             .overlay(RoundedRectangle(cornerRadius: 8)
-                                .stroke(Color.secondary).opacity(0.75))
+                                .stroke(Color.secondary).opacity(1))
                             .focused($isFieldFocused)
                         
                     }.frame(width: geometry.size.width)
@@ -377,7 +348,7 @@ struct singleInputLinkPopup: View {
                 RoundedRectangle(cornerRadius: 25, style: .continuous).fill(Color("Purple")).frame(width: width * 0.90, height: height * 0.5)
                 VStack {
                     Text("Webpage URL:").font(Font.custom(REGULAR_FONT, size: 20)).foregroundColor(textColor).frame(width: width * 0.85, height: height * 0.10, alignment: .leading)
-                    TextEditor(text: self.$websiteURL).frame(width: width * 0.85, height: height * 0.15)
+                    GenericDynamicHeightTextBox(text: self.$websiteURL).frame(width: width * 0.85)
                         .padding(.bottom).focused($isPopupFocused).autocorrectionDisabled(true).onChange(of: websiteURL) { _ in
                             if !websiteURL.filter({ $0.isNewline }).isEmpty {
                                 self.isPopupFocused = false
@@ -437,154 +408,207 @@ struct singleInputLinkPopup: View {
     }
 }
 
+
+struct GenericDynamicHeightTextBox: View {
+    @Binding var text: String
+    @State var textEditorHeight : CGFloat = 65
+    
+    var body: some View {
+        ZStack {
+            ZStack(alignment: .bottomLeading) {
+                Text(text)
+                    .font(.system(.body))
+                    .foregroundColor(.clear)
+                    .padding(14)
+                    .background(GeometryReader {
+                        Color.clear.preference(key: ViewHeightKey.self,
+                                               value: $0.frame(in: .local).size.height)
+                    })
+                
+                TextEditor(text: $text)
+                    .font(.system(.body))
+                    .padding(7)
+                    .frame(height: textEditorHeight)
+            }
+        .onPreferenceChange(ViewHeightKey.self) { textEditorHeight = $0 }
+        }
+    }
+}
+
+
 struct websiteURLTextEditor: View {
     @State var websiteURL: String = ""
     @FocusState var isTextEditorFocused: Bool // TODO: Get this passed in from parent view
+    @Binding var urlValueDict: [UUID: String]
     
     let height: CGFloat
     let width: CGFloat
     let id: UUID = UUID()
     
     var body: some View {
-        TextEditor(text: self.$websiteURL).frame(width: width * 0.85, height: height * 0.15)
-        .padding(.bottom)
-        .focused($isTextEditorFocused)
-        .autocorrectionDisabled(true)
-        .onChange(of: websiteURL) { _ in
-                if !websiteURL.filter({ $0.isNewline }).isEmpty {
+        VStack {
+        
+            Text("Webpage URL:")
+                .frame(width: width * 0.85, height: height * 0.10, alignment: .leading)
+                .font(Font.custom(REGULAR_FONT, size: 25))
+            
+            GenericDynamicHeightTextBox(text: self.$websiteURL)
+                .frame(width: width * 0.85)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(Color.secondary)
+                        .opacity(1.0)
+                )
+                .focused($isTextEditorFocused)
+                .autocorrectionDisabled(true)
+                .onChange(of: websiteURL) { _ in
+                    if !websiteURL.filter({ $0.isNewline }).isEmpty {
+                        self.isTextEditorFocused = false
+                    }
+                    self.urlValueDict[id] = websiteURL
+                }
+            
+            Color.clear
+                .contentShape(Rectangle())
+                .onTapGesture {
                     self.isTextEditorFocused = false
-            }
+                }
+                
         }
+        .onAppear(perform: {
+            self.websiteURL = self.urlValueDict[self.id]!
+        })
     }
-    
 }
 
 // TODO: Add a binding for a dictionary of values so the website URL from each view can be kept track of
 struct multipleInputLinkPopup: View {
     @Environment(\.colorScheme) var colorScheme
     @Binding var urlTextEditors: [websiteURLTextEditor]
+    @Binding var urlValueDict: [UUID: String]
     @Binding var showingPopup: Bool
     @Binding var crawlingWebpage: Bool
-    @FocusState var isTextEditorFocused: Bool
+    @State var viewToNavigateTo: UUID? = nil
     let height: CGFloat
     let width: CGFloat
     
     var body: some View {
-        VStack {
-            Spacer()
-                .contentShape(Rectangle())
-                .onTapGesture {
-                self.isTextEditorFocused = false
-            }
-            
-            ZStack {
-                let textColor: Color = self.colorScheme == .dark ? .black : .white
-                RoundedRectangle(cornerRadius: 25, style: .continuous).fill(Color("Purple")).frame(width: width * 0.90, height: height * 0.95)
-                VStack {
-                    Text("Webpage URLs:")
-                        .font(Font.custom(REGULAR_FONT, size: 20))
-                        .foregroundColor(textColor)
-                        .frame(width: width * 0.85, height: height * 0.10, alignment: .leading)
-                    
-                    ScrollView {
-                        ScrollViewReader {
-                            value in
-                            VStack {
-                                ForEach(self.urlTextEditors, id: \.self.id) {
-                                    textEditor in
-                                    textEditor
-                                        .id(textEditor.id)
+        ZStack {
+            let textColor: Color = self.colorScheme == .dark ? .black : .white
+            RoundedRectangle(cornerRadius: 25, style: .continuous).fill(Color("Purple")).frame(width: width * 0.90, height: height * 0.95)
+            VStack {
+                Text("Webpage URLs:")
+                    .font(Font.custom(REGULAR_FONT, size: 20))
+                    .foregroundColor(textColor)
+                    .frame(width: width * 0.85, height: height * 0.10, alignment: .leading)
+                
+                ScrollView {
+                    ScrollViewReader {
+                        value in
+                        VStack {
+                            ForEach(self.urlTextEditors, id: \.self.id) {
+                                textEditor in
+                                
+                                let navView = HStack {
+                                    Text(self.urlValueDict[textEditor.id]!)
+                                        .frame(width: width * 0.8, alignment: .leading)
+                                        .lineLimit(5)
+                                        .font(Font.custom(REGULAR_FONT, size: 20))
+                                        .multilineTextAlignment(.leading)
+                                        .foregroundColor(textColor)
+                                    Image(systemName: "chevron.right")
+                                        .imageScale(.large)
+                                        .offset(x: -10)
+                                        .foregroundColor(textColor)
                                 }
                                 
-                                Image(systemName: "plus.circle").font(.system(size: 45)).onTapGesture {
+                                NavigationLink(destination: textEditor, tag: textEditor.id, selection: self.$viewToNavigateTo) {
+                                    navView
+                                }.id(textEditor.id)
+                                
+                                HorizontalLine(color: textColor, height: 2.5)
+                                
+                            }
+                            .padding(.bottom)
+                            
+                            Image(systemName: "plus.circle")
+                                .font(.system(size: 45))
+                                .foregroundColor(textColor)
+                                .onTapGesture {
                                     // Only let user add a new field if all existing have been filled out
-//                                    for textEditor in self.urlTextEditors {
-//                                        if textEditor.websiteURL == "" {
-//                                            return
-//                                        }
-//                                    }
+                                    for url in self.urlValueDict.values {
+                                        if url == "" {
+                                            return
+                                        }
+                                    }
                                     
-                                    let newTextEditor = websiteURLTextEditor(height: height, width: width)
-                                    self.urlTextEditors.append(newTextEditor)
+                                    self.addTextEditor()
                                     
                                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                                         value.scrollTo(1)
                                     }
-                                    
-                                }.frame(width: width, alignment: .center).id(1)
-                                
-                                Spacer().contentShape(Rectangle())
-                                    .onTapGesture {
-                                    self.isTextEditorFocused = false
                                 }
-                            }
+                                .frame(width: width, alignment: .center).id(1)
+                                .onChange(of: showingPopup, perform: { showingPopup in
+                                    if showingPopup && self.urlTextEditors.count == 0 {
+                                        self.addTextEditor()
+                                    }
+                                })
+                            Spacer()
                         }
                     }
-                    .frame(width: width * 0.85, height: height * 0.6)
-                    .onAppear(perform: {
-                        if self.urlTextEditors.count == 0 {
-                            let newTextEditor = websiteURLTextEditor(height: height, width: width)
-                            self.urlTextEditors.append(newTextEditor)
-                        }
-                    })
-                
-                    HStack {
-                        Button(action: {
-                            self.showingPopup = false
-                            self.isTextEditorFocused = false
-                        }) {
-                            Text("Cancel")
-                                .frame(minWidth: 0, maxWidth: .infinity)
-                                .font(Font.custom(REGULAR_FONT, size: 15))
-                                .foregroundColor(textColor)
-                                .padding()
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 25)
-                                        .stroke(self.colorScheme == .dark ? .black : .white, lineWidth: 4)
-                                )
-                                .lineLimit(1)
-                        }
-                        .background(Color.red)
-                        .cornerRadius(25)
-                        .frame(width: width * 0.25)
-                        
-                        Button(action: {
-                            self.showingPopup = false
-                            self.isTextEditorFocused = false
-                            self.crawlingWebpage = true
-                        }) {
-                            Text("Done")
-                                .frame(minWidth: 0, maxWidth: .infinity)
-                                .font(Font.custom(REGULAR_FONT, size: 15))
-                                .foregroundColor(textColor)
-                                .padding()
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 25)
-                                        .stroke(self.colorScheme == .dark ? .black : .white, lineWidth: 4)
-                                )
-                                .lineLimit(1)
-                        }
-                        .background(Color("Purple"))
-                        .cornerRadius(25)
-                        .frame(width: width * 0.25)
-                    }
-                    .frame(height: height * 0.2)
                 }
-            }
-            //.offset(y: self.showingPopup ? -35 : 0)
-            Spacer()
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    self.isTextEditorFocused = false
+                .frame(width: width * 0.85, height: height * 0.65)
+            
+                HStack {
+                    Button(action: {
+                        self.showingPopup = false
+                    }) {
+                        Text("Cancel")
+                            .frame(minWidth: 0, maxWidth: .infinity)
+                            .font(Font.custom(REGULAR_FONT, size: 15))
+                            .foregroundColor(textColor)
+                            .padding()
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 25)
+                                    .stroke(self.colorScheme == .dark ? .black : .white, lineWidth: 4)
+                            )
+                            .lineLimit(1)
+                    }
+                    .background(Color.red)
+                    .cornerRadius(25)
+                    .frame(width: width * 0.25)
+                    
+                    Button(action: {
+                        self.showingPopup = false
+                        self.crawlingWebpage = true
+                    }) {
+                        Text("Done")
+                            .frame(minWidth: 0, maxWidth: .infinity)
+                            .font(Font.custom(REGULAR_FONT, size: 15))
+                            .foregroundColor(textColor)
+                            .padding()
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 25)
+                                    .stroke(self.colorScheme == .dark ? .black : .white, lineWidth: 4)
+                            )
+                            .lineLimit(1)
+                    }
+                    .background(Color("Purple"))
+                    .cornerRadius(25)
+                    .frame(width: width * 0.25)
+                }
+                .frame(height: height * 0.2)
             }
         }
     }
     
-//    func addTextEditor() {
-//        print("adding Text editor")
-//
-//    }
-//
+    func addTextEditor() {
+        let newTextEditor = websiteURLTextEditor(urlValueDict: self.$urlValueDict, height: height, width: width)
+        self.urlValueDict[newTextEditor.id] = ""
+        self.viewToNavigateTo = newTextEditor.id
+        self.urlTextEditors.append(newTextEditor)
+    }
 }
 
 
@@ -784,27 +808,27 @@ struct GeneralInfoSubView: View {
                             Text("Business Name").bold().font(.system(size: 20)).frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.10, alignment: .leading).contentShape(Rectangle()).onTapGesture {
                                 self.isFieldFocused = false
                             }
-                            TextEditor(text: $businessName).frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.06)
+                            GenericDynamicHeightTextBox(text: $businessName).frame(width: geometry.size.width * 0.85)
                                 .overlay(RoundedRectangle(cornerRadius: 8)
-                                    .stroke(Color.secondary).opacity(0.75))
+                                    .stroke(Color.secondary).opacity(1))
                                 .focused($isFieldFocused)
                                 .allowsHitTesting(!showingPopup)
                             
                             Text("Industry").bold().font(.system(size: 20)).frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.10, alignment: .leading).padding(.leading).contentShape(Rectangle()).onTapGesture {
                                 self.isFieldFocused = false
                             }
-                            TextEditor(text: $industry).frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.06)
+                            GenericDynamicHeightTextBox(text: $industry).frame(width: geometry.size.width * 0.85)
                                 .overlay(RoundedRectangle(cornerRadius: 8)
-                                    .stroke(Color.secondary).opacity(0.75))
+                                    .stroke(Color.secondary).opacity(1))
                                 .focused($isFieldFocused)
                                 .allowsHitTesting(!showingPopup)
                             
                             Text("Hours").bold().font(.system(size: 20)).frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.10, alignment: .leading).contentShape(Rectangle()).onTapGesture {
                                 self.isFieldFocused = false
                             }
-                            TextEditor(text: $hours).frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.06)
+                            GenericDynamicHeightTextBox(text: $hours).frame(width: geometry.size.width * 0.85)
                                 .overlay(RoundedRectangle(cornerRadius: 8)
-                                    .stroke(Color.secondary).opacity(0.75))
+                                    .stroke(Color.secondary).opacity(1))
                                 .focused($isFieldFocused)
                                 .allowsHitTesting(!showingPopup)
                         }
