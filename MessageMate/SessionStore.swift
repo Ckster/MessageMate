@@ -33,7 +33,7 @@ class TabSelectionState: ObservableObject {
     @Published var selectedTab : Int = 2
 }
 
-let conversationDayLimit = 5
+let conversationDayLimit = 30
 
 /**
  Creates an instance of the users authentication state and other single instance attributes for the user's session
@@ -861,7 +861,7 @@ class SessionStore : NSObject, ObservableObject {
                     let updatedTime = conversation["updated_time"] as? String
                     
                     if id != nil && updatedTime != nil {
-                        let conversation = Conversation(id: id!, updatedTime: updatedTime!, page: page, pagination: nil, platform: platform)
+                        let conversation = Conversation(id: id!, updatedTime: updatedTime!, page: page, pagination: nil, platform: platform, updatedTimeDate: nil)
                         if conversation.updatedTime!.distance(to: Date(timeIntervalSince1970: NSDate().timeIntervalSince1970)) < Double(86400 * conversationDayLimit) {
                             newConversations.append(conversation)
                         }

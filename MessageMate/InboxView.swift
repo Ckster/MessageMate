@@ -81,6 +81,9 @@ struct ConversationsView: View {
     @State var firstAppear: Bool = true
     @State var sortedConvervations: [Conversation]? = nil
     @State var missingFields: [String] = []
+    @State var searchText: String = ""
+    @State var sortedConversations: [Conversation] = []
+        
     let db = Firestore.firestore()
     
     let width: CGFloat
@@ -91,16 +94,12 @@ struct ConversationsView: View {
         NavigationView {
           
             VStack(alignment: .leading) {
-                Text("Messages").bold().font(Font.custom("Monsterrat-ExtraBold", size: 30)).offset(x: 0).padding(.leading)
-                
                 if self.session.loadingPageInformation {
                     LottieView(name: "Paperplane")
                 }
                 
                 else {
                     if self.session.selectedPage != nil {
-                        
-                        Text("You have \(self.session.unreadMessages == 0 ? "no" : String(self.session.unreadMessages)) new \(self.session.unreadMessages != 1 ? "messages" : "message")").foregroundColor(.gray).font(Font.custom(REGULAR_FONT, size: 15)).padding(.leading).padding(.bottom)
                         
                         ScrollView {
                             
@@ -112,15 +111,7 @@ struct ConversationsView: View {
                             }
                             
                             if self.missingFields.count > 0 {
-                                VStack(alignment: .center) {
-                                    Image("undraw_add_information_j2wg").resizable().frame(width: width * 0.75, height: height * 0.35).offset(y: 0).padding()
-                            
-                                    Text("Please go to the business information tab and add information for the following fields before replying to messages :").frame(width: width * 0.75, height: height * 0.25).lineSpacing(7).font(Font.custom(REGULAR_FONT, size: 20)).multilineTextAlignment(.center)
-                                    ForEach(self.missingFields, id: \.self) {
-                                        field in
-                                        Text(field.replacingOccurrences(of: "_", with: " ").capitalized)
-                                    }
-                                }
+                                MissingFieldsView(missingFields: self.$missingFields, width: self.width, height: self.height)
                             }
                             
                             else {
@@ -129,14 +120,18 @@ struct ConversationsView: View {
                                 }
                                 
                                 else {
-                                    @State var sortedConversations = self.session.selectedPage!.conversations.sorted {$0.messages.last?.createdTime ?? Date() > $1.messages.last?.createdTime ?? Date()}
-                                    ForEach(sortedConversations, id:\.self) { conversation in
+                                    
+                                    InboxNavBar(width: self.width, height: self.height).environmentObject(self.session)
+                                    
+                                    SearchBar(text: $searchText).frame(width: width * 0.925).padding(.top).padding(.bottom)
+                                    
+                                    ForEach(self.sortedConversations, id:\.self) { conversation in
                                         if conversation.messages.count > 0 {
-                                            ConversationNavigationView(conversation: conversation, width: width, height: height, geometryReader: self.geometryReader, page: self.session.selectedPage!).environmentObject(self.session)
+                                            ConversationNavigationView(conversation: conversation, width: width, height: height, geometryReader: self.geometryReader, page: self.session.selectedPage!)
+                                                .environmentObject(self.session)
                                         }
                                         else {
                                             Text("").onAppear(perform: {print(conversation.id, "no messages")})
-                                            
                                         }
                                     }
                                 }
@@ -162,7 +157,137 @@ struct ConversationsView: View {
             }
         }
         .accentColor(Color("Purple"))
+        .onChange(of: searchText, perform: {
+            searchText in
+            
+            if self.session.selectedPage == nil {
+                return
+            }
+            
+            if !searchText.isEmpty {
+                
+                // TODO: Show a navigation view for each conversation that contains someones name or a message in a conversation that contains the language and that scrolls to that messages ID when clicked
+                
+                var filteredConversations: [Conversation] = []
+                
+                for conversation in self.session.selectedPage!.conversations {
+                    let nameToCheck = conversation.correspondent?.name ?? conversation.correspondent?.username ?? conversation.correspondent?.email ?? ""
+                    let correspondentContains = nameToCheck.lowercased().contains(searchText.lowercased())
+                    if correspondentContains {
+                        filteredConversations.append(
+                            Conversation(id: conversation.id, updatedTime: nil, page: conversation.page, pagination: nil, platform: conversation.platform, updatedTimeDate: conversation.updatedTime)
+                        )
+                    }
+                    
+                    for message in conversation.messages {
+                        if message.message.lowercased().contains(searchText.lowercased()) {
+                            DispatchQueue.main.async {
+                                conversation.messageToScrollTo = message.uid
+                                conversation.navigationViewPreview = message.message
+                            }
+                            filteredConversations.append(
+                                conversation
+                            )
+                        }
+                    }
+                    
+                }
+            
+                self.sortedConversations = self.sortConversations(conversations: filteredConversations)
+            }
+            
+            else {
+                DispatchQueue.main.async {
+                    // TODO: Could probably make this way more efficient. Maybe just append a new conversation instance when filtering
+                    for conversation in self.session.selectedPage!.conversations {
+                        conversation.messageToScrollTo = nil
+                        conversation.navigationViewPreview = nil
+                        for message in conversation.messages {
+                            message.highlight = false
+                        }
+                    }
+                    self.sortedConversations = self.sortConversations(conversations: self.session.selectedPage!.conversations)
+                }
+            }
+        })
+        .onChange(of: self.session.selectedPage?.conversations ?? [], perform: {
+            conversations in
+            self.sortedConversations = self.sortConversations(conversations: conversations)
+        })
         // TODO: Add / remove listeners when page changes
+    }
+    
+    func sortConversations(conversations: [Conversation]) -> [Conversation] {
+        return conversations.sorted {$0.messages.last?.createdTime ?? Date() > $1.messages.last?.createdTime ?? Date()}
+    }
+    
+}
+
+
+struct SearchBar: View {
+    @Binding var text: String
+    
+    var body: some View {
+        HStack {
+            Image(systemName: "magnifyingglass")
+                .foregroundColor(.gray)
+            TextField("Search", text: $text)
+                .disableAutocorrection(true)
+            if !self.text.isEmpty {
+                Image(systemName: "x.circle.fill").onTapGesture {
+                    self.text = ""
+                }
+                .foregroundColor(.gray)
+            }
+        }
+        .padding(.vertical, 8)
+        .padding(.horizontal, 12)
+        .background(Color(.systemGray5))
+        .cornerRadius(8)
+    }
+}
+
+
+struct MissingFieldsView: View {
+    @Binding var missingFields: [String]
+    
+    let width: CGFloat
+    let height: CGFloat
+    
+    var body: some View {
+        VStack(alignment: .center) {
+            Image("undraw_add_information_j2wg").resizable().frame(width: width * 0.75, height: height * 0.35).offset(y: 0).padding()
+    
+            Text("Please go to the business information tab and add information for the following fields before replying to messages :").frame(width: width * 0.75, height: height * 0.25).lineSpacing(7).font(Font.custom(REGULAR_FONT, size: 20)).multilineTextAlignment(.center)
+            ForEach(self.missingFields, id: \.self) {
+                field in
+                Text(field.replacingOccurrences(of: "_", with: " ").capitalized)
+            }
+        }
+    }
+    
+}
+
+
+struct InboxNavBar: View {
+    @EnvironmentObject var session: SessionStore
+    
+    let width: CGFloat
+    let height: CGFloat
+    
+    var body: some View {
+        VStack(alignment: .leading) {
+            
+            Text("Messages")
+                .bold()
+                .font(Font.custom("Monsterrat-ExtraBold", size: 30))
+                .frame(width: width * 0.9, alignment: .leading)
+    
+            Text("You have \(self.session.unreadMessages == 0 ? "no" : String(self.session.unreadMessages)) new \(self.session.unreadMessages != 1 ? "messages" : "message")")
+                .frame(width: width * 0.9, alignment: .leading)
+                .foregroundColor(.gray)
+                .font(Font.custom(REGULAR_FONT, size: 15))
+        }
     }
 }
 
@@ -264,29 +389,34 @@ struct ConversationNavigationView: View {
                             }.frame(width: width * 0.55, alignment: .leading)
                         
                             HStack {
-                                if conversation.messages.last!.instagramStoryMention != nil {
-                                    Text("\(conversation.correspondent?.name ?? "") mentioned you in their story").lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(Font.custom(REGULAR_FONT, size: 15)).frame(width: width * 0.55, alignment: .leading)
+                                if conversation.navigationViewPreview != nil {
+                                    Text(conversation.navigationViewPreview!).lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(Font.custom(REGULAR_FONT, size: 15)).frame(width: width * 0.55, alignment: .leading)
                                 }
                                 else {
-                                    
-                                    if conversation.messages.last!.imageAttachment != nil {
-                                        Text("\(conversation.correspondent?.name ?? "") sent you an image").lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(Font.custom(REGULAR_FONT, size: 15)).frame(width: width * 0.55, alignment: .leading)
+                                    if conversation.messages.last!.instagramStoryMention != nil {
+                                        Text("\(conversation.correspondent?.name ?? "") mentioned you in their story").lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(Font.custom(REGULAR_FONT, size: 15)).frame(width: width * 0.55, alignment: .leading)
                                     }
-                                    
                                     else {
                                         
-                                        if conversation.messages.last!.instagramStoryReply != nil {
-                                            Text("\(conversation.correspondent?.name ?? "") replied to your story").lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(Font.custom(REGULAR_FONT, size: 15)).frame(width: width * 0.55, alignment: .leading)
+                                        if conversation.messages.last!.imageAttachment != nil {
+                                            Text("\(conversation.correspondent?.name ?? "") sent you an image").lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(Font.custom(REGULAR_FONT, size: 15)).frame(width: width * 0.55, alignment: .leading)
                                         }
                                         
                                         else {
                                             
-                                            if conversation.messages.last!.videoAttachment != nil {
-                                                Text("\(conversation.correspondent?.name ?? "") sent you a video").lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(Font.custom(REGULAR_FONT, size: 15)).frame(width: width * 0.55, alignment: .leading)
+                                            if conversation.messages.last!.instagramStoryReply != nil {
+                                                Text("\(conversation.correspondent?.name ?? "") replied to your story").lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(Font.custom(REGULAR_FONT, size: 15)).frame(width: width * 0.55, alignment: .leading)
                                             }
                                             
                                             else {
-                                                Text((conversation.messages.last!).message).lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(Font.custom(REGULAR_FONT, size: 15)).frame(width: width * 0.55, alignment: .leading)
+                                                
+                                                if conversation.messages.last!.videoAttachment != nil {
+                                                    Text("\(conversation.correspondent?.name ?? "") sent you a video").lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(Font.custom(REGULAR_FONT, size: 15)).frame(width: width * 0.55, alignment: .leading)
+                                                }
+                                                
+                                                else {
+                                                    Text((conversation.messages.last!).message).lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(Font.custom(REGULAR_FONT, size: 15)).frame(width: width * 0.55, alignment: .leading)
+                                                }
                                             }
                                         }
                                     }
@@ -880,7 +1010,7 @@ struct DynamicHeightTextBox: View {
                                 if msg.dayStarter != nil && msg.dayStarter! {
                                     MessageDateHeaderView(msg: msg, width: width)
                                 }
-                                MessageView(width: width, currentMessage: msg, conversation: conversation, page: page).id(msg.id)
+                                MessageView(width: width, currentMessage: msg, conversation: conversation, page: page).id(msg.uid)
                                     .onAppear(perform: {
                                         if !msg.opened {
                                             msg.opened = true
@@ -891,15 +1021,20 @@ struct DynamicHeightTextBox: View {
                                     })
                             }
                         }.onChange(of: typingMessage) { _ in
-                            value.scrollTo(conversation.messages.last?.id)
+                            value.scrollTo(conversation.messages.last?.uid)
                         }.onChange(of: conversation.messages) { _ in
-                            value.scrollTo(conversation.messages.last?.id)
+                            value.scrollTo(conversation.messages.last?.uid)
                         }.onChange(of: textEditorIsFocused) {
                             _ in
-                            value.scrollTo(conversation.messages.last?.id)
+                            value.scrollTo(conversation.messages.last?.uid)
                         }
                         .onAppear(perform: {
-                            value.scrollTo(conversation.messages.last?.id)
+                            if conversation.messageToScrollTo != nil {
+                                value.scrollTo(conversation.messageToScrollTo!)
+                            }
+                            else {
+                                value.scrollTo(conversation.messages.last?.uid)
+                            }
                         })
                     }
                 }
@@ -1049,13 +1184,14 @@ struct MessageView : View {
     var body: some View {
         let isCurrentUser = page.businessAccountId == currentMessage.from.id || page.id == currentMessage.from.id
         let dates = Calendar.current.dateComponents([.hour, .minute], from: currentMessage.createdTime)
+        let highlight: Bool = self.conversation.messageToScrollTo == currentMessage.uid
         if !isCurrentUser {
             VStack(spacing: 1) {
                 HStack {
                     AsyncImage(url: URL(string: self.correspondent.profilePicURL ?? "")) { image in image.resizable() } placeholder: { Image(systemName: "person.circle").foregroundColor(Color("Purple")) } .frame(width: 25, height: 25, alignment: .bottom) .clipShape(Circle()).padding(.leading).onTapGesture {
                             openProfile(correspondent: correspondent)
                     }
-                    MessageBlurbView(contentMessage: currentMessage, isCurrentUser: isCurrentUser)
+                    MessageBlurbView(contentMessage: currentMessage, isCurrentUser: isCurrentUser, highlight: highlight)
                 }.frame(width: width * 0.875, alignment: .leading).padding(.trailing).offset(x: -20)
                 
                 Text("\(dates.hour! > 12 ? dates.hour! - 12 : dates.hour!):\(String(format: "%02d", dates.minute!)) \(dates.hour! > 12 ? "PM" : "AM")")
@@ -1066,7 +1202,7 @@ struct MessageView : View {
         }
         else {
             VStack(spacing: 1) {
-                MessageBlurbView(contentMessage: currentMessage, isCurrentUser: isCurrentUser)
+                MessageBlurbView(contentMessage: currentMessage, isCurrentUser: isCurrentUser, highlight: highlight)
                     .frame(width: width * 0.875, alignment: .trailing).padding(.leading).padding(.trailing)
                 Text("\(dates.hour! > 12 ? dates.hour! - 12 : dates.hour!):\(String(format: "%02d", dates.minute!)) \(dates.hour! > 12 ? "PM" : "AM")")
                     .frame(width: width * 0.875, alignment: .trailing).padding(.leading).padding(.trailing)
@@ -1211,6 +1347,7 @@ struct MessageBlurbView: View {
     @Environment(\.colorScheme) var colorScheme
     let contentMessage: Message
     let isCurrentUser: Bool
+    var highlight: Bool
 
     var body: some View {
         if contentMessage.instagramStoryMention != nil {
@@ -1237,6 +1374,14 @@ struct MessageBlurbView: View {
                             .background(isCurrentUser ? Color("Purple") : Color.offWhite)
                             .cornerRadius(10)
                             .font(Font.custom(REGULAR_FONT, size: 17))
+                            .if(self.highlight) { view in
+                                view
+                                
+                                .background(
+                                RoundedRectangle(cornerRadius: 10)
+                                    .stroke(isCurrentUser ? Color.yellow : Color("Purple"), lineWidth: 4)
+                                )
+                        }
                     }
                 }
             }
@@ -1453,6 +1598,7 @@ class Message: Hashable, Equatable {
     var imageAttachment: ImageAttachment?
     var videoAttachment: VideoAttachment?
     var dayStarter: Bool? = nil
+    @Published var highlight: Bool = false
     
     init (id: String, message: String, to: MetaUser, from: MetaUser, dayStarter: Bool? = nil, createdTimeString: String? = nil, createdTimeDate: Date? = nil, instagramStoryMention: InstagramStoryMention? = nil, instagramStoryReply: InstagramStoryReply? = nil, imageAttachment: ImageAttachment? = nil, videoAttachment: VideoAttachment? = nil) {
         self.id = id
@@ -1489,12 +1635,19 @@ class Conversation: Hashable, Equatable, ObservableObject {
     var pagination: PagingInfo?
     var messagesInitialized: Bool = false
     let platform: MessagingPlatform
+    @Published var messageToScrollTo: UUID? = nil
+    @Published var navigationViewPreview: String? = nil
     @Published var messages: [Message] = []
     
-    init(id: String, updatedTime: String, page: MetaPage, pagination: PagingInfo?, platform: MessagingPlatform) {
+    init(id: String, updatedTime: String?, page: MetaPage, pagination: PagingInfo?, platform: MessagingPlatform, updatedTimeDate: Date?) {
         self.id = id
         self.page = page
-        self.updatedTime = Date().facebookStringToDate(fbString: updatedTime)
+        if updatedTimeDate == nil {
+            self.updatedTime = Date().facebookStringToDate(fbString: updatedTime!)
+        }
+        else {
+            self.updatedTime = updatedTimeDate
+        }
         self.pagination = pagination
         self.platform = platform
     }
