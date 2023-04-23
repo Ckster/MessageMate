@@ -33,7 +33,7 @@ class TabSelectionState: ObservableObject {
     @Published var selectedTab : Int = 2
 }
 
-let conversationDayLimit = 30
+let conversationDayLimit = 2
 
 /**
  Creates an instance of the users authentication state and other single instance attributes for the user's session
@@ -1087,7 +1087,7 @@ class SessionStore : NSObject, ObservableObject {
             }
             
             // POST request to subscription
-            if true {
+            if !pageSubscribed {
                 let urlString = "https://graph.facebook.com/v16.0/\(page.id)/subscribed_apps"
                 let params = ["object": "page",
                               "callback_url": "google.com",

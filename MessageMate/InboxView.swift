@@ -45,15 +45,21 @@ enum MessagingPlatform: CaseIterable {
 // TODO: Check on local notifcations waking app up from termination
 // TODO: Better multi page management
 // TODO: Delete account workflow
-// TODO: Fix log in after already onboarded
 // TODO: Sending old messages not showing up
 // TODO: Fix account image
 // TODO: Add indication of no business account if there is none in place of account image
-// TODO: Search in conversations view / individual conversations
 
-// TODO: Tell people why they are only seeing last 24hr of messages OR
 // TODO: Put human tag in POST request after 24 hours
-
+// TODO: Fix width of message box
+// TODO: Cache messages in phone storage
+// TODO: Analytics class for button presses etc.
+// TODO: Configure firebase analytics
+// TODO: Send multilinks as comma separated
+// TODO: Send last 7 messages with generate response request
+// TODO: Fix Facebook profile pics not loading
+// TODO: Test Facebook and Instagram snapshot listeners
+// TODO: Auto reply toggle in conversation
+// TODO: Put conversations from webhooks at the top of the inbox
 // TODO: Calendar
 
 
@@ -83,6 +89,9 @@ struct ConversationsView: View {
     @State var missingFields: [String] = []
     @State var searchText: String = ""
     @State var sortedConversations: [Conversation] = []
+    @State var corresponsdentsSearch: [Conversation] = []
+    @State var messagesSearch: [Conversation] = []
+    @FocusState var isSearchFocused: Bool
         
     let db = Firestore.firestore()
     
@@ -92,7 +101,7 @@ struct ConversationsView: View {
     
     var body: some View {
         NavigationView {
-          
+                        
             VStack(alignment: .leading) {
                 if self.session.loadingPageInformation {
                     LottieView(name: "Paperplane")
@@ -120,19 +129,18 @@ struct ConversationsView: View {
                                 }
                                 
                                 else {
-                                    
                                     InboxNavBar(width: self.width, height: self.height).environmentObject(self.session)
                                     
-                                    SearchBar(text: $searchText).frame(width: width * 0.925).padding(.top).padding(.bottom)
+                                    SearchBar(text: $searchText).frame(width: width * 0.925)
+                                        .padding(.top)
+                                        .padding(.bottom)
+                                        .focused(self.$isSearchFocused)
                                     
-                                    ForEach(self.sortedConversations, id:\.self) { conversation in
-                                        if conversation.messages.count > 0 {
-                                            ConversationNavigationView(conversation: conversation, width: width, height: height, geometryReader: self.geometryReader, page: self.session.selectedPage!)
-                                                .environmentObject(self.session)
-                                        }
-                                        else {
-                                            Text("").onAppear(perform: {print(conversation.id, "no messages")})
-                                        }
+                                    if !self.isSearchFocused {
+                                        ConversationNavigationViewList(sortedConversations: self.$sortedConversations, width: width, height: height, geometryReader: self.geometryReader).environmentObject(self.session)
+                                    }
+                                    else {
+                                        InboxSearchView(correspondents: self.$corresponsdentsSearch, messages: self.$messagesSearch, width: width, height: height, geometryReader: self.geometryReader)
                                     }
                                 }
                             }
@@ -168,14 +176,14 @@ struct ConversationsView: View {
                 
                 // TODO: Show a navigation view for each conversation that contains someones name or a message in a conversation that contains the language and that scrolls to that messages ID when clicked
                 
-                var filteredConversations: [Conversation] = []
+                var filteredCorrespondents: [Conversation] = []
+                var filteredMessages: [Conversation] = []
                 
                 for conversation in self.session.selectedPage!.conversations {
-                    let nameToCheck = conversation.correspondent?.name ?? conversation.correspondent?.username ?? conversation.correspondent?.email ?? ""
-                    let correspondentContains = nameToCheck.lowercased().contains(searchText.lowercased())
+                    let correspondentContains = (conversation.correspondent?.displayName ?? "").lowercased().contains(searchText.lowercased())
                     if correspondentContains {
-                        filteredConversations.append(
-                            Conversation(id: conversation.id, updatedTime: nil, page: conversation.page, pagination: nil, platform: conversation.platform, updatedTimeDate: conversation.updatedTime)
+                        filteredCorrespondents.append(
+                            Conversation(id: conversation.id, updatedTime: nil, page: conversation.page, pagination: nil, platform: conversation.platform, updatedTimeDate: conversation.updatedTime, correspondent: conversation.correspondent)
                         )
                     }
                     
@@ -185,19 +193,21 @@ struct ConversationsView: View {
                                 conversation.messageToScrollTo = message.uid
                                 conversation.navigationViewPreview = message.message
                             }
-                            filteredConversations.append(
+                            filteredMessages.append(
                                 conversation
                             )
                         }
                     }
-                    
                 }
             
-                self.sortedConversations = self.sortConversations(conversations: filteredConversations)
+                self.corresponsdentsSearch = self.sortConversations(conversations: filteredCorrespondents)
+                self.messagesSearch = self.sortConversations(conversations: filteredMessages)
             }
             
             else {
                 DispatchQueue.main.async {
+                    self.corresponsdentsSearch = []
+                    self.messagesSearch = []
                     // TODO: Could probably make this way more efficient. Maybe just append a new conversation instance when filtering
                     for conversation in self.session.selectedPage!.conversations {
                         conversation.messageToScrollTo = nil
@@ -220,7 +230,69 @@ struct ConversationsView: View {
     func sortConversations(conversations: [Conversation]) -> [Conversation] {
         return conversations.sorted {$0.messages.last?.createdTime ?? Date() > $1.messages.last?.createdTime ?? Date()}
     }
+}
+
+
+struct InboxSearchView: View {
+    @Binding var correspondents: [Conversation]
+    @Binding var messages: [Conversation]
     
+    let width: CGFloat
+    let height: CGFloat
+    let geometryReader: GeometryProxy
+    
+    var body: some View {
+        VStack {
+            
+            // Put all of the profile picture and names here
+            // TODO: Make a navigation view class for this list of images
+            HStack {
+                ForEach(correspondents, id:\.self) {
+                    conversation in
+                   // NavigationLink(destination: <#T##() -> _#>) {
+                        VStack {
+                            AsyncImage(url: URL(string: conversation.correspondent?.profilePicURL ?? "")) { image in image.resizable() } placeholder: { EmptyView() } .frame(width: 50, height: 50) .overlay(
+                                Circle()
+                                    .stroke(Color("Purple"), lineWidth: 3)
+                            ).clipShape(Circle())
+                            
+                            Text(conversation.correspondent?.displayName ?? "")
+                        }
+                    //}
+                }
+                Spacer()
+            }.frame(width: width * 0.95)
+            
+            Text("Conversations").font(Font.custom(BOLD_FONT, size: 30)).frame(width: width * 0.90, alignment: .leading).padding(.top)
+            
+            ConversationNavigationViewList(sortedConversations: self.$messages, width: width, height: height, geometryReader: self.geometryReader)
+            
+        }
+        
+    }
+    
+}
+
+
+struct ConversationNavigationViewList: View {
+    @EnvironmentObject var session: SessionStore
+    @Binding var sortedConversations: [Conversation]
+    
+    let width: CGFloat
+    let height: CGFloat
+    let geometryReader: GeometryProxy
+    
+    var body: some View {
+        ForEach(self.sortedConversations, id:\.self.id) { conversation in
+            if conversation.messages.count > 0 {
+                ConversationNavigationView(conversation: conversation, width: width, height: height, geometryReader: self.geometryReader, page: self.session.selectedPage!)
+                    .environmentObject(self.session)
+            }
+            else {
+                Text("").onAppear(perform: {print(conversation.id, "no messages")})
+            }
+        }
+    }
 }
 
 
@@ -1639,7 +1711,7 @@ class Conversation: Hashable, Equatable, ObservableObject {
     @Published var navigationViewPreview: String? = nil
     @Published var messages: [Message] = []
     
-    init(id: String, updatedTime: String?, page: MetaPage, pagination: PagingInfo?, platform: MessagingPlatform, updatedTimeDate: Date?) {
+    init(id: String, updatedTime: String?, page: MetaPage, pagination: PagingInfo?, platform: MessagingPlatform, updatedTimeDate: Date?, correspondent: MetaUser? = nil) {
         self.id = id
         self.page = page
         if updatedTimeDate == nil {
@@ -1650,6 +1722,7 @@ class Conversation: Hashable, Equatable, ObservableObject {
         }
         self.pagination = pagination
         self.platform = platform
+        self.correspondent = correspondent
     }
 
     func hash(into hasher: inout Hasher) {
@@ -1814,6 +1887,7 @@ class MetaUser: Hashable, Equatable, ObservableObject {
     let username: String?
     let email: String?
     let name: String?
+    let displayName: String
     let platform: MessagingPlatform
     @Published var profilePicURL: String? = nil
     
@@ -1823,6 +1897,7 @@ class MetaUser: Hashable, Equatable, ObservableObject {
         self.email = email
         self.name = name
         self.platform = platform
+        self.displayName = name ?? username ?? email ?? ""
     }
     
     func hash(into hasher: inout Hasher) {

@@ -57,9 +57,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
           print("Registered for remote notifications")
 
         ApplicationDelegate.shared.application(
-                    application,
-                    didFinishLaunchingWithOptions: launchOptions
-                )
+            application,
+            didFinishLaunchingWithOptions: launchOptions
+        )
 
         Messaging.messaging().delegate = self
         return true
