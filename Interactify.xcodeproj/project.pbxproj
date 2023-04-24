@@ -46,6 +46,8 @@
 		ED30333029D0E7B1008EC92A /* Paperplane.lottie in Resources */ = {isa = PBXBuildFile; fileRef = ED30332E29D0E7B1008EC92A /* Paperplane.lottie */; };
 		ED30333129D0E7B1008EC92A /* Loading-2.json in Resources */ = {isa = PBXBuildFile; fileRef = ED30332F29D0E7B1008EC92A /* Loading-2.json */; };
 		ED30333329D0EEC8008EC92A /* Paperplane.json in Resources */ = {isa = PBXBuildFile; fileRef = ED30333229D0EEC8008EC92A /* Paperplane.json */; };
+		ED41B0EB29F62C6D00C5443A /* Messaging.xcdatamodeld in Sources */ = {isa = PBXBuildFile; fileRef = ED41B0E929F62C6D00C5443A /* Messaging.xcdatamodeld */; };
+		ED41B0ED29F62D7800C5443A /* DataController.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED41B0EC29F62D7800C5443A /* DataController.swift */; };
 		ED53B9AF297F8A0E0013C03B /* InboxView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED53B9AE297F8A0E0013C03B /* InboxView.swift */; };
 		ED53B9B1297F8A250013C03B /* TutorialView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED53B9B0297F8A250013C03B /* TutorialView.swift */; };
 		ED53B9B3297F8A400013C03B /* BusinessInformationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED53B9B2297F8A400013C03B /* BusinessInformationView.swift */; };
@@ -121,6 +123,8 @@
 		ED30332E29D0E7B1008EC92A /* Paperplane.lottie */ = {isa = PBXFileReference; lastKnownFileType = file; name = Paperplane.lottie; path = ../../../../../Downloads/Paperplane.lottie; sourceTree = "<group>"; };
 		ED30332F29D0E7B1008EC92A /* Loading-2.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; name = "Loading-2.json"; path = "../../../../../Downloads/Loading-2.json"; sourceTree = "<group>"; };
 		ED30333229D0EEC8008EC92A /* Paperplane.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; name = Paperplane.json; path = ../../../../../Downloads/Paperplane.json; sourceTree = "<group>"; };
+		ED41B0EA29F62C6D00C5443A /* Messaging.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = Messaging.xcdatamodel; sourceTree = "<group>"; };
+		ED41B0EC29F62D7800C5443A /* DataController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataController.swift; sourceTree = "<group>"; };
 		ED53B9AE297F8A0E0013C03B /* InboxView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InboxView.swift; sourceTree = "<group>"; };
 		ED53B9B0297F8A250013C03B /* TutorialView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TutorialView.swift; sourceTree = "<group>"; };
 		ED53B9B2297F8A400013C03B /* BusinessInformationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BusinessInformationView.swift; sourceTree = "<group>"; };
@@ -268,6 +272,8 @@
 				EDB4B66729A2D390004DE432 /* DynamicListSubView.swift */,
 				EDC9CC4329AB35750036567C /* SelectPageView.swift */,
 				ED3032E629C2A73D008EC92A /* TestView.swift */,
+				ED41B0E929F62C6D00C5443A /* Messaging.xcdatamodeld */,
+				ED41B0EC29F62D7800C5443A /* DataController.swift */,
 			);
 			path = MessageMate;
 			sourceTree = "<group>";
@@ -408,12 +414,14 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				ED41B0EB29F62C6D00C5443A /* Messaging.xcdatamodeld in Sources */,
 				ED700B6C297CA1AD0058968B /* AppDelegate.swift in Sources */,
 				ED700B73297CA54E0058968B /* SignInView.swift in Sources */,
 				ED99A90D297C8F2A0029235B /* ContentView.swift in Sources */,
 				ED99A90B297C8F2A0029235B /* MessageMateApp.swift in Sources */,
 				ED700B6B297CA1AD0058968B /* SessionStore.swift in Sources */,
 				ED700B71297CA4930058968B /* SignInWithApple.swift in Sources */,
+				ED41B0ED29F62D7800C5443A /* DataController.swift in Sources */,
 				ED700B6D297CA1AD0058968B /* FirebaseNamespaces.swift in Sources */,
 				EDC9CC4229AB1DC30036567C /* AccountView.swift in Sources */,
 				ED53B9AF297F8A0E0013C03B /* InboxView.swift in Sources */,
@@ -731,6 +739,19 @@
 			productName = Lottie;
 		};
 /* End XCSwiftPackageProductDependency section */
+
+/* Begin XCVersionGroup section */
+		ED41B0E929F62C6D00C5443A /* Messaging.xcdatamodeld */ = {
+			isa = XCVersionGroup;
+			children = (
+				ED41B0EA29F62C6D00C5443A /* Messaging.xcdatamodel */,
+			);
+			currentVersion = ED41B0EA29F62C6D00C5443A /* Messaging.xcdatamodel */;
+			path = Messaging.xcdatamodeld;
+			sourceTree = "<group>";
+			versionGroupType = wrapper.xcdatamodel;
+		};
+/* End XCVersionGroup section */
 	};
 	rootObject = ED99A8FF297C8F2A0029235B /* Project object */;
 }

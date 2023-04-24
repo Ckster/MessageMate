@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="21754" systemVersion="22E252" minimumToolsVersion="Automatic" sourceLanguage="Swift" userDefinedModelVersionIdentifier="">
+    <entity name="InstagramStoryMentionScheme" representedClassName="InstagramStoryMentionScheme" syncable="YES" codeGenerationType="class">
+        <attribute name="cdnURL" optional="YES" attributeType="String"/>
+        <attribute name="id" optional="YES" attributeType="String"/>
+    </entity>
+    <entity name="MessageScheme" representedClassName="MessageScheme" syncable="YES" codeGenerationType="class">
+        <attribute name="createdTime" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="dayStarter" optional="YES" attributeType="Boolean" usesScalarValueType="YES"/>
+        <attribute name="id" optional="YES" attributeType="String"/>
+        <attribute name="message" optional="YES" attributeType="String"/>
+        <attribute name="opened" optional="YES" attributeType="Boolean" usesScalarValueType="YES"/>
+        <relationship name="instagram_story_mention" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="InstagramStoryMentionScheme"/>
+    </entity>
+</model>
