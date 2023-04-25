@@ -25,7 +25,7 @@ struct AccountView: View {
 
             VStack(alignment: .center, spacing: 5) {
                 
-                AsyncImage(url: URL(string: self.session.selectedPage?.photoURL ?? "")) { image in image.resizable() } placeholder: { LottieView(name: "Loading-2") } .frame(width: 75, height: 75).overlay(
+                AsyncImage(url: self.session.selectedPage?.photoURL ?? URL(string: "")) { image in image.resizable() } placeholder: { LottieView(name: "Loading-2") } .frame(width: 75, height: 75).overlay(
                     Circle()
                         .stroke(self.colorScheme == .dark ? .white : .black, lineWidth: 2)
                 ).clipShape(Circle()).padding(.top)

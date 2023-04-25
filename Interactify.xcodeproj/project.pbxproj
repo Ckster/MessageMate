@@ -60,6 +60,7 @@
 		ED700B73297CA54E0058968B /* SignInView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED700B72297CA54E0058968B /* SignInView.swift */; };
 		ED700B75297CA5AB0058968B /* Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED700B74297CA5AB0058968B /* Constants.swift */; };
 		ED72C9BC29F7338400DDE685 /* CoreDataExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED72C9BB29F7338400DDE685 /* CoreDataExtensions.swift */; };
+		ED72C9BE29F7920E00DDE685 /* MessagingExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED72C9BD29F7920E00DDE685 /* MessagingExtensions.swift */; };
 		ED99A90B297C8F2A0029235B /* MessageMateApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED99A90A297C8F2A0029235B /* MessageMateApp.swift */; };
 		ED99A90D297C8F2A0029235B /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED99A90C297C8F2A0029235B /* ContentView.swift */; };
 		ED99A90F297C8F2C0029235B /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = ED99A90E297C8F2C0029235B /* Assets.xcassets */; };
@@ -139,6 +140,7 @@
 		ED700B72297CA54E0058968B /* SignInView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignInView.swift; sourceTree = "<group>"; };
 		ED700B74297CA5AB0058968B /* Constants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Constants.swift; sourceTree = "<group>"; };
 		ED72C9BB29F7338400DDE685 /* CoreDataExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoreDataExtensions.swift; sourceTree = "<group>"; };
+		ED72C9BD29F7920E00DDE685 /* MessagingExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessagingExtensions.swift; sourceTree = "<group>"; };
 		ED9536662984F4C400A391BE /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		ED99A907297C8F2A0029235B /* Interactify.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Interactify.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		ED99A90A297C8F2A0029235B /* MessageMateApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageMateApp.swift; sourceTree = "<group>"; };
@@ -277,6 +279,7 @@
 				ED41B0E929F62C6D00C5443A /* Messaging.xcdatamodeld */,
 				ED41B0EC29F62D7800C5443A /* DataController.swift */,
 				ED72C9BB29F7338400DDE685 /* CoreDataExtensions.swift */,
+				ED72C9BD29F7920E00DDE685 /* MessagingExtensions.swift */,
 			);
 			path = MessageMate;
 			sourceTree = "<group>";
@@ -418,6 +421,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				ED41B0EB29F62C6D00C5443A /* Messaging.xcdatamodeld in Sources */,
+				ED72C9BE29F7920E00DDE685 /* MessagingExtensions.swift in Sources */,
 				ED700B6C297CA1AD0058968B /* AppDelegate.swift in Sources */,
 				ED700B73297CA54E0058968B /* SignInView.swift in Sources */,
 				ED99A90D297C8F2A0029235B /* ContentView.swift in Sources */,

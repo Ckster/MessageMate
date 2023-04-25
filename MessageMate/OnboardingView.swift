@@ -154,6 +154,7 @@ struct IntroView: View {
 // TODO: Fix the lag on this screen
 struct InfoView: View {
     @EnvironmentObject var session: SessionStore
+    @Environment(\.managedObjectContext) var moc
     @State var initializing: Bool = true
     @Binding var senderName: String
     @Binding var senderCharacteristics: String
@@ -177,7 +178,7 @@ struct InfoView: View {
                 }
                 .onAppear {
                     Task {
-                        self.session.getPageInfo() {
+                        self.getPageInfo() {
                             self.initializing = false
                         }
                     }

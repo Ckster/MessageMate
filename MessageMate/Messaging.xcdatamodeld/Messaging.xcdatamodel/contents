@@ -59,7 +59,7 @@
         <attribute name="id" optional="YES" attributeType="String"/>
         <attribute name="isDefault" optional="YES" attributeType="Boolean" usesScalarValueType="YES"/>
         <attribute name="name" optional="YES" attributeType="String"/>
-        <attribute name="photoURL" optional="YES" attributeType="String"/>
+        <attribute name="photoURL" optional="YES" attributeType="URI"/>
         <attribute name="uid" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
         <relationship name="conversations" optional="YES" toMany="YES" deletionRule="Nullify" destinationEntity="Conversation" inverseName="metaPage" inverseEntity="Conversation"/>
         <relationship name="firebaseUser" optional="YES" toMany="YES" deletionRule="Nullify" destinationEntity="FirebaseUser" inverseName="metaPage" inverseEntity="FirebaseUser"/>

@@ -65,6 +65,7 @@ enum MessagingPlatform: CaseIterable {
 
 struct InboxView: View {
     @EnvironmentObject var session: SessionStore
+    @Environment(\.managedObjectContext) var moc
     
     var body: some View {
         GeometryReader {
@@ -73,18 +74,11 @@ struct InboxView: View {
                 FacebookAuthenticateView(width: geometry.size.width, height: geometry.size.height).environmentObject(self.session)
             }
             else {
-                ConversationsView(width: geometry.size.width, height: geometry.size.height, geometryReader: geometry).environmentObject(self.session)
+                ConversationsView(width: geometry.size.width, height: geometry.size.height, geometryReader: geometry)
+                    .environmentObject(self.session)
+                    .environment(\.managedObjectContext, self.moc)
             }
         }
-        
-        
-        
-        
-        
-        
-        
-        
-        
     }
 }
 
@@ -101,7 +95,10 @@ struct ConversationsView: View {
     @State var messagesSearch: [Conversation] = []
     @State var showingSearch: Bool = false
     @State var waitingForReset: Bool = false
+    @Environment(\.managedObjectContext) var moc
     @FetchRequest(sortDescriptors: []) var conversationsHook: FetchedResults<Conversation>
+    @FetchRequest(sortDescriptors: []) var existingPages: FetchedResults<MetaPage>
+    @FetchRequest(sortDescriptors: []) var existingUsers: FetchedResults<MetaUser>
     
     let db = Firestore.firestore()
     
@@ -115,6 +112,10 @@ struct ConversationsView: View {
             VStack(alignment: .leading) {
                 if self.session.loadingPageInformation {
                     LottieView(name: "Paperplane")
+                        .onTapGesture(perform: {
+                            self.getPageInfo {}
+                        }
+                    )
                 }
                 
                 else {
@@ -125,7 +126,7 @@ struct ConversationsView: View {
                             PullToRefresh(coordinateSpaceName: "pullToRefresh") {
                                 Task {
                                     // TODO: If we add this feature find a way to not use so many API calls (only get new message info) or for users not to abuse it
-                                    await self.session.updateConversations(page: self.session.selectedPage!)
+                                    await self.updateConversations(page: self.session.selectedPage!)
                                 }
                             }
                             
@@ -189,9 +190,11 @@ struct ConversationsView: View {
                     }
                     
                     else {
-                        NoBusinessAccountsLinkedView(width: width, height: height).environmentObject(self.session).onChange(of: self.session.facebookUserToken, perform: { newToken in
-                            self.session.getPageInfo() {}
-                        })
+                        NoBusinessAccountsLinkedView(width: width, height: height).environmentObject(self.session)
+                        // TODO: Re implement this
+//                            .onChange(of: self.session.facebookUserToken, perform: { newToken in
+//                            self.getPageInfo() {}
+//                        })
                     }
                 }
             }
@@ -1215,6 +1218,7 @@ struct DynamicHeightTextBox: View {
     @Binding var messageSendError: String
     @State var textEditorHeight : CGFloat = 65
     @Environment(\.colorScheme) var colorScheme
+    @Environment(\.managedObjectContext) var moc
     @FocusState var textEditorIsFocused: Bool
     @State var messages: [Message] = []
 
@@ -1259,7 +1263,7 @@ struct DynamicHeightTextBox: View {
                                     .onAppear(perform: {
                                         if !msg.opened {
                                             msg.opened = true
-                                            try? self.session.moc.save()
+                                            try? self.moc.save()
                                             if self.session.unreadMessages > 0 {
                                                 self.session.unreadMessages = self.session.unreadMessages - 1
                                             }
@@ -1392,7 +1396,7 @@ struct DynamicHeightTextBox: View {
                         
                         let dayStarter = lastDate.month! != messageDate.month! || lastDate.day! != messageDate.day!
                         
-                        let newMessage = Message(context: self.session.moc)
+                        let newMessage = Message(context: self.moc)
                         newMessage.uid = UUID()
                         newMessage.id = messageId
                         newMessage.message = message
@@ -1402,7 +1406,7 @@ struct DynamicHeightTextBox: View {
                         newMessage.createdTime = createdDate
                         newMessage.opened = true
     
-                        try? self.session.moc.save()
+                        try? self.moc.save()
                         completion(sentMessageData!)
                     }
                     else {

@@ -27,6 +27,7 @@ struct FooAnchorPreferenceKey: PreferenceKey {
 
 struct ContentView: View {
     @Environment(\.colorScheme) var colorScheme
+    @Environment(\.managedObjectContext) var moc
     @EnvironmentObject var session: SessionStore
     var tabsCount: CGFloat = 3
     var badgePosition: CGFloat = 2
@@ -66,12 +67,21 @@ struct ContentView: View {
                                     }
                                     .tag(1)
 
-                                InboxView().environmentObject(self.session)
+                                InboxView()
+                                    .environmentObject(self.session)
                                     .tabItem {
                                         var text = "Inbox"
                                         Label(text, systemImage: "mail.stack.fill")
                                     }
                                     .tag(2)
+                                    .onAppear(perform: {
+                                        let newMessage = Message(context: self.moc)
+                                        do {
+                                            try self.moc.save()
+                                        } catch {
+                                            print("Error saving init data: \(error.localizedDescription)")
+                                        }
+                                    })
 
                                 AccountView(width: geometry.size.width, height: geometry.size.height).environmentObject(self.session)
                                     .tabItem {
@@ -117,6 +127,6 @@ struct ContentView: View {
         if self.session.isLoggedIn == .signedOut {
             SignInView().environmentObject(self.session)
         }
-    }
+    }.environment(\.managedObjectContext, self.moc)
 }
 }

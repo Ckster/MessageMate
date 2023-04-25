@@ -32,7 +32,7 @@ extension MetaPage {
             let data = profileData!["data"] as? [String: AnyObject]
             if data != nil {
                 let profilePicURL = data!["url"] as? String
-                self.photoURL = profilePicURL?.replacingOccurrences(of: "\\", with: "")
+                self.photoURL = URL(string: profilePicURL?.replacingOccurrences(of: "\\", with: "") ?? "")
             }
         }
     }
