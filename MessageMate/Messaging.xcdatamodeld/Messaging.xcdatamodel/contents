@@ -1,15 +1,84 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="21754" systemVersion="22E252" minimumToolsVersion="Automatic" sourceLanguage="Swift" userDefinedModelVersionIdentifier="">
-    <entity name="InstagramStoryMentionScheme" representedClassName="InstagramStoryMentionScheme" syncable="YES" codeGenerationType="class">
-        <attribute name="cdnURL" optional="YES" attributeType="String"/>
+    <entity name="Conversation" representedClassName="Conversation" syncable="YES" codeGenerationType="class">
         <attribute name="id" optional="YES" attributeType="String"/>
+        <attribute name="inDayRange" optional="YES" attributeType="Boolean" usesScalarValueType="YES"/>
+        <attribute name="lastRefresh" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="messagesInitialized" optional="YES" attributeType="Boolean" usesScalarValueType="YES"/>
+        <attribute name="platform" optional="YES" attributeType="String"/>
+        <attribute name="uid" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="updatedTime" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <relationship name="correspondent" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="MetaUser"/>
+        <relationship name="messages" optional="YES" toMany="YES" deletionRule="Nullify" destinationEntity="Message" inverseName="conversation" inverseEntity="Message"/>
+        <relationship name="messageToScrollTo" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="Message"/>
+        <relationship name="metaPage" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="MetaPage" inverseName="conversations" inverseEntity="MetaPage"/>
     </entity>
-    <entity name="MessageScheme" representedClassName="MessageScheme" syncable="YES" codeGenerationType="class">
+    <entity name="FirebaseUser" representedClassName="FirebaseUser" syncable="YES" codeGenerationType="class">
+        <attribute name="facebookToken" optional="YES" attributeType="String"/>
+        <attribute name="uid" optional="YES" attributeType="String"/>
+        <relationship name="metaPage" optional="YES" toMany="YES" deletionRule="Nullify" destinationEntity="MetaPage" inverseName="firebaseUser" inverseEntity="MetaPage"/>
+    </entity>
+    <entity name="ImageAttachment" representedClassName="ImageAttachment" syncable="YES" codeGenerationType="class">
+        <attribute name="id" optional="YES" attributeType="String"/>
+        <attribute name="uid" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="url" optional="YES" attributeType="URI"/>
+        <relationship name="message" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="Message" inverseName="imageAttachment" inverseEntity="Message"/>
+    </entity>
+    <entity name="InstagramStoryMention" representedClassName="InstagramStoryMention" syncable="YES" codeGenerationType="class">
+        <attribute name="cdnURL" optional="YES" attributeType="URI"/>
+        <attribute name="id" optional="YES" attributeType="String"/>
+        <attribute name="uid" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <relationship name="message" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="Message" inverseName="instagramStoryMention" inverseEntity="Message"/>
+    </entity>
+    <entity name="InstagramStoryReply" representedClassName="InstagramStoryReply" syncable="YES" codeGenerationType="class">
+        <attribute name="cdnURL" optional="YES" attributeType="URI"/>
+        <attribute name="id" optional="YES" attributeType="String"/>
+        <attribute name="uid" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <relationship name="message" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="Message" inverseName="instagramStoryReply" inverseEntity="Message"/>
+    </entity>
+    <entity name="Message" representedClassName="Message" syncable="YES" codeGenerationType="class">
         <attribute name="createdTime" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="dayStarter" optional="YES" attributeType="Boolean" usesScalarValueType="YES"/>
         <attribute name="id" optional="YES" attributeType="String"/>
         <attribute name="message" optional="YES" attributeType="String"/>
         <attribute name="opened" optional="YES" attributeType="Boolean" usesScalarValueType="YES"/>
-        <relationship name="instagram_story_mention" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="InstagramStoryMentionScheme"/>
+        <attribute name="uid" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <relationship name="conversation" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="Conversation" inverseName="messages" inverseEntity="Conversation"/>
+        <relationship name="from" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="MetaUser"/>
+        <relationship name="imageAttachment" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="ImageAttachment" inverseName="message" inverseEntity="ImageAttachment"/>
+        <relationship name="instagramStoryMention" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="InstagramStoryMention" inverseName="message" inverseEntity="InstagramStoryMention"/>
+        <relationship name="instagramStoryReply" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="InstagramStoryReply" inverseName="message" inverseEntity="InstagramStoryReply"/>
+        <relationship name="to" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="MetaUser"/>
+        <relationship name="videoAttachment" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="VideoAttachment" inverseName="message" inverseEntity="VideoAttachment"/>
+    </entity>
+    <entity name="MetaPage" representedClassName="MetaPage" syncable="YES" codeGenerationType="class">
+        <attribute name="accessToken" optional="YES" attributeType="String"/>
+        <attribute name="active" optional="YES" attributeType="Boolean" usesScalarValueType="YES"/>
+        <attribute name="businessAccountID" optional="YES" attributeType="String"/>
+        <attribute name="category" optional="YES" attributeType="String"/>
+        <attribute name="id" optional="YES" attributeType="String"/>
+        <attribute name="isDefault" optional="YES" attributeType="Boolean" usesScalarValueType="YES"/>
+        <attribute name="name" optional="YES" attributeType="String"/>
+        <attribute name="photoURL" optional="YES" attributeType="String"/>
+        <attribute name="uid" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <relationship name="conversations" optional="YES" toMany="YES" deletionRule="Nullify" destinationEntity="Conversation" inverseName="metaPage" inverseEntity="Conversation"/>
+        <relationship name="firebaseUser" optional="YES" toMany="YES" deletionRule="Nullify" destinationEntity="FirebaseUser" inverseName="metaPage" inverseEntity="FirebaseUser"/>
+        <relationship name="pageUser" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="MetaUser" inverseName="metaPage" inverseEntity="MetaUser"/>
+    </entity>
+    <entity name="MetaUser" representedClassName="MetaUser" syncable="YES" codeGenerationType="class">
+        <attribute name="email" optional="YES" attributeType="String"/>
+        <attribute name="id" optional="YES" attributeType="String"/>
+        <attribute name="name" optional="YES" attributeType="String"/>
+        <attribute name="platform" optional="YES" attributeType="String"/>
+        <attribute name="profilePictureURL" optional="YES" attributeType="URI"/>
+        <attribute name="uid" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="username" optional="YES" attributeType="String"/>
+        <relationship name="metaPage" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="MetaPage" inverseName="pageUser" inverseEntity="MetaPage"/>
+    </entity>
+    <entity name="VideoAttachment" representedClassName="VideoAttachment" syncable="YES" codeGenerationType="class">
+        <attribute name="id" optional="YES" attributeType="String"/>
+        <attribute name="uid" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="url" optional="YES" attributeType="URI"/>
+        <relationship name="message" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="Message" inverseName="videoAttachment" inverseEntity="Message"/>
     </entity>
 </model>

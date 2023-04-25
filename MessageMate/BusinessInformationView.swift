@@ -138,7 +138,7 @@ struct BusinessInformationView: View {
                                 }
                             }.frame(width: geometry.size.width)
                             
-                        }.navigationViewStyle(.stack).onChange(of: self.session.selectedPage ?? MetaPage(id: "", name: "", accessToken: "", category: ""), perform: {
+                        }.navigationViewStyle(.stack).onChange(of: self.session.selectedPage, perform: {
                             newPage in
                             self.loading = true
                         })
@@ -155,7 +155,7 @@ func initializePage(session: SessionStore, completion: @escaping () -> Void) {
     let db = Firestore.firestore()
     
     if session.selectedPage != nil {
-        let pageDocument = db.collection(Pages.name).document(session.selectedPage!.id)
+        let pageDocument = db.collection(Pages.name).document(session.selectedPage!.id!)
         pageDocument.getDocument {
             doc, error in
             if error == nil && doc != nil {

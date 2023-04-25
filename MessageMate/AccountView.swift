@@ -31,7 +31,7 @@ struct AccountView: View {
                 ).clipShape(Circle()).padding(.top)
                 
                 if self.session.selectedPage?.name != nil {
-                    Text(self.session.selectedPage!.name).bold().font(Font.custom(BOLD_FONT, size: 30))
+                    Text(self.session.selectedPage!.name!).bold().font(Font.custom(BOLD_FONT, size: 30))
                 }
                 //Use page.pageUser for info
                 if self.session.user.user?.email != nil {

@@ -17,7 +17,7 @@ struct MessageMateApp: App {
         WindowGroup {
             ContentView()
                 .environmentObject(SceneDelegate.session)
-                //.environment(\.managedObjectContext, messagingDataController.container.viewContext)
+                .environment(\.managedObjectContext, messagingDataController.container.viewContext)
         }
     }
 }

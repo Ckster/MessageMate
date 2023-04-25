@@ -12,6 +12,7 @@ import FBSDKLoginKit
 import FirebaseAuth
 import FirebaseFirestore
 import CoreLocation
+import CoreData
 
 import Combine
 
@@ -55,11 +56,10 @@ class SessionStore : NSObject, ObservableObject {
     @Published var showMenu: Bool = true
     @Published var facebookUserToken: String? = nil
     @Published var selectedPage: MetaPage?
-    @Published var availablePages: [MetaPage] = []
     @Published var loadingFacebookUserToken: Bool = true
     @Published var loadingPageInformation: Bool = true
     @Published var webhooksSubscribed: Bool?
-    
+    @Published var activePages: [MetaPage] = []
     // This is sort of abusive
     @Published var videoPlayerUrl: URL?
     @Published var fullScreenImageUrlString: String?
@@ -73,9 +73,18 @@ class SessionStore : NSObject, ObservableObject {
     private var db = Firestore.firestore()
     let loginManager = LoginManager()
     
-    override init() {
+//    @Environment(\.managedObjectContext) var moc
+//
+//    override init() {
+//        super.init()
+//        self.initWorkflow()
+//    }
+    
+    let moc: NSManagedObjectContext
+    
+    init(context: NSManagedObjectContext) {
+        self.moc = context
         super.init()
-        
         self.initWorkflow()
     }
     
@@ -96,11 +105,11 @@ class SessionStore : NSObject, ObservableObject {
                             DispatchQueue.main.async {
                                 self.isLoggedIn = .signedIn
                             }
-                                
+                            
                             if self.onboardingCompleted == true && self.facebookUserToken != nil {
                                 self.getPageInfo() {}
                             }
-                                
+                            
                         }
                         else {
                             // For some reason the users UID could not be resolved
@@ -139,36 +148,59 @@ class SessionStore : NSObject, ObservableObject {
             self.loadingPageInformation = true
             print("Starting B")
             // Get the Business Pages associated with the account
-            await self.updateAvailablePages()
-            
-            print("Got pages", self.availablePages)
+            await self.updateActivePages()
             
             // Update the conversations for each page. When this is done the screen will stop loading
             await self.updatePages() {
                 print("Done updating pages")
                 completion()
+                self.refreshProfilePictureURLs()
             }
+        }
+    }
+    
+    func fetchUsers() -> [MetaUser] {
+            let request: NSFetchRequest<MetaUser> = MetaUser.fetchRequest()
+            request.sortDescriptors = []
+
+            do {
+                let users = try self.moc.fetch(request)
+                return users
+            } catch {
+                // handle error
+                print("Error fetching messages: \(error.localizedDescription)")
+                return []
+            }
+        }
+    
+    func refreshProfilePictureURLs() {
+        let existingUsers = self.fetchUsers()
+        
+        // Start of the async get of profile pic url
+        for user in existingUsers {
+            user.getProfilePicture()
+            // Might need to save here
         }
     }
     
     func getOnboardingStatus() {
         /// Reads whether the user has completed the tutorial, and udpates the observable object in the session
-
+        
         if self.user.uid != nil {
             Firestore.firestore().collection(Users.name).document(self.user.uid!).getDocument(
                 completion: { data, error in
-
+                    
                     print("READ K")
                     guard let data = data?.data() else {
-
+                        
                         // Could not read the data, so just show the user the tutorial
                         self.onboardingCompleted = false
                         return
                     }
-
+                    
                     if data[Users.fields.ONBOARDING_COMPLETED] != nil {
-                    self.onboardingCompleted = data[Users.fields.ONBOARDING_COMPLETED] as? Bool ?? false
-                }
+                        self.onboardingCompleted = data[Users.fields.ONBOARDING_COMPLETED] as? Bool ?? false
+                    }
                     else {
                         // Could not read the data or it wasn't there. Show the user the tutorial
                         self.onboardingCompleted = false
@@ -176,21 +208,24 @@ class SessionStore : NSObject, ObservableObject {
                 }
             )
         }
-
+        
         else {
             self.onboardingCompleted = false
         }
     }
     
-    func updateAvailablePages() async {
+    func updateActivePages() async {
         if self.facebookUserToken != nil {
+            @FetchRequest(sortDescriptors: []) var existingPages: FetchedResults<MetaPage>
+            
             let urlString = "https://graph.facebook.com/v16.0/me/accounts?access_token=\(self.facebookUserToken!)"
             
             let jsonDataDict = await getRequest(urlString: urlString)
+            var newActivePages: [MetaPage] = []
             if jsonDataDict != nil {
                 let pages = jsonDataDict!["data"] as? [[String: AnyObject]]
                 if pages != nil {
-                    var newPages: [MetaPage] = []
+                    var activeIDs: [String] = []
                     let pageCount = pages!.count
                     var pageIndex = 0
                     
@@ -201,16 +236,55 @@ class SessionStore : NSObject, ObservableObject {
                         let name = page["name"] as? String
                         let id = page["id"] as? String
                         
-                        if pageAccessToken != nil && category != nil && name != nil && id != nil {
-                            let newPage = MetaPage(id: id!, name: name!, accessToken: pageAccessToken!, category: category!)
-                            await newPage.getPageBusinessAccountId(page: newPage)
-                            await newPage.getProfilePicture(accountId: id!)
+                        if id != nil {
+                            activeIDs.append(id!)
+                            let existingPage = existingPages.first(where: { $0.id == id! })
                             
-                            newPages.append(newPage)
-                            initializePage(page: newPage)
-                            if pageIndex == pageCount {
-                                self.availablePages = newPages.sorted {$0.name.first! < $1.name.first!}
+                            // Update some fields
+                            if existingPage != nil {
+                                existingPage!.category = category
+                                existingPage!.name = name
+                                existingPage!.accessToken = pageAccessToken
+                                existingPage!.active = true
+                                await existingPage!.getPageBusinessAccountId()
+                                await existingPage!.getProfilePicture()
+                                newActivePages.append(existingPage!)
                             }
+                            
+                            // Create a new MetaPage instance
+                            else {
+                                let newPage = MetaPage(context: self.moc)
+                                newPage.uid = UUID()
+                                newPage.id = id
+                                newPage.category = category
+                                newPage.name = name
+                                newPage.accessToken = pageAccessToken
+                                newPage.active = true
+                                initializePage(page: newPage)
+                                await newPage.getPageBusinessAccountId()
+                                await newPage.getProfilePicture()
+                                newActivePages.append(newPage)
+                            }
+                        }
+                        
+                        if pageIndex == pageCount {
+                            // Deactive any pages that were not in response
+                            for page in existingPages.lazy {
+                                if page.id != nil {
+                                    if !activeIDs.contains(page.id!) {
+                                        page.active = false
+                                    }
+                                }
+                                else {
+                                    page.active  = false
+                                }
+                            }
+                            
+                            // Save the changes
+                            self.activePages = newActivePages
+                            print(self.activePages)
+                            print("Saving active pages")
+                            try? self.moc.save()
                         }
                     }
                 }
@@ -219,10 +293,65 @@ class SessionStore : NSObject, ObservableObject {
     }
     
     func updateSelectedPage() {
-        if (self.selectedPage == nil || !self.availablePages.contains(self.selectedPage!)) && self.availablePages.count > 0 {
-            self.selectedPage = self.availablePages[0]
-            self.subscribeToWebhooks(page: self.selectedPage!) {}
+        @FetchRequest(sortDescriptors: []) var existingPages: FetchedResults<MetaPage>
+        if self.selectedPage == nil {
+            // Find the default if there is one
+            let defaultPage: MetaPage? = existingPages.first(where: {$0.active && $0.isDefault})
+            
+            // If not set the default to the first active page
+            if defaultPage == nil {
+                let newDefault = existingPages.first(where: {$0.active})
+                if newDefault != nil {
+                    newDefault!.isDefault = true
+                    self.selectedPage = newDefault!
+                    self.subscribeToWebhooks(page: newDefault!) {}
+                }
+                else {
+                    // There are no active pages ...
+                }
+            }
+            
+            // If so then set the selected page to it
+            else {
+                self.selectedPage = defaultPage!
+                self.subscribeToWebhooks(page: defaultPage!) {}
+            }
+            
         }
+        else {
+            // First check if the currently selected page is in the set of activated pages and if it is the default. If not switch to defualt if there is one; if not pick the first page and set it to the default
+            let existingActivePage: MetaPage? = existingPages.first(where: {$0.active && $0.id == self.selectedPage!.id})
+            
+            if existingActivePage != nil {
+                // Just double check on webhooks
+                self.subscribeToWebhooks(page: self.selectedPage!) {}
+            }
+            
+            else {
+                // See if there is a default
+                let defaultPage: MetaPage? = existingPages.first(where: {$0.active && $0.isDefault})
+                
+                // Set it if there is one and check webhooks
+                if defaultPage != nil {
+                    self.selectedPage = defaultPage!
+                    self.subscribeToWebhooks(page: defaultPage!) {}
+                }
+                
+                // If not then find first active page to set a new default
+                let newDefault = existingPages.first(where: {$0.active})
+                if newDefault != nil {
+                    newDefault!.isDefault = true
+                    self.selectedPage = newDefault!
+                    self.subscribeToWebhooks(page: newDefault!) {}
+                }
+                else {
+                    // There are no active pages ...
+                }
+            }
+        }
+        
+        try? self.moc.save()
+        
     }
     
     func getFacebookUserToken(completion: @escaping () -> Void) {
@@ -249,27 +378,31 @@ class SessionStore : NSObject, ObservableObject {
     func getMissingRequiredFields(page: MetaPage, completion: @escaping ([String]) -> Void) {
         let requiredFields = [
             Pages.collections.BUSINESS_INFO.documents.FIELDS.fields.BUSINESS_NAME,
-//            Pages.collections.BUSINESS_INFO.documents.FIELDS.fields.INDUSTRY,
-//            Pages.collections.BUSINESS_INFO.documents.FIELDS.fields.SENDER_NAME,
-//            Pages.collections.BUSINESS_INFO.documents.FIELDS.fields.SENDER_CHARACTERISTICS
+            //            Pages.collections.BUSINESS_INFO.documents.FIELDS.fields.INDUSTRY,
+            //            Pages.collections.BUSINESS_INFO.documents.FIELDS.fields.SENDER_NAME,
+            //            Pages.collections.BUSINESS_INFO.documents.FIELDS.fields.SENDER_CHARACTERISTICS
         ]
-        
-        self.db.collection("\(Pages.name)/\(page.id)/\(Pages.collections.BUSINESS_INFO.name)").document(Pages.collections.BUSINESS_INFO.documents.FIELDS.name).getDocument(completion:  {
-            data, error in
-            if data != nil && error == nil {
-                var missingRequiredFields: [String] = []
-                for field in requiredFields {
-                    let value = data![field] as? String
-                    if value == nil || value == "" {
-                        missingRequiredFields.append(field)
+        if page.id != nil {
+            self.db.collection("\(Pages.name)/\(page.id!)/\(Pages.collections.BUSINESS_INFO.name)").document(Pages.collections.BUSINESS_INFO.documents.FIELDS.name).getDocument(completion:  {
+                data, error in
+                if data != nil && error == nil {
+                    var missingRequiredFields: [String] = []
+                    for field in requiredFields {
+                        let value = data![field] as? String
+                        if value == nil || value == "" {
+                            missingRequiredFields.append(field)
+                        }
                     }
+                    completion(missingRequiredFields)
                 }
-                completion(missingRequiredFields)
-            }
-            else {
-                completion(requiredFields)
-            }
-        })
+                else {
+                    completion(requiredFields)
+                }
+            })
+        }
+        else {
+            completion([])
+        }
     }
     
     func signOut () {
@@ -278,29 +411,29 @@ class SessionStore : NSObject, ObservableObject {
             [
                 Users.fields.TOKENS: FieldValue.arrayRemove([Messaging.messaging().fcmToken ?? ""]),
                 Users.fields.FACEBOOK_USER_TOKEN: nil
-                
             ], completion: {
-            error in
-            print(error)
-            if error == nil {
-                var completedPages = 0
-                print(self.availablePages)
-                for page in self.availablePages {
-                    self.db.collection(Pages.name).document(page.id).updateData([Pages.fields.APNS_TOKENS: FieldValue.arrayRemove([Messaging.messaging().fcmToken ?? ""])], completion: {
-                        error in
-                        print("A", error)
-                        completedPages = completedPages + 1
-                        if completedPages == self.availablePages.count {
-                            self.onboardingCompleted = nil
-                            self.deAuth()
-                        }
-                    })
+                error in
+                print(error)
+                if error == nil {
+                    @FetchRequest(sortDescriptors: []) var existingPages: FetchedResults<MetaPage>
+                    let activePages = existingPages.filter {$0.active && $0.id != nil}
+                    var completedPages = 0
+                    for page in activePages {
+                        self.db.collection(Pages.name).document(page.id!).updateData([Pages.fields.APNS_TOKENS: FieldValue.arrayRemove([Messaging.messaging().fcmToken ?? ""])], completion: {
+                            error in
+                            print("A", error)
+                            completedPages = completedPages + 1
+                            if completedPages == activePages.count {
+                                self.onboardingCompleted = nil
+                                self.deAuth()
+                            }
+                        })
+                    }
+                    if activePages.count == 0 {
+                        self.deAuth()
+                    }
                 }
-                if self.availablePages.count == 0 {
-                    self.deAuth()
-                }
-            }
-        })
+            })
     }
     
     func deAuth() {
@@ -309,39 +442,26 @@ class SessionStore : NSObject, ObservableObject {
             self.loginManager.logOut()
             self.facebookUserToken = nil
             self.selectedPage = nil
-            self.availablePages = []
+            
+            // Delete all of the data for this user from CoreData
+            @FetchRequest(sortDescriptors: []) var existingPages: FetchedResults<MetaPage>
+            let activePages = existingPages.filter {$0.active}
+            for page in activePages {
+                page.active = false
+            }
             self.isLoggedIn = .signedOut
-           // GIDSignIn.sharedInstance().signOut()
+            // GIDSignIn.sharedInstance().signOut()
             UIApplication.shared.unregisterForRemoteNotifications()
         }
         catch {
             self.db.collection(Users.name).document(self.user.user!.uid).updateData([Users.fields.TOKENS: FieldValue.arrayUnion([Messaging.messaging().fcmToken ?? ""])])
             self.isLoggedIn = .signedIn
-           // self.loginManager.logIn()
+            // self.loginManager.logIn()
         }
     }
     
-//    func facebookLogin(authWorkflow: Bool) {
-//        let permissions = authWorkflow ? [] : []
-//        self.loginManager.logIn(permissions: [], from: nil) { (loginResult, error) in
-//            self.signInError = error?.localizedDescription ?? ""
-//            if error == nil {
-//                if loginResult?.isCancelled == false {
-//                    let credential = FacebookAuthProvider.credential(withAccessToken: AccessToken.current!.tokenString)
-//                    print(AccessToken.current!.tokenString)
-//                    if authWorkflow {
-//                        self.firebaseAuthWorkflow(credential: credential)
-//                    }
-//                }
-//            }
-//            else {
-//                print(error)
-//                // There was an error signing in
-//            }
-//        }
-//    }
-    
     func facebookLogin(authWorkflow: Bool) {
+        // TODO: Store user tokens in CoreData
         let loginManager = LoginManager()
         
         // TODO: Try to make this a database record that is somehow accesible
@@ -358,7 +478,7 @@ class SessionStore : NSObject, ObservableObject {
                 if loginResult?.isCancelled == false {
                     let userAccessToken = AccessToken.current!.tokenString
                     self.facebookUserToken = userAccessToken
-                
+                    
                     if authWorkflow {
                         let credential = FacebookAuthProvider.credential(withAccessToken: AccessToken.current!.tokenString)
                         self.firebaseAuthWorkflow(credential: credential) {
@@ -385,47 +505,15 @@ class SessionStore : NSObject, ObservableObject {
         }
     }
     
-    
-//    func googleLogin(authWorkflow: Bool) {
-//        guard let clientID = FirebaseApp.app()?.options.clientID else { return }
-//
-//        // Create Google Sign In configuration object.
-//        let config = GIDConfiguration(clientID: clientID)
-//
-//        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene else { return }
-//        guard let rootViewController = windowScene.windows.first?.rootViewController else { return }
-//
-//        // Start the sign in flow!
-//        GIDSignIn.sharedInstance.signIn(with: config, presenting: rootViewController) { [unowned self] user, error in
-//
-//          if let error = error {
-//              self.signInError = error.localizedDescription
-//              return
-//          }
-//
-//          guard
-//            let authentication = user?.authentication,
-//            let idToken = authentication.idToken
-//          else {
-//              return
-//          }
-//            let credential = GoogleAuthProvider.credential(withIDToken: idToken, accessToken: authentication.accessToken)
-//            if authWorkflow {
-//                firebaseAuthWorkflow(credential: credential)
-//            }
-//          return
-//        }
-//    }
-        
     func firebaseAuthWorkflow(credential: FirebaseAuth.AuthCredential, completion: @escaping () -> Void) {
         Auth.auth().signIn(with: credential) { (authResult, error) in
             if error == nil && authResult != nil {
-                    UIApplication.shared.registerForRemoteNotifications()
-                    self.signInError = error?.localizedDescription ?? ""
-                    let user = authResult!.user
-                    let docRef = self.db.collection(Users.name).document(user.uid)
-                    docRef.getDocument { (document, docError) in
-                            print("READ N")
+                UIApplication.shared.registerForRemoteNotifications()
+                self.signInError = error?.localizedDescription ?? ""
+                let user = authResult!.user
+                let docRef = self.db.collection(Users.name).document(user.uid)
+                docRef.getDocument { (document, docError) in
+                    print("READ N")
                     
                     // User already exists
                     if let document = document, document.exists {
@@ -434,7 +522,7 @@ class SessionStore : NSObject, ObservableObject {
                         self.addToken()
                         completion()
                     }
-                        
+                    
                     // User's settings need to be initialized in the Firebase
                     else {
                         let userSettings = self.db.collection(Users.name).document(String(user.uid))
@@ -449,7 +537,7 @@ class SessionStore : NSObject, ObservableObject {
                             Users.fields.LEGAL_AGREEMENT: Timestamp.init(),
                             Users.fields.TOKENS: [Messaging.messaging().fcmToken ?? ""]
                         ])
-        
+                        
                         // Finally, show the user the home screen
                         self.initWorkflow()
                         completion()
@@ -463,11 +551,11 @@ class SessionStore : NSObject, ObservableObject {
     }
     
     func unbind () {
-            if let handle = handle {
-                Auth.auth().removeStateDidChangeListener(handle)
-            }
+        if let handle = handle {
+            Auth.auth().removeStateDidChangeListener(handle)
         }
-        
+    }
+    
     deinit {
         unbind()
     }
@@ -475,7 +563,7 @@ class SessionStore : NSObject, ObservableObject {
     func addToken() {
         let token = Messaging.messaging().fcmToken ?? ""
         if token != "" && self.isLoggedIn == .signedIn && self.user.uid != nil {
-        self.db.collection(Users.name).document(String(self.user.uid!)).updateData([Users.fields.TOKENS: FieldValue.arrayUnion([token])])
+            self.db.collection(Users.name).document(String(self.user.uid!)).updateData([Users.fields.TOKENS: FieldValue.arrayUnion([token])])
         }
     }
     
@@ -483,86 +571,94 @@ class SessionStore : NSObject, ObservableObject {
     func updatePages(completion: @escaping () -> Void) async {
         self.loadingPageInformation = true
         var pagesLoaded = 0
-        for page in self.availablePages {
-            var newConversations: [Conversation] = []
+        
+        @FetchRequest(sortDescriptors: []) var existingPages: FetchedResults<MetaPage>
+        let activePages = existingPages.filter {$0.active && $0.id != nil}
+        
+        for page in activePages {
+            
+            // Update all of the conversations in the database for this page
             for platform in MessagingPlatform.allCases {
-                let conversations = await self.getConversations(page: page, platform: platform)
-                print(platform, conversations.count, "Count", page.name)
-                newConversations = newConversations + conversations
+                await self.getConversations(page: page, platform: platform)
             }
             
-            page.conversations = newConversations
-            
-            // Do this asynchronously
-            for conversation in page.conversations {
-                print("Getting conversation")
-                self.getMessages(page: page, conversation: conversation) {
-                    conversationTuple in
-                    let messages = conversationTuple.0
-                    
-                    // TODO: Unless there is info on opened status from API I have to assume message has been viewed or we keep some sort of on disk record
-                    for message in messages {
-                        message.opened = true
-                    }
-                    
-                    let pagination = conversationTuple.1
-                    if messages.count > 0 {
-                        conversation.messages = messages.sorted { $0.createdTime < $1.createdTime }
-                        conversation.pagination = pagination
-                        let userList = conversation.updateCorrespondent()
-                        if userList.count > 0 {
-                            page.pageUser = userList[1]
-                        }
-                    }
-                    
-                    conversation.messagesInitialized = true
-                    
-                    var allConversationsLoaded: Bool = true
-                    for conversation in page.conversations {
-                        if !conversation.messagesInitialized {
-                            allConversationsLoaded = false
-                        }
-                    }
-                    
-                    if allConversationsLoaded {
+            if let existingConversations = page.conversations! as? Set<Conversation> {
+                let conversationsToUpdate = Array(existingConversations).filter {
+                    $0.inDayRange &&
+                    $0.updatedTime! > $0.lastRefresh ?? Date(timeIntervalSince1970: 0)
+                }
+                
+                for conversation in conversationsToUpdate {
+                    print("Getting conversation")
+                    self.getNewMessages(page: page, conversation: conversation) {
+                        conversationTuple in
+                        let newMessages = conversationTuple.0
                         
-                        // reset for the next reload
-                        for conversation in page.conversations {
-                            conversation.messagesInitialized = false
+                        // TODO: Unless there is info on opened status from API I have to assume message has been viewed or we keep some sort of on disk record
+                        for message in newMessages {
+                            message.opened = true
                         }
                         
-                        pagesLoaded = pagesLoaded + 1
-                        if pagesLoaded == self.availablePages.count {
-                            print("All pages loaded")
-                            DispatchQueue.main.async {
-                                // Set the selected page is the currently selected page is nil or no longer exists in the set of avaialable pages
-                                self.updateSelectedPage()
-                                self.addConversationListeners(page: self.selectedPage!)
-                                self.loadingPageInformation = false
+                        let pagination = conversationTuple.1
+                        
+                        if newMessages.count > 0 {
+                            let userList = conversation.updateCorrespondent()
+                            if userList.count > 0 {
+                                page.pageUser = userList[1]
                             }
-                            completion()
+                        }
+                        
+                        conversation.messagesInitialized = true
+                        
+                        var allConversationsLoaded: Bool = true
+                        for conversation in conversationsToUpdate {
+                            if !conversation.messagesInitialized {
+                                allConversationsLoaded = false
+                            }
+                        }
+                        
+                        if allConversationsLoaded {
+                            
+                            // reset for the next reload
+                            for conversation in conversationsToUpdate {
+                                conversation.messagesInitialized = false
+                            }
+                            
+                            pagesLoaded = pagesLoaded + 1
+                            if pagesLoaded == activePages.count {
+                                print("All pages loaded")
+                                try? self.moc.save()
+                                DispatchQueue.main.async {
+                                    // Set the selected page is the currently selected page is nil or no longer exists in the set of avaialable pages
+                                    self.updateSelectedPage()
+                                    self.addConversationListeners(page: self.selectedPage!)
+                                    self.loadingPageInformation = false
+                                }
+                                completion()
+                            }
                         }
                     }
                 }
-            }
-            
-            // If no conversations mark the page as loaded and see if all pages have been loaded
-            if page.conversations.count == 0 {
-                pagesLoaded = pagesLoaded + 1
-                if pagesLoaded == self.availablePages.count {
-                    print("All pages loaded")
-                    DispatchQueue.main.async {
-                        // Set the selected page is the currently selected page is nil or no longer exists in the set of avaialable pages
-                        self.updateSelectedPage()
-                        self.addConversationListeners(page: self.selectedPage!)
-                        self.loadingPageInformation = false
+                
+                // If no conversations mark the page as loaded and see if all pages have been loaded
+                if conversationsToUpdate.count == 0 {
+                    pagesLoaded = pagesLoaded + 1
+                    if pagesLoaded == activePages.count {
+                        print("All pages loaded")
+                        try? self.moc.save()
+                        DispatchQueue.main.async {
+                            // Set the selected page is the currently selected page is nil or no longer exists in the set of avaialable pages
+                            self.updateSelectedPage()
+                            self.addConversationListeners(page: self.selectedPage!)
+                            self.loadingPageInformation = false
+                        }
+                        completion()
                     }
-                    completion()
                 }
             }
         }
         
-        if self.availablePages.count == 0 {
+        if activePages.count == 0 {
             DispatchQueue.main.async {
                 self.loadingPageInformation = false
             }
@@ -571,32 +667,39 @@ class SessionStore : NSObject, ObservableObject {
         
     }
     
-    func getMessages(page: MetaPage, conversation: Conversation, cursor: String? = nil, completion: @escaping (([Message], PagingInfo?)) -> Void) {
+    func getNewMessages(page: MetaPage, conversation: Conversation, cursor: String? = nil, completion: @escaping (([Message], PagingInfo?)) -> Void) {
         print("Runing getMessages")
-        var urlString = "https://graph.facebook.com/v16.0/\(conversation.id)?fields=messages&access_token=\(page.accessToken)"
         
-        if cursor != nil {
-            urlString = urlString + "&after=\(String(describing: cursor))"
-        }
-        
-        completionGetRequest(urlString: urlString) {
-            jsonDataDict in
-           
-            let conversationData = jsonDataDict["messages"] as? [String: AnyObject]
-            if conversationData != nil {
+        if page.accessToken != nil && conversation.id != nil {
+            var urlString = "https://graph.facebook.com/v16.0/\(conversation.id!)?fields=messages&access_token=\(page.accessToken!)"
+            
+            if cursor != nil {
+                urlString = urlString + "&after=\(String(describing: cursor))"
+            }
+            
+            if conversation.lastRefresh != nil {
+                urlString = urlString + "&since=\(conversation.lastRefresh!.timeIntervalSince1970)"
+            }
+            
+            completionGetRequest(urlString: urlString) {
+                jsonDataDict in
                 
-                // Get paging information
-                var pagingInfo: PagingInfo? = nil
-                let pointerData = conversationData!["paging"] as? [String: AnyObject]
-                if pointerData != nil {
-                    let cursorData = pointerData!["cursors"] as? [String: String]
-                    if cursorData != nil {
-                        pagingInfo = PagingInfo(beforeCursor: cursorData!["before"], afterCursor: cursorData!["after"])
+                let conversationData = jsonDataDict["messages"] as? [String: AnyObject]
+                if conversationData != nil {
+                    print(conversationData)
+                    
+                    // Get paging information
+                    var pagingInfo: PagingInfo? = nil
+                    let pointerData = conversationData!["paging"] as? [String: AnyObject]
+                    if pointerData != nil {
+                        let cursorData = pointerData!["cursors"] as? [String: String]
+                        if cursorData != nil {
+                            pagingInfo = PagingInfo(beforeCursor: cursorData!["before"], afterCursor: cursorData!["after"])
+                        }
                     }
-                }
-                
-                let messageData = conversationData!["data"] as? [[String: AnyObject]]
-                print("Number of messages: \(messageData!.count)")
+                    
+                    let messageData = conversationData!["data"] as? [[String: AnyObject]]
+                    print("Number of messages: \(messageData!.count)")
                     
                     if messageData != nil {
                         let messagesLen = messageData!.count
@@ -609,36 +712,36 @@ class SessionStore : NSObject, ObservableObject {
                             
                             if id != nil && createdTime != nil {
                                 let messageDataURLString = "https://graph.facebook.com/v16.0/\(id!)?fields=id,created_time,from,to,message,story,attachments,shares&access_token=\(page.accessToken)"
-                            
+                                
                                 completionGetRequest(urlString: messageDataURLString) {
                                     messageDataDict in
                                     if messageDataDict != nil {
-                                        var message: Message?
+                                        var message: Message = Message(context: self.moc)
+                                        var appendMessage: Bool = true
                                         switch conversation.platform {
-                                        case .instagram:
-                                            message = self.parseInstagramMessage(messageDataDict: messageDataDict, message_id: id!, createdTime: createdTime!, previousMessage: newMessages.last)
-                                        case .facebook:
-                                            message = self.parseFacebookMessage(messageDataDict: messageDataDict, message_id: id!, createdTime: createdTime!, previousMessage: newMessages.last)
+                                        case "instagram":
+                                            self.parseInstagramMessage(messageEntity: message, messageDataDict: messageDataDict, message_id: id!, createdTime: createdTime!, previousMessage: newMessages.last)
+                                        case "facebook":
+                                            self.parseFacebookMessage(messageEntity: message, messageDataDict: messageDataDict, message_id: id!, createdTime: createdTime!, previousMessage: newMessages.last)
+                                        default:
+                                            self.moc.delete(message)
+                                            appendMessage = false
                                         }
                                         
-                                        if message != nil {
-                                            newMessages.append(message!)
-                                        }
-                                
+                                        message.conversation = conversation
+                                        
                                         indexCounter = indexCounter + 1
+                                        
+                                        if appendMessage {
+                                            newMessages.append(message)
+                                        }
+                                        
                                         if indexCounter == messagesLen {
-
-                                            // Start of the async get of profile pic url
-                                            for user in userRegistry.values {
-                                                if user.profilePicURL == nil {
-                                                    user.getProfilePicture(access_token: page.accessToken)
-                                                }
-                                            }
                                             
-                                            newMessages = newMessages.sorted { $0.createdTime < $1.createdTime }
+                                            newMessages = newMessages.sorted { $0.createdTime! < $1.createdTime! }
                                             var lastDate: Foundation.DateComponents? = nil
                                             for message in newMessages {
-                                                let createdTimeDate = Calendar.current.dateComponents([.month, .day], from: message.createdTime)
+                                                let createdTimeDate = Calendar.current.dateComponents([.month, .day], from: message.createdTime!)
                                                 var dayStarter = lastDate == nil
                                                 if lastDate != nil {
                                                     dayStarter = lastDate!.month! != createdTimeDate.month! || lastDate!.day! != createdTimeDate.day!
@@ -646,6 +749,9 @@ class SessionStore : NSObject, ObservableObject {
                                                 lastDate = createdTimeDate
                                                 message.dayStarter = dayStarter
                                             }
+                                            
+                                            conversation.lastRefresh = Date()
+                                            try? self.moc.save()
                                             completion((newMessages, pagingInfo))
                                         }
                                     }
@@ -655,9 +761,10 @@ class SessionStore : NSObject, ObservableObject {
                     }
                 }
             }
+        }
     }
     
-    func parseInstagramStoryMention(messageDataDict: [String: Any]) -> InstagramStoryMention? {
+    func parseInstagramStoryMention(messageEntity: Message, messageDataDict: [String: Any]) {
         var instagramStoryMention: InstagramStoryMention? = nil
         let storyData = messageDataDict["story"] as? [String: Any]
         if storyData != nil {
@@ -668,14 +775,17 @@ class SessionStore : NSObject, ObservableObject {
                 let cdnUrl = mentionData!["link"] as? String
                 if cdnUrl != nil {
                     print("updating instagram story")
-                    instagramStoryMention = InstagramStoryMention(id: id, cdnUrl: cdnUrl!)
+                    let newInstagramStoryMention = InstagramStoryMention(context: self.moc)
+                    newInstagramStoryMention.uid = UUID()
+                    newInstagramStoryMention.id = id
+                    newInstagramStoryMention.cdnURL = URL(string: cdnUrl!)
+                    newInstagramStoryMention.message = messageEntity
                 }
             }
         }
-        return instagramStoryMention
     }
     
-    func parseInstagramStoryReply(messageDataDict: [String: Any]) -> InstagramStoryReply? {
+    func parseInstagramStoryReply(messageEntity: Message, messageDataDict: [String: Any]) {
         var instagramStoryReply: InstagramStoryReply? = nil
         let storyData = messageDataDict["story"] as? [String: Any]
         if storyData != nil {
@@ -686,14 +796,17 @@ class SessionStore : NSObject, ObservableObject {
                 let cdnUrl = replyToData!["link"] as? String
                 if cdnUrl != nil {
                     print("updating instagram story")
-                    instagramStoryReply = InstagramStoryReply(id: id, cdnUrl: cdnUrl!)
+                    let newInstagramStoryReply = InstagramStoryReply(context: self.moc)
+                    newInstagramStoryReply.uid = UUID()
+                    newInstagramStoryReply.id = id
+                    newInstagramStoryReply.cdnURL = URL(string: cdnUrl!)
+                    newInstagramStoryReply.message = messageEntity
                 }
             }
         }
-        return instagramStoryReply
     }
     
-    func parseImageAttachment(messageDataDict: [String: Any]) -> ImageAttachment? {
+    func parseImageAttachment(messageEntity: Message, messageDataDict: [String: Any]) {
         var imageAttachment: ImageAttachment? = nil
         let attachmentsData = messageDataDict["attachments"] as? [String: Any]
         if attachmentsData != nil {
@@ -704,16 +817,18 @@ class SessionStore : NSObject, ObservableObject {
                     if image_data != nil {
                         let url = image_data!["url"] as? String
                         if url != nil {
-                            imageAttachment = ImageAttachment(url: url!)
+                            let newImageAttachment = ImageAttachment(context: self.moc)
+                            newImageAttachment.uid = UUID()
+                            newImageAttachment.url = URL(string: url!)
+                            newImageAttachment.message = messageEntity
                         }
                     }
                 }
             }
         }
-        return imageAttachment
     }
     
-    func parseVideoAttachment(messageDataDict: [String: Any]) -> VideoAttachment? {
+    func parseVideoAttachment(messageEntity: Message, messageDataDict: [String: Any]) {
         var imageAttachment: VideoAttachment? = nil
         let attachmentsData = messageDataDict["attachments"] as? [String: Any]
         if attachmentsData != nil {
@@ -724,16 +839,18 @@ class SessionStore : NSObject, ObservableObject {
                     if image_data != nil {
                         let url = image_data!["url"] as? String
                         if url != nil {
-                            imageAttachment = VideoAttachment(url: url!)
+                            let newVideoAttachment = VideoAttachment(context: self.moc)
+                            newVideoAttachment.uid = UUID()
+                            newVideoAttachment.url = URL(string: url!)
+                            newVideoAttachment.message = messageEntity
                         }
                     }
                 }
             }
         }
-        return imageAttachment
     }
     
-    func parseInstagramMessage(messageDataDict: [String: Any], message_id: String, createdTime: String, previousMessage: Message? = nil) -> Message? {
+    func parseInstagramMessage(messageEntity: Message, messageDataDict: [String: Any], message_id: String, createdTime: String, previousMessage: Message? = nil) {
         let fromDict = messageDataDict["from"] as? [String: AnyObject]
         let toDictList = messageDataDict["to"] as? [String: AnyObject]
         let message = messageDataDict["message"] as? String
@@ -748,45 +865,68 @@ class SessionStore : NSObject, ObservableObject {
                     let toUsername = toDict![0]["username"] as? String
                     let toId = toDict![0]["id"] as? String
                     
-                    let instagramStoryMention = parseInstagramStoryMention(messageDataDict: messageDataDict)
-                    let instagramStoryReply = parseInstagramStoryReply(messageDataDict: messageDataDict)
-                    let imageAttachment = parseImageAttachment(messageDataDict: messageDataDict)
-                    let videoAttachment = parseVideoAttachment(messageDataDict: messageDataDict)
+                    parseInstagramStoryMention(messageEntity: messageEntity, messageDataDict: messageDataDict)
+                    parseInstagramStoryReply(messageEntity: messageEntity, messageDataDict: messageDataDict)
+                    parseImageAttachment(messageEntity: messageEntity, messageDataDict: messageDataDict)
+                    parseVideoAttachment(messageEntity: messageEntity, messageDataDict: messageDataDict)
 
                     if fromUsername != nil && fromId != nil && toUsername != nil && toId != nil {
-                        let registeredUsernames = userRegistry.keys
-
-                        var fromUser: MetaUser? = nil
-                        if registeredUsernames.contains(fromId!) {
-                            fromUser = userRegistry[fromId!]
+                        @FetchRequest(sortDescriptors: []) var existingUsers: FetchedResults<MetaUser>
+                        
+                        let existingFromUser = existingUsers.first(where: {$0.id != fromId!})
+                        
+                        // Udpdate some thins
+                        if existingFromUser != nil {
+                            existingFromUser!.username = fromUsername!
+                            existingFromUser!.platform = "instagram"
+                            messageEntity.from = existingFromUser
                         }
+                        
                         else {
-                            fromUser = MetaUser(id: fromId!, username: fromUsername!, email: nil, name: nil, platform: .instagram)
-                            userRegistry[fromId!] = fromUser
+                            let newFromUser = MetaUser(context: self.moc)
+                            newFromUser.uid = UUID()
+                            newFromUser.id = fromId!
+                            newFromUser.username = fromUsername!
+                            newFromUser.platform = "instagram"
+                            messageEntity.from = newFromUser
                         }
-
-                        var toUser: MetaUser? = nil
-                        if registeredUsernames.contains(toId!) {
-                            toUser = userRegistry[toId!]
+                        
+                        
+                        let existingToUser = existingUsers.first(where: {$0.id != toId!})
+                        
+                        // Udpdate some thins
+                        if existingToUser != nil {
+                            existingToUser!.username = toUsername!
+                            existingToUser!.platform = "instagram"
+                            messageEntity.to = existingToUser
                         }
+                        
                         else {
-                            toUser = MetaUser(id: toId!, username: toUsername!, email: nil, name: nil, platform: .instagram)
-                            userRegistry[toId!] = toUser
+                            let newToUser = MetaUser(context: self.moc)
+                            newToUser.uid = UUID()
+                            newToUser.id = toId!
+                            newToUser.username = toUsername!
+                            newToUser.platform = "instagram"
+                            messageEntity.to = existingToUser
                         }
+                        
                         print("returning message")
                         
-                        return Message(id: message_id, message: message!, to: toUser!, from: fromUser!, createdTimeString: createdTime, instagramStoryMention: instagramStoryMention, instagramStoryReply: instagramStoryReply, imageAttachment: imageAttachment, videoAttachment: videoAttachment)
+                        messageEntity.id = message_id
+                        messageEntity.message = message
+                        messageEntity.createdTime = Date().facebookStringToDate(fbString: createdTime)
+                
                     }
-                    else {return nil}
+                    else {}
                 }
-                else {return nil}
+                else {}
             }
-            else {return nil}
+            else {}
         }
-        else {return nil}
+        else {}
     }
     
-    func parseFacebookMessage(messageDataDict: [String: Any], message_id: String, createdTime: String, previousMessage: Message? = nil) -> Message? {
+    func parseFacebookMessage(messageEntity: Message, messageDataDict: [String: Any], message_id: String, createdTime: String, previousMessage: Message? = nil) {
         let fromDict = messageDataDict["from"] as? [String: AnyObject]
         let toDictList = messageDataDict["to"] as? [String: AnyObject]
         let message = messageDataDict["message"] as? String
@@ -794,7 +934,7 @@ class SessionStore : NSObject, ObservableObject {
         if toDictList != nil {
             let toDict = toDictList!["data"] as? [[String: AnyObject]]
             
-            let imageAttachment = parseImageAttachment(messageDataDict: messageDataDict)
+            parseImageAttachment(messageEntity: messageEntity, messageDataDict: messageDataDict)
 
             if toDict!.count == 1 {
                 if fromDict != nil && toDict != nil && message != nil {
@@ -806,40 +946,65 @@ class SessionStore : NSObject, ObservableObject {
                     let toName = toDict![0]["name"] as? String
                     let toId = toDict![0]["id"] as? String
 
-                    if fromEmail != nil && fromId != nil && fromName != nil && toEmail != nil && toName != nil && toId != nil {
-                        let registeredUsernames = userRegistry.keys
-
-                        var fromUser: MetaUser? = nil
-                        if registeredUsernames.contains(fromId!) {
-                            fromUser = userRegistry[fromId!]
+                    if fromId != nil && toId != nil {
+                        @FetchRequest(sortDescriptors: []) var existingUsers: FetchedResults<MetaUser>
+                        
+                        let existingFromUser = existingUsers.first(where: {$0.id != fromId!})
+                        
+                        // Udpdate some thins
+                        if existingFromUser != nil {
+                            existingFromUser!.name = fromName
+                            existingFromUser!.email = fromEmail
+                            existingFromUser!.platform = "facebook"
+                            messageEntity.from = existingFromUser
                         }
+                        
                         else {
-                            fromUser = MetaUser(id: fromId!, username: nil, email: fromEmail, name: fromName, platform: .facebook)
-                            userRegistry[fromId!] = fromUser
+                            let newFromUser = MetaUser(context: self.moc)
+                            newFromUser.uid = UUID()
+                            newFromUser.id = fromId!
+                            newFromUser.email = fromEmail
+                            newFromUser.name = fromName
+                            newFromUser.platform = "facebook"
+                            messageEntity.from = newFromUser
                         }
-
-                        var toUser: MetaUser? = nil
-                        if registeredUsernames.contains(toId!) {
-                            toUser = userRegistry[toId!]
+                        
+                        
+                        let existingToUser = existingUsers.first(where: {$0.id != toId!})
+                        
+                        if existingToUser != nil {
+                            existingToUser!.name = toName
+                            existingToUser!.email = toEmail
+                            existingToUser!.platform = "facebook"
+                            messageEntity.to = existingToUser
                         }
+                        
                         else {
-                            toUser = MetaUser(id: toId!, username: nil, email: toEmail, name: toName, platform: .facebook)
-                            userRegistry[toId!] = toUser
+                            let newToUser = MetaUser(context: self.moc)
+                            newToUser.uid = UUID()
+                            newToUser.id = toId!
+                            newToUser.email = toEmail
+                            newToUser.name = toName
+                            newToUser.platform = "facebook"
+                            messageEntity.to = newToUser
                         }
-                    
-                        return Message(id: message_id, message: message!, to: toUser!, from: fromUser!, createdTimeString: createdTime, imageAttachment: imageAttachment)
+                        
+                        print("returning message")
+                        
+                        messageEntity.id = message_id
+                        messageEntity.message = message
+                        messageEntity.createdTime = Date().facebookStringToDate(fbString: createdTime)
                     }
-                    else {return nil}
+                    else {}
                 }
-                else {return nil}
+                else {}
             }
-            else {return nil}
+            else {}
         }
-        else {return nil}
+        else {}
     }
     
-    func getConversations(page: MetaPage, platform: MessagingPlatform) async -> [Conversation] {
-        
+    func getConversations(page: MetaPage, platform: MessagingPlatform) async -> Void {
         var urlString = "https://graph.facebook.com/v16.0/\(page.id)/conversations?"
         
         switch platform {
@@ -851,44 +1016,69 @@ class SessionStore : NSObject, ObservableObject {
         
         urlString = urlString + "&access_token=\(page.accessToken)"
         
-        var newConversations: [Conversation] = []
         let jsonDataDict = await getRequest(urlString: urlString)
         if jsonDataDict != nil {
             let conversations = jsonDataDict!["data"] as? [[String: AnyObject]]
             if conversations != nil {
                 for conversation in conversations! {
-                    let id = conversation["id"] as? String
-                    let updatedTime = conversation["updated_time"] as? String
-                    
-                    if id != nil && updatedTime != nil {
-                        let conversation = Conversation(id: id!, updatedTime: updatedTime!, page: page, pagination: nil, platform: platform, updatedTimeDate: nil)
-                        if conversation.updatedTime!.distance(to: Date(timeIntervalSince1970: NSDate().timeIntervalSince1970)) < Double(86400 * conversationDayLimit) {
-                            newConversations.append(conversation)
+                    if page.conversations != nil {
+                        let id = conversation["id"] as? String
+                        let updatedTime = conversation["updated_time"] as? String
+                        
+                        if id != nil && updatedTime != nil {
+                            if let existingConversations = page.conversations! as? Set<Conversation> {
+                                let existingConversation = Array(existingConversations).first(where: {$0.id == id!})
+                                
+                                let dateUpdated = Date().facebookStringToDate(fbString: updatedTime!)
+                                let inDayRange = dateUpdated.distance(to: Date(timeIntervalSince1970: NSDate().timeIntervalSince1970)) < Double(86400 * conversationDayLimit)
+                                
+                                // Update some fields...
+                                if existingConversation != nil {
+                                    existingConversation!.updatedTime = dateUpdated
+                                    existingConversation!.inDayRange = inDayRange
+                                }
+                                
+                                // Create new instance
+                                else {
+                                    let newConversation = Conversation(context: self.moc)
+                                    newConversation.uid = UUID()
+                                    newConversation.metaPage = page
+                                    newConversation.id = id!
+                                    newConversation.platform = platform == .instagram ? "instagram" : "facebook"
+                                    newConversation.updatedTime = dateUpdated
+                                    newConversation.inDayRange = inDayRange
+                                }
+                            }
                         }
+                    }
+                    else {
+                        // TODO:
                     }
                 }
             }
+            try? self.moc.save()
         }
-        return newConversations
     }
     
     func initializeConversationCollection(page: MetaPage, completion: @escaping () -> Void) {
-        let conversationsCollection = self.db.collection(Pages.name).document(page.id).collection(Pages.collections.CONVERSATIONS.name)
-        conversationsCollection.getDocuments() {
-            docs, error in
-            if error == nil && docs != nil {
-                if docs!.isEmpty {
-                    conversationsCollection.document("init").setData(["message": nil]) {
-                        _ in
+        if page.id != nil {
+            let conversationsCollection = self.db.collection(Pages.name).document(page.id!).collection(Pages.collections.CONVERSATIONS.name)
+            conversationsCollection.getDocuments() {
+                docs, error in
+                if error == nil && docs != nil {
+                    if docs!.isEmpty {
+                        conversationsCollection.document("init").setData(["message": nil]) {
+                            _ in
+                            completion()
+                        }
+                    }
+                    else {
                         completion()
                     }
                 }
                 else {
                     completion()
                 }
-            }
-            else {
-                completion()
             }
         }
     }
@@ -897,7 +1087,10 @@ class SessionStore : NSObject, ObservableObject {
         print("Adding conversation listeners")
         
         self.initializeConversationCollection(page: page) {
-            self.db.collection(Pages.name).document(page.id).collection(Pages.collections.CONVERSATIONS.name).addSnapshotListener {
+            if page.id == nil {
+                return
+            }
+            self.db.collection(Pages.name).document(page.id!).collection(Pages.collections.CONVERSATIONS.name).addSnapshotListener {
                 querySnapshot, error in
                 guard let snapshot = querySnapshot else {
                     print("Error listening for conversations: \(error!)")
@@ -922,15 +1115,18 @@ class SessionStore : NSObject, ObservableObject {
                         
                         if pageId != nil && recipientId != nil && senderId != nil && createdTime != nil && messageId != nil {
                             
-                            if page.businessAccountId ?? "" == pageId || page.id == pageId {
-                                    var conversationFound: Bool = false
-                                    
-                                    for conversation in page.conversations {
+                            if page.businessAccountID ?? "" == pageId || page.id! == pageId {
+                                var conversationFound: Bool = false
+                                
+                                if let conversationSet = page.conversations as? Set<Conversation> {
+                                    let conversations = Array(conversationSet)
+                                    for conversation in conversations {
                                         
                                         // TODO: Having some trouble with this
                                         if conversation.correspondent == nil {
                                             print("Correspondent is nil")
                                         }
+                                        
                                         if conversation.correspondent != nil && conversation.correspondent!.id == senderId {
                                             conversationFound = true
                                             let messageDate = Date(timeIntervalSince1970: createdTime! / 1000)
@@ -938,125 +1134,112 @@ class SessionStore : NSObject, ObservableObject {
                                             var instagramStoryMention: InstagramStoryMention? = nil
                                             var instagramStoryReply: InstagramStoryReply? = nil
                                             
-                                            let lastDate = Calendar.current.dateComponents([.month, .day], from: conversation.messages.last!.createdTime)
-                                            let messageCompDate = Calendar.current.dateComponents([.month, .day], from: messageDate)
-                                            let dayStarter = lastDate.month! != messageCompDate.month! || lastDate.day! != messageCompDate.day!
-                                            
-                                            let newMessage = Message(id: messageId!, message: messageText, to: page.pageUser!, from: conversation.correspondent!, dayStarter: dayStarter, createdTimeDate: messageDate)
-            
-                                            if isDeleted != nil && isDeleted! {
-                                                let deleteAtIndex = conversation.messages.firstIndex(of: newMessage)
-                                                if deleteAtIndex != nil {
-                                                    Task {
-                                                        await MainActor.run {
-                                                            conversation.messages.remove(at: deleteAtIndex!)
-                                                        }
+                                            if let messageSet = conversation.messages as? Set<Message> {
+                                                let messages = sortMessages(messages: Array(messageSet))
+                
+                                                if isDeleted != nil && isDeleted! {
+                                                    let messageToDelete = messages.first(where: {$0.id == messageId})
+                                                    if messageToDelete != nil {
+                                                        self.moc.delete(messageToDelete!)
+                                                        return
                                                     }
                                                 }
-                                            }
-            
-                                            else {
-                                                if imageUrl != nil {
-                                                    imageAttachment = ImageAttachment(url: imageUrl!)
-                                                }
+                
                                                 else {
-                                                    if storyMentionUrl != nil {
-                                                        // TODO: Get story ID
-                                                        instagramStoryMention = InstagramStoryMention(id: "1", cdnUrl: storyMentionUrl!)
+                                                    let lastDate = Calendar.current.dateComponents([.month, .day], from: messages.last!.createdTime!)
+                                                    let messageCompDate = Calendar.current.dateComponents([.month, .day], from: messageDate)
+                                                    let dayStarter = lastDate.month! != messageCompDate.month! || lastDate.day! != messageCompDate.day!
+                                                    
+                                                    let newMessage = Message(context: self.moc)
+                                                    newMessage.uid = UUID()
+                                                    newMessage.conversation = conversation
+                                                    newMessage.message = messageText
+                                                    newMessage.to = page.pageUser
+                                                    newMessage.from = conversation.correspondent
+                                                    newMessage.dayStarter = dayStarter
+                                                    newMessage.createdTime = messageDate
+                                                    
+                                                    if imageUrl != nil {
+                                                        let newImageAttachment = ImageAttachment(context: self.moc)
+                                                        newImageAttachment.uid = UUID()
+                                                        newImageAttachment.url = URL(string: imageUrl!)
+                                                        newImageAttachment.message = newMessage
                                                     }
-            
                                                     else {
-                                                        if storyReplyUrl != nil {
-                                                            instagramStoryReply = InstagramStoryReply(id: "1", cdnUrl: storyReplyUrl!)
+                                                        if storyMentionUrl != nil {
+                                                            // TODO: Get story ID
+                                                            let newInstagramStoryMention = InstagramStoryMention(context: self.moc)
+                                                            newInstagramStoryMention.uid = UUID()
+                                                            newInstagramStoryMention.cdnURL = URL(string: storyMentionUrl!)
+                                                            newInstagramStoryMention.id = "1"
+                                                            newInstagramStoryMention.message = newMessage
+                                                        }
+                
+                                                        else {
+                                                            if storyReplyUrl != nil {
+                                                                let newInstagramStoryReply = InstagramStoryReply(context: self.moc)
+                                                                newInstagramStoryReply.uid = UUID()
+                                                                newInstagramStoryReply.cdnURL = URL(string: storyReplyUrl!)
+                                                                newInstagramStoryReply.message = newMessage
+                                                                newInstagramStoryReply.id = "1"
+                                                            }
                                                         }
                                                     }
-                                                }
-            
-                                                newMessage.instagramStoryMention = instagramStoryMention
-                                                newMessage.instagramStoryReply = instagramStoryReply
-                                                newMessage.imageAttachment = imageAttachment
-                                                
-                                                if !conversation.messages.contains(newMessage)
-                                                    && newMessage.createdTime > conversation.messages.last?.createdTime ?? Date(timeIntervalSince1970: .zero)
-                                                {
-                                                    print("Updating conversation \(senderId)")
-                                                    var newMessages = conversation.messages
-                                                    newMessages.append(newMessage)
-                                                    DispatchQueue.main.async {
-                                                        conversation.messages = sortMessages(messages: newMessages)
-                                                        self.unreadMessages = self.unreadMessages + 1
+                
+                                                    if !messages.contains(newMessage)
+                                                        && newMessage.createdTime! > messages.last?.createdTime ?? Date(timeIntervalSince1970: .zero)
+                                                    {
+                                                        print("Updating conversation \(senderId)")
+                                                        try? self.moc.save()
+                                                        DispatchQueue.main.async {
+                                                            self.unreadMessages = self.unreadMessages + 1
+                                                        }
                                                     }
                                                 }
                                             }
                                         }
                                     }
-                                    
-                                    // TODO: Of course facebook doesn't send the conversation ID with the webhook... this should work for now but may be slow. Try to come up with a more efficient way later
-                                    if !conversationFound && isDeleted != nil && !isDeleted! {
-                                        print("Not found", senderId)
-                                        Task {
-                                            // TODO: Add this back but in another way
-                                            await self.updateConversations(page: page)
-                                        }
+                                }
+                                
+                                // TODO: Of course facebook doesn't send the conversation ID with the webhook... this should work for now but may be slow. Try to come up with a more efficient way later
+                                if !conversationFound && isDeleted != nil && !isDeleted! {
+                                    print("Not found", senderId)
+                                    Task {
+                                        // TODO: Add this back but in another way
+                                        await self.updateConversations(page: page)
                                     }
                                 }
                             }
                         }
                     }
+                }
             }
         }
     }
     
     func updateConversations(page: MetaPage) async {
-        var newConversations: [Conversation] = []
         for platform in MessagingPlatform.allCases {
-            let conversations = await self.getConversations(page: page, platform: platform)
-            print(platform, conversations.count, "Count", page.name)
-            newConversations = newConversations + conversations
+            await self.getConversations(page: page, platform: platform)
         }
-
-        for conversation in newConversations {
-            self.getMessages(page: page, conversation: conversation) {
-                conversationTuple in
-                let messages = conversationTuple.0
-
-                // TODO: Unless there is info on opened status from API I have to assume message has been viewed or we keep some sort of on disk record
-                for message in messages {
-                    message.opened = true
-                }
-
-                let pagination = conversationTuple.1
-                if messages.count > 0 {
-
-                    Task {
-                        await MainActor.run {
-                            conversation.messages = messages
-                            conversation.pagination = pagination
-                            let userList = conversation.updateCorrespondent()
-                            if userList.count > 0 {
-                                page.pageUser = userList[1]
-                            }
-                        }
+        
+        if let existingConversations = page.conversations! as? Set<Conversation> {
+            let conversationsToUpdate = Array(existingConversations).filter {
+                $0.inDayRange &&
+                $0.updatedTime! > $0.lastRefresh ?? Date(timeIntervalSince1970: 0)
+            }
+            
+            for conversation in conversationsToUpdate {
+                self.getNewMessages(page: page, conversation: conversation) {
+                    conversationTuple in
+                    let messages = conversationTuple.0
+                    
+                    // TODO: Unless there is info on opened status from API I have to assume message has been viewed or we keep some sort of on disk record
+                    for message in messages {
+                        message.opened = true
                     }
-                }
-
-                conversation.messagesInitialized = true
-
-                var allConversationsLoaded: Bool = true
-                for conversation in newConversations {
-                    if !conversation.messagesInitialized {
-                        allConversationsLoaded = false
-                    }
-                }
-                if allConversationsLoaded {
-
-                    // reset for the next reload
-                    for conversation in newConversations {
-                        conversation.messagesInitialized = false
-                    }
-
-                    page.conversations = newConversations
-                    print("Done updating")
+                    
+                    let pagination = conversationTuple.1
+                    //conversation.pagination = pagination
                 }
             }
         }
