@@ -9,15 +9,20 @@ import Foundation
 import CoreData
 
 extension MetaUser {
-    func getProfilePicture() {
-        if self.metaPage != nil && self.metaPage!.accessToken != nil {
-            let urlString = "https://graph.facebook.com/v16.0/\(self.id!)?access_token=\(self.metaPage!.accessToken!)"
+    func getProfilePicture(page: MetaPage) {
+        if self.metaPage != nil && page.accessToken != nil {
+            let urlString = "https://graph.facebook.com/v16.0/\(self.id!)?access_token=\(page.accessToken!)"
             
             completionGetRequest(urlString: urlString) {
                 profileData in
+                print("PROFILE DATA", profileData)
                 let profilePicURL = profileData["profile_pic"] as? String
+                print(profilePicURL)
                 self.profilePictureURL = URL(string: profilePicURL?.replacingOccurrences(of: "\\", with: "") ?? "")
             }
+        }
+        else {
+            print("META PAGE IS NIL \(page) \(page.accessToken)")
         }
     }
 }
@@ -101,17 +106,31 @@ extension Conversation {
                 if message.from != nil && message.to != nil {
                     if message.from!.id != (self.platform == "instagram" ? self.metaPage!.businessAccountID : self.metaPage!.id)
                     {
+                        print("A")
                         self.correspondent = message.from
                         rList = [message.from!, message.to!]
                         break
                     }
                     else {
+                        print("B")
                         self.correspondent = message.to
                         rList = [message.to!, message.from!]
                         break
                     }
                 }
+                else {
+                    print("C corr")
+                }
+                
             }
+            
+            if conversationMessages.count == 0 {
+                print("B corr")
+            }
+            
+        }
+        else {
+            print("A corr")
         }
         
         return rList

@@ -186,7 +186,10 @@ struct InfoView: View {
             }
             
             else {
-                if self.session.activePages.count == 0 {
+                if true
+                //    self.session.activePages.count == 0
+                {
+                    
                     NoBusinessAccountsLinkedView(width: width, height: height).environmentObject(self.session)
                         .onChange(of: self.session.facebookUserToken, perform: {
                             newToken in

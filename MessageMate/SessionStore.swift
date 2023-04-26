@@ -34,7 +34,7 @@ class TabSelectionState: ObservableObject {
     @Published var selectedTab : Int = 2
 }
 
-let conversationDayLimit = 2
+let conversationDayLimit = 6
 
 /**
  Creates an instance of the users authentication state and other single instance attributes for the user's session
@@ -59,7 +59,7 @@ class SessionStore : NSObject, ObservableObject {
     @Published var loadingFacebookUserToken: Bool = true
     @Published var loadingPageInformation: Bool = true
     @Published var webhooksSubscribed: Bool?
-    @Published var activePages: [MetaPage] = []
+    @Published var activePageIDs: [String] = []
     // This is sort of abusive
     @Published var videoPlayerUrl: URL?
     @Published var fullScreenImageUrlString: String?
@@ -132,31 +132,7 @@ class SessionStore : NSObject, ObservableObject {
             self.isLoggedIn = .signedOut
         }
     }
-    
-//    func fetchUsers() -> [MetaUser] {
-//            let request: NSFetchRequest<MetaUser> = MetaUser.fetchRequest()
-//            request.sortDescriptors = []
-//
-//            do {
-//                let users = try self.moc.fetch(request)
-//                return users
-//            } catch {
-//                // handle error
-//                print("Error fetching messages: \(error.localizedDescription)")
-//                return []
-//            }
-//        }
-//
-//    func refreshProfilePictureURLs() {
-//        let existingUsers = self.fetchUsers()
-//
-//        // Start of the async get of profile pic url
-//        for user in existingUsers {
-//            user.getProfilePicture()
-//            // Might need to save here
-//        }
-//    }
-    
+        
     func getOnboardingStatus() {
         /// Reads whether the user has completed the tutorial, and udpates the observable object in the session
         

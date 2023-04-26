@@ -178,23 +178,32 @@ struct ConversationsView: View {
                                 self.sortedConversations = self.sortConversations(conversations: conversationsToShow)
                             }
                         })
-                        // Every time the number of conversations updates then do an update
+                        // TODO: Every time the number of conversations updates then do an update
                         .onReceive(self.conversationsHook.publisher.count(), perform: {
                             _ in
                             let conversationsToShow : [Conversation] = self.conversationsHook.filter {
-                                $0.metaPage!.id == self.session.selectedPage!.id! &&
+                                $0.metaPage?.id == self.session.selectedPage!.id! &&
                                 $0.inDayRange
                             }
                             self.sortedConversations = self.sortConversations(conversations: conversationsToShow)
+                        })
+                        .onChange(of: self.session.loadingPageInformation, perform: {
+                            loading in
+                            if !loading {
+                                let conversationsToShow : [Conversation] = self.conversationsHook.filter {
+                                    $0.metaPage?.id == self.session.selectedPage!.id! &&
+                                    $0.inDayRange
+                                }
+                                self.sortedConversations = self.sortConversations(conversations: conversationsToShow)
+                            }
                         })
                     }
                     
                     else {
                         NoBusinessAccountsLinkedView(width: width, height: height).environmentObject(self.session)
-                        // TODO: Re implement this
-//                            .onChange(of: self.session.facebookUserToken, perform: { newToken in
-//                            self.getPageInfo() {}
-//                        })
+                            .onChange(of: self.session.facebookUserToken, perform: { newToken in
+                            self.getPageInfo() {}
+                        })
                     }
                 }
             }
@@ -275,6 +284,9 @@ struct ConversationsView: View {
         for conversation in conversations {
             if let messageSet = conversation.messages as? Set<Message> {
                 let lastMessage = sortMessages(messages: Array(messageSet)).last
+                if lastMessage == nil {
+                    continue
+                }
                 sortTuples.append((date: lastMessage!.createdTime!, conversation: conversation))
             }
         }
@@ -392,7 +404,13 @@ struct ConversationNavigationViewList: View {
     var body: some View {
         ForEach(self.sortedConversations, id:\.self.uid!) {
             conversation in
-          //  if conversation.messages.count > 0 {
+            if let messageSet = conversation.messages as? Set<Message> {
+                if messageSet.count > 0 && conversation.correspondent != nil {
+                    ConversationNavigationView(conversation: conversation, width: width, height: height, geometryReader: self.geometryReader, page: self.session.selectedPage!)
+                        .environmentObject(self.session)
+                }
+            }
+            
 //                if conversation.messagesToScrollTo != nil {
 //                    ForEach(conversation.messagesToScrollTo!, id:\.self.uid) {
 //                        message in
@@ -400,13 +418,12 @@ struct ConversationNavigationViewList: View {
 //                                .environmentObject(self.session)
 //                    }
 //                }
-               // else {
-                    ConversationNavigationView(conversation: conversation, width: width, height: height, geometryReader: self.geometryReader, page: self.session.selectedPage!)
-                        .environmentObject(self.session)
-               // }
-          //  }
+             //   else {
+                   
+              //  }
+        //    }
 //            else {
-//                Text("").onAppear(perform: {print(conversation.id, "no messages")})
+//                Text("").onAppear(perform: {print(conversation.id!, "no messages")})
 //            }
         }
     }
@@ -586,7 +603,7 @@ struct ConversationNavigationView: View {
         self.page = page
         self.correspondent = conversation.correspondent!
         self.messageToScrollTo = messageToScrollTo
-        let predicate = NSPredicate(format: "conversation.id == %d", conversation.id!)
+        let predicate = NSPredicate(format: "conversation.id == %@", conversation.id!)
         let request: NSFetchRequest<Message> = Message.fetchRequest()
         request.sortDescriptors = [NSSortDescriptor(keyPath: \Message.createdTime, ascending: true)]
         request.predicate = predicate
@@ -626,69 +643,73 @@ struct ConversationNavigationView: View {
                     }
                 }, isActive: $navigate
             ) {
-                ZStack {
-                    HStack {
-                        AsyncImage(url: self.correspondent.profilePictureURL ?? URL(string: "")) { image in image.resizable() } placeholder: { Image(systemName: "person.circle").foregroundColor(Color("Purple")).font(.system(size: 50)) } .frame(width: 55, height: 55).overlay(
-                            Circle()
-                                .stroke(Color("Purple"), lineWidth: 3)
-                        ).clipShape(Circle()).offset(y: self.messages.last!.message == "" ? -6 : 0)
-                        
-                        VStack(spacing: 0.5) {
-                            HStack {
-                                Text(navTitle).foregroundColor(self.colorScheme == .dark ? .white : .black).font(Font.custom(REGULAR_FONT, size: 22)).lineLimit(1)
-                                Image(self.correspondent.platform == "instagram" ? "instagram_logo" : "facebook_logo").resizable().frame(width: 15.5, height: 15.5)
-                            }.frame(width: width * 0.55, alignment: .leading)
-                        
-                            HStack {
-                                if self.messageToScrollTo != nil {
-                                    Text(self.messageToScrollTo!.message!).lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(Font.custom(REGULAR_FONT, size: 15)).frame(width: width * 0.55, alignment: .leading)
-                                }
-                                else {
-                                    
-                                    if self.messages.last!.instagramStoryMention != nil {
-                                        Text("\(self.correspondent.name ?? "") mentioned you in their story").lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(Font.custom(REGULAR_FONT, size: 15)).frame(width: width * 0.55, alignment: .leading)
+                if self.messages.last != nil {
+                    ZStack {
+                        HStack {
+                            AsyncImage(url: self.correspondent.profilePictureURL ?? URL(string: "")) { image in image.resizable() } placeholder: { Image(systemName: "person.circle").foregroundColor(Color("Purple")).font(.system(size: 50)) } .frame(width: 55, height: 55).overlay(
+                                Circle()
+                                    .stroke(Color("Purple"), lineWidth: 3)
+                            ).clipShape(Circle()).offset(y: self.messages.last?.message ?? "" == "" ? -6 : 0)
+                            
+                            VStack(spacing: 0.5) {
+                                HStack {
+                                    Text(navTitle).foregroundColor(self.colorScheme == .dark ? .white : .black).font(Font.custom(REGULAR_FONT, size: 22)).lineLimit(1)
+                                    Image(self.correspondent.platform == "instagram" ? "instagram_logo" : "facebook_logo").resizable().frame(width: 15.5, height: 15.5)
+                                }.frame(width: width * 0.55, alignment: .leading)
+                            
+                                HStack {
+                                    if self.messageToScrollTo != nil {
+                                        Text(self.messageToScrollTo!.message!).lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(Font.custom(REGULAR_FONT, size: 15)).frame(width: width * 0.55, alignment: .leading)
                                     }
                                     else {
                                         
-                                        if self.messages.last!.imageAttachment != nil {
-                                            Text("\(self.correspondent.name ?? "") sent you an image").lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(Font.custom(REGULAR_FONT, size: 15)).frame(width: width * 0.55, alignment: .leading)
+                                        if self.messages.last!.instagramStoryMention != nil {
+                                            Text("\(self.correspondent.name ?? "") mentioned you in their story").lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(Font.custom(REGULAR_FONT, size: 15)).frame(width: width * 0.55, alignment: .leading)
                                         }
-                                        
                                         else {
                                             
-                                            if self.messages.last!.instagramStoryReply != nil {
-                                                Text("\(self.correspondent.name ?? "") replied to your story").lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(Font.custom(REGULAR_FONT, size: 15)).frame(width: width * 0.55, alignment: .leading)
+                                            if self.messages.last!.imageAttachment != nil {
+                                                Text("\(self.correspondent.name ?? "") sent you an image").lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(Font.custom(REGULAR_FONT, size: 15)).frame(width: width * 0.55, alignment: .leading)
                                             }
                                             
                                             else {
                                                 
-                                                if self.messages.last!.videoAttachment != nil {
-                                                    Text("\(self.correspondent.name ?? "") sent you a video").lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(Font.custom(REGULAR_FONT, size: 15)).frame(width: width * 0.55, alignment: .leading)
+                                                if self.messages.last!.instagramStoryReply != nil {
+                                                    Text("\(self.correspondent.name ?? "") replied to your story").lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(Font.custom(REGULAR_FONT, size: 15)).frame(width: width * 0.55, alignment: .leading)
                                                 }
                                                 
                                                 else {
-                                                    Text((self.messages.last!).message!).lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(Font.custom(REGULAR_FONT, size: 15)).frame(width: width * 0.55, alignment: .leading)
+                                                    
+                                                    if self.messages.last!.videoAttachment != nil {
+                                                        Text("\(self.correspondent.name ?? "") sent you a video").lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(Font.custom(REGULAR_FONT, size: 15)).frame(width: width * 0.55, alignment: .leading)
+                                                    }
+                                                    
+                                                    else {
+                                                        
+                                                        Text((self.messages.last!).message ?? "").lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(Font.custom(REGULAR_FONT, size: 15)).frame(width: width * 0.55, alignment: .leading)
+                                                    }
                                                 }
                                             }
                                         }
                                     }
                                 }
                             }
-                        }
-                        let timeInterval = self.messageToScrollTo == nil ? self.messages.last!.createdTime!.timeIntervalSinceNow : self.messageToScrollTo!.createdTime!.timeIntervalSinceNow
-                        let lastMessageIntervalString = self.makeTimeElapsedString(elapsedTime: timeInterval)
-                        Text(lastMessageIntervalString).lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(Font.custom(REGULAR_FONT, size: 10)).frame(width: width * 0.20)
+                            let timeInterval = self.messageToScrollTo == nil ? self.messages.last!.createdTime!.timeIntervalSinceNow : self.messageToScrollTo!.createdTime!.timeIntervalSinceNow
+                            let lastMessageIntervalString = self.makeTimeElapsedString(elapsedTime: timeInterval)
+                            Text(lastMessageIntervalString).lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(Font.custom(REGULAR_FONT, size: 10)).frame(width: width * 0.20)
 
-                    }
-                    
-                    if !self.messages.last!.opened {
-                        HStack(spacing: 0) {
-                            Color("Purple").frame(width: width * 0.01, height: 75)
-                            Color.offWhite.frame(width: width * 0.99, height: 75).opacity(0.10)
+                        }
+                        
+                        if !self.messages.last!.opened {
+                            HStack(spacing: 0) {
+                                Color("Purple").frame(width: width * 0.01, height: 75)
+                                Color.offWhite.frame(width: width * 0.99, height: 75).opacity(0.10)
+                            }
                         }
                     }
                 }
             }
+                
             
             HorizontalLine(color: .gray, height: 0.75)
             

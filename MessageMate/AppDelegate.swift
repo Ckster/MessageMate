@@ -14,11 +14,23 @@ import FirebaseMessaging
 import Firebase
 import CoreLocation
 import FirebaseAuth
+import CoreData
 
 // MessagingDelegate
+@UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate {
     var window: UIWindow?
     let gcmMessageIDKey = "gcm.message_id"
+    
+    lazy var persistentContainer: NSPersistentCloudKitContainer = {
+        let container = NSPersistentCloudKitContainer(name: "Messaging")
+        container.loadPersistentStores(completionHandler: { (storeDescription, error) in
+            if let error = error as NSError? {
+                fatalError("Unresolved error \(error), \(error.userInfo)")
+            }
+        })
+        return container
+    }()
     
     override init() {
         FirebaseApp.configure()

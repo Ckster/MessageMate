@@ -74,14 +74,7 @@ struct ContentView: View {
                                         Label(text, systemImage: "mail.stack.fill")
                                     }
                                     .tag(2)
-                                    .onAppear(perform: {
-                                        let newMessage = Message(context: self.moc)
-                                        do {
-                                            try self.moc.save()
-                                        } catch {
-                                            print("Error saving init data: \(error.localizedDescription)")
-                                        }
-                                    })
+                                    .environment(\.managedObjectContext, self.moc)
 
                                 AccountView(width: geometry.size.width, height: geometry.size.height).environmentObject(self.session)
                                     .tabItem {
@@ -115,7 +108,9 @@ struct ContentView: View {
                     })
 
                 case false:
-                    OnboardingView().environmentObject(self.session)
+                    OnboardingView()
+                        .environmentObject(self.session)
+                        .environment(\.managedObjectContext, self.moc)
 
                 default :
                     Text("Discerning onboarding status ...")
@@ -127,6 +122,6 @@ struct ContentView: View {
         if self.session.isLoggedIn == .signedOut {
             SignInView().environmentObject(self.session)
         }
-    }.environment(\.managedObjectContext, self.moc)
+    }
 }
 }
