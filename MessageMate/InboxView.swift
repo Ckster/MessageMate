@@ -1262,7 +1262,7 @@ struct DynamicHeightTextBox: View {
         self.geometryReader = geometryReader
         self.messageToScrollTo = messageToScrollTo
         
-        let predicate = NSPredicate(format: "conversation.id == %d", conversation.id!)
+        let predicate = NSPredicate(format: "conversation.id == %@", conversation.id!)
         let request: NSFetchRequest<Message> = Message.fetchRequest()
         request.sortDescriptors = [NSSortDescriptor(keyPath: \Message.createdTime, ascending: true)]
         request.predicate = predicate
@@ -1326,6 +1326,7 @@ struct DynamicHeightTextBox: View {
             })
             .onReceive(self.messagesRequest.publisher.count(), perform: {
                 _ in
+                print("On receive messages request")
                 var newMessages: [Message] = []
                 for message in self.messagesRequest {
                     newMessages.append(message)
@@ -1369,6 +1370,7 @@ struct DynamicHeightTextBox: View {
                                 action: {
                                     self.sendMessage(message: self.typingMessage, to: conversation.correspondent!, conversation: self.conversation) {
                                         response in
+                                        self.typingMessage = ""
                                         self.messageSendError = (response["error"] as? [String: Any])?["message"] as? String ?? ""
                                         DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
                                             self.messageSendError = ""
@@ -1379,7 +1381,6 @@ struct DynamicHeightTextBox: View {
                                 Image(systemName: "paperplane.circle")
                                     .offset(x: -5, y: self.typingMessage != "" ? -3 : -1)
                                     .font(.system(size: 35))
-                                //.position(x: width * 0.85, y: 10)
                                     .frame(height: 18, alignment: .bottom).foregroundColor(Color("Purple"))
                             }
                         }.frame(height: textEditorHeight)
@@ -1398,7 +1399,7 @@ struct DynamicHeightTextBox: View {
     
     func sendMessage(message: String, to: MetaUser, conversation: Conversation, completion: @escaping ([String: Any]) -> Void) {
         /// API Reference: https://developers.facebook.com/docs/messenger-platform/reference/send-api/
-        let urlString = "https://graph.facebook.com/v16.0/\(page.id)/messages?access_token=\(page.accessToken)"
+        let urlString = "https://graph.facebook.com/v16.0/\(page.id!)/messages?access_token=\(page.accessToken!)"
         let data: [String: Any] = ["recipient": ["id": to.id], "message": ["text": message]]
         let jsonData = try? JSONSerialization.data(withJSONObject: data)
         
@@ -1407,9 +1408,11 @@ struct DynamicHeightTextBox: View {
             postRequestJSON(urlString: urlString, data: jsonData!) {
                 sentMessageData in
                 if sentMessageData != nil {
+                    print("SA")
                     let messageId = sentMessageData!["message_id"] as? String
                 
                     if messageId != nil {
+                        print("SB")
                        
                         let createdDate = Date(timeIntervalSince1970: NSDate().timeIntervalSince1970)
                         let lastDate = Calendar.current.dateComponents([.month, .day], from: self.messages.last!.createdTime!)
@@ -1426,8 +1429,16 @@ struct DynamicHeightTextBox: View {
                         newMessage.dayStarter = dayStarter
                         newMessage.createdTime = createdDate
                         newMessage.opened = true
-    
-                        try? self.moc.save()
+                        newMessage.conversation = conversation
+                        
+                        do {
+                            Task {
+                                try self.moc.save()
+                            }
+                            //self.messages.append(newMessage)
+                        } catch {
+                            print("Error saving sent message data: \(error.localizedDescription)")
+                        }
                         completion(sentMessageData!)
                     }
                     else {
@@ -1467,7 +1478,7 @@ struct MessageView : View {
     }
     
     var body: some View {
-        let isCurrentUser = page.businessAccountID == currentMessage.from!.id || page.id == currentMessage.from!.id
+        let isCurrentUser = page.businessAccountID == currentMessage.from?.id || page.id == currentMessage.from?.id
         let dates = Calendar.current.dateComponents([.hour, .minute], from: currentMessage.createdTime!)
         let highlight: Bool = self.messageToScrollTo?.uid == currentMessage.uid
         if !isCurrentUser {

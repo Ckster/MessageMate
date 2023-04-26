@@ -9,19 +9,20 @@ import Foundation
 import CoreData
 
 extension MetaUser {
-    func getProfilePicture(page: MetaPage) {
-        if self.metaPage != nil && page.accessToken != nil {
+    func getProfilePicture(page: MetaPage, completion: @escaping () -> Void) {
+        if page.accessToken != nil {
             let urlString = "https://graph.facebook.com/v16.0/\(self.id!)?access_token=\(page.accessToken!)"
             
             completionGetRequest(urlString: urlString) {
                 profileData in
-                print("PROFILE DATA", profileData)
+                print("PROFILE DATA", profileData, page.accessToken!, self.id)
                 let profilePicURL = profileData["profile_pic"] as? String
-                print(profilePicURL)
                 self.profilePictureURL = URL(string: profilePicURL?.replacingOccurrences(of: "\\", with: "") ?? "")
+                completion()
             }
         }
         else {
+            completion()
             print("META PAGE IS NIL \(page) \(page.accessToken)")
         }
     }

@@ -249,9 +249,9 @@ extension ConversationsView {
                                 newPage.name = name
                                 newPage.accessToken = pageAccessToken
                                 newPage.active = true
-                                initializePage(page: newPage)
                                 await newPage.getPageBusinessAccountId()
                                 await newPage.getProfilePicture()
+                                initializePage(page: newPage)
                                 newPage.isDefault = false
                                 print("New page", newPage)
                             }
@@ -294,7 +294,7 @@ extension ConversationsView {
             print("Default Page", defaultPage)
             // If not set the default to the first active page
             if defaultPage == nil {
-                let newDefault = self.existingPages.first(where: {$0.active})
+                let newDefault = self.existingPages.first(where: {$0.active && $0.businessAccountID != nil}) // TODO: Remove business account id check after testing
                 print("New Default", newDefault)
                 if newDefault != nil {
                     newDefault!.isDefault = true
@@ -516,6 +516,7 @@ extension ConversationsView {
                             print("Error saving L data: \(error.localizedDescription)")
                         }
                         DispatchQueue.main.async {
+                            //self.refreshUserProfilePictures(page: page) //TODO: Re implement this after testing
                             // Set the selected page is the currently selected page is nil or no longer exists in the set of avaialable pages
                             self.updateSelectedPage() {
                                 if self.session.selectedPage != nil {
@@ -543,22 +544,21 @@ extension ConversationsView {
     
     func refreshUserProfilePictures(page: MetaPage) {
         var userIndex = 0
-        do {
-            try self.moc.refreshAllObjects()
-        } catch {
-            print("Error refreshing data: \(error)")
-        }
         for user in self.existingUsers {
             userIndex += 1
-            user.getProfilePicture(page: page)
-            print("USERPP", user)
-            if userIndex == self.existingUsers.count {
-                do {
-                    try self.moc.save()
-                } catch {
-                    print("Error saving M data: \(error.localizedDescription)")
+            user.getProfilePicture(page: page) {
+                print("USERPP", user)
+                if userIndex == self.existingUsers.count {
+                    do {
+                        Task {
+                            try self.moc.save()
+                        }
+                    } catch {
+                        print("Error saving M data: \(error.localizedDescription)")
+                    }
                 }
             }
+            
         }
     }
     
@@ -671,6 +671,7 @@ extension ConversationsView {
                                             }
                                         }
                                         
+                                        // TODO: Do a bunch of not nil checks here.. keeps crashing randomly
                                         newMessage.id = messageInfo!.id
                                         newMessage.message = messageInfo!.message
                                         newMessage.createdTime = messageInfo!.createdTime
@@ -692,6 +693,8 @@ extension ConversationsView {
                                         
                                         var lastDate: Foundation.DateComponents? = nil
                                         for message in newMessages {
+                                            
+                                            // TODO: This crashes things sometimes
                                             if let to: String = toLookup[message.id!] {
                                                 message.to = to == toUser.id ? toUser : fromUser
                                             }
@@ -709,7 +712,9 @@ extension ConversationsView {
                                         }
                                         conversation.lastRefresh = Date()
                                         do {
-                                            try self.moc.save()
+                                            Task {
+                                                try self.moc.save()
+                                            }
                                         } catch {
                                             print("Error saving N data: \(error.localizedDescription)")
                                         }
@@ -747,7 +752,9 @@ extension ConversationsView {
             user = newUser
         }
         do {
-            try self.moc.save()
+            Task {
+                try self.moc.save()
+            }
         } catch {
             print("Error saving O data: \(error.localizedDescription)")
         }
@@ -1032,12 +1039,6 @@ extension ConversationsView {
                 self.getNewMessages(page: page, conversation: conversation) {
                     conversationTuple in
                     let messages = conversationTuple.0
-                    
-                    // TODO: Unless there is info on opened status from API I have to assume message has been viewed or we keep some sort of on disk record
-                    for message in messages {
-                        message.opened = true
-                    }
-                    
                     let pagination = conversationTuple.1
                     //conversation.pagination = pagination
                 }
@@ -1086,6 +1087,8 @@ extension ConversationsView {
                     if (diff.type == .modified || diff.type == .added) {
                         // TODO: Add support for post share and video
                         
+                        print("Snapshot triggered")
+                        
                         let data = diff.document.data()
                         let messageText = data["message"] as? String ?? ""
                         let pageId = data["page_id"] as? String
@@ -1101,9 +1104,11 @@ extension ConversationsView {
                         if pageId != nil && recipientId != nil && senderId != nil && createdTime != nil && messageId != nil {
                             
                             if page.businessAccountID ?? "" == pageId || page.id! == pageId {
+                                print("SLA")
                                 var conversationFound: Bool = false
                                 
                                 if let conversationSet = page.conversations as? Set<Conversation> {
+                                    print("SLB")
                                     let conversations = Array(conversationSet)
                                     for conversation in conversations {
                                         
@@ -1113,14 +1118,19 @@ extension ConversationsView {
                                         }
                                         
                                         if conversation.correspondent != nil && conversation.correspondent!.id == senderId {
+                                            print("SLC")
                                             conversationFound = true
                                             let messageDate = Date(timeIntervalSince1970: createdTime! / 1000)
                                             
                                             if let messageSet = conversation.messages as? Set<Message> {
-                                                let messages = sortMessages(messages: Array(messageSet))
+                                                let existingMessages = sortMessages(messages: Array(messageSet))
+                                                var existingMessageIDs: [String] = []
+                                                for message in existingMessages {
+                                                    existingMessageIDs.append(message.id!)
+                                                }
                 
                                                 if isDeleted != nil && isDeleted! {
-                                                    let messageToDelete = messages.first(where: {$0.id == messageId})
+                                                    let messageToDelete = existingMessages.first(where: {$0.id == messageId})
                                                     if messageToDelete != nil {
                                                         self.moc.delete(messageToDelete!)
                                                         return
@@ -1128,18 +1138,28 @@ extension ConversationsView {
                                                 }
                 
                                                 else {
-                                                    let lastDate = Calendar.current.dateComponents([.month, .day], from: messages.last!.createdTime!)
+                                                    
+                                                    
+                                                    // Message should not be added
+                                                    if existingMessageIDs.contains(messageId!)
+                                                        || messageDate < existingMessages.last?.createdTime ?? Date(timeIntervalSince1970: .zero)
+                                                    {return}
+                                                    
+                                                    // Add the new message
+                                                    let lastDate = Calendar.current.dateComponents([.month, .day], from: existingMessages.last!.createdTime!)
                                                     let messageCompDate = Calendar.current.dateComponents([.month, .day], from: messageDate)
                                                     let dayStarter = lastDate.month! != messageCompDate.month! || lastDate.day! != messageCompDate.day!
                                                     
                                                     let newMessage = Message(context: self.moc)
                                                     newMessage.uid = UUID()
+                                                    newMessage.id = messageId
                                                     newMessage.conversation = conversation
                                                     newMessage.message = messageText
                                                     newMessage.to = page.pageUser
-                                                    newMessage.from = conversation.correspondent
+                                                    newMessage.from = conversation.correspondent!
                                                     newMessage.dayStarter = dayStarter
                                                     newMessage.createdTime = messageDate
+                                                    
                                                     
                                                     if imageUrl != nil {
                                                         let newImageAttachment = ImageAttachment(context: self.moc)
@@ -1167,20 +1187,20 @@ extension ConversationsView {
                                                             }
                                                         }
                                                     }
-                
-                                                    if !messages.contains(newMessage)
-                                                        && newMessage.createdTime! > messages.last?.createdTime ?? Date(timeIntervalSince1970: .zero)
-                                                    {
-                                                        print("Updating conversation \(senderId)")
-                                                        do {
+                                                    
+                                                    do {
+                                                        Task {
                                                             try self.moc.save()
-                                                        } catch {
-                                                            print("Error saving Q data: \(error.localizedDescription)")
                                                         }
-                                                        DispatchQueue.main.async {
-                                                            self.session.unreadMessages = self.session.unreadMessages + 1
-                                                        }
+                                                    } catch {
+                                                        print("Error saving Q data: \(error.localizedDescription)")
                                                     }
+                                                    
+                                                    print("Updating conversation from listener \(senderId)")
+                                                    DispatchQueue.main.async {
+                                                        self.session.unreadMessages = self.session.unreadMessages + 1
+                                                    }
+                                                    
                                                 }
                                             }
                                         }
