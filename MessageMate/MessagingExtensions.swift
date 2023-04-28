@@ -7,6 +7,7 @@
 
 import Foundation
 import SwiftUI
+import CoreData
 
 // TODO: I hate this. Find a way to define an extension that can be used for both views without having the same functions twice
 extension InfoView {
@@ -516,7 +517,7 @@ extension ConversationsView {
                             print("Error saving L data: \(error.localizedDescription)")
                         }
                         DispatchQueue.main.async {
-                            //self.refreshUserProfilePictures(page: page) //TODO: Re implement this after testing
+                            //self.refreshUserProfilePictures(page: page)
                             // Set the selected page is the currently selected page is nil or no longer exists in the set of avaialable pages
                             self.updateSelectedPage() {
                                 if self.session.selectedPage != nil {
@@ -629,8 +630,6 @@ extension ConversationsView {
                                 
                                 completionGetRequest(urlString: messageDataURLString) {
                                     messageDataDict in
-                                    let newMessage: Message = Message(context: self.moc)
-                                    newMessage.conversation = conversation
                                     
                                     var messageInfo: (to: MetaUserContainer?, from: MetaUserContainer?, id: String?, message: String?, createdTime: Date?, instagramStoryMention: InstagramStoryMention?, instagramStoryReply: InstagramStoryReply?, imageAttachment: ImageAttachment?, videoAttachment: VideoAttachment?)?
                                     switch conversation.platform {
@@ -639,7 +638,7 @@ extension ConversationsView {
                                     case "facebook":
                                         messageInfo = self.parseFacebookMessage(messageDataDict: messageDataDict, message_id: id!, createdTime: createdTime!, previousMessage: newMessages.last)
                                     default:
-                                        self.moc.delete(newMessage)
+                                        messageInfo = nil
                                     }
                                     
                                     indexCounter = indexCounter + 1
@@ -672,18 +671,33 @@ extension ConversationsView {
                                         }
                                         
                                         // TODO: Do a bunch of not nil checks here.. keeps crashing randomly
-                                        newMessage.id = messageInfo!.id
-                                        newMessage.message = messageInfo!.message
-                                        newMessage.createdTime = messageInfo!.createdTime
-                                        newMessage.imageAttachment = messageInfo!.imageAttachment
-                                        newMessage.instagramStoryMention = messageInfo!.instagramStoryMention
-                                        newMessage.instagramStoryReply = messageInfo!.instagramStoryReply
-                                        newMessage.videoAttachment = messageInfo!.videoAttachment
-                                        newMessage.uid = UUID()
-                                        newMessage.opened = true
-                                        newMessages.append(newMessage)
+                                        if messageInfo!.id != nil && messageInfo!.message != nil && messageInfo!.createdTime != nil {
+                                            let newMessage: Message = Message(context: self.moc)
+                                            newMessage.conversation = conversation
+                                            newMessage.id = messageInfo!.id
+                                            newMessage.message = messageInfo!.message
+                                            newMessage.createdTime = messageInfo!.createdTime
+                                            newMessage.uid = UUID()
+                                            newMessage.opened = true
+                                            
+                                            if messageInfo!.imageAttachment != nil {
+                                                newMessage.imageAttachment = messageInfo!.imageAttachment
+                                            }
+                                            if messageInfo!.instagramStoryMention != nil {
+                                                newMessage.instagramStoryMention = messageInfo!.instagramStoryMention
+                                            }
+                                            if messageInfo!.instagramStoryReply != nil {
+                                                newMessage.instagramStoryReply = messageInfo!.instagramStoryReply
+                                            }
+                                            if messageInfo!.videoAttachment != nil {
+                                                newMessage.videoAttachment = messageInfo!.videoAttachment
+                                            }
+                                            
+                                            newMessages.append(newMessage)
+                                        }
+                                    
                                     }
-                                
+                                    
                                     if indexCounter == messagesLen {
                                         newMessages = newMessages.sorted { $0.createdTime! < $1.createdTime! }
                                         
@@ -693,22 +707,25 @@ extension ConversationsView {
                                         
                                         var lastDate: Foundation.DateComponents? = nil
                                         for message in newMessages {
-                                            
-                                            // TODO: This crashes things sometimes
+                                            print("Starting with message")
+                                            let refreshedMessage = self.fetchMessage(withID: message.uid!)
+                                            print("refreshed message", refreshedMessage)
+                                            if refreshedMessage == nil {continue}
                                             if let to: String = toLookup[message.id!] {
-                                                message.to = to == toUser.id ? toUser : fromUser
+                                                refreshedMessage!.to = to == toUser.id ? toUser : fromUser
                                             }
                                             if let from: String = fromLookup[message.id!] {
-                                                message.from = from == fromUser.id ? fromUser : toUser
+                                                refreshedMessage!.from = from == fromUser.id ? fromUser : toUser
                                             }
                                             
-                                            let createdTimeDate = Calendar.current.dateComponents([.month, .day], from: message.createdTime!)
+                                            let createdTimeDate = Calendar.current.dateComponents([.month, .day], from: refreshedMessage!.createdTime!)
                                             var dayStarter = lastDate == nil
                                             if lastDate != nil {
                                                 dayStarter = lastDate!.month! != createdTimeDate.month! || lastDate!.day! != createdTimeDate.day!
                                             }
                                             lastDate = createdTimeDate
-                                            message.dayStarter = dayStarter
+                                            refreshedMessage!.dayStarter = dayStarter
+                                            print("Done with refreshed message")
                                         }
                                         conversation.lastRefresh = Date()
                                         do {
@@ -726,6 +743,20 @@ extension ConversationsView {
                     }
                 }
             }
+        }
+    }
+    
+    func fetchMessage(withID id: UUID) -> Message? {
+        let request = NSFetchRequest<Message>(entityName: "Message")
+        request.predicate = NSPredicate(format: "uid == %@", id as CVarArg)
+        request.fetchLimit = 1
+
+        do {
+            let results = try self.moc.fetch(request)
+            return results.first
+        } catch {
+            print("Error fetching object: \(error.localizedDescription)")
+            return nil
         }
     }
     
@@ -1138,7 +1169,6 @@ extension ConversationsView {
                                                 }
                 
                                                 else {
-                                                    
                                                     
                                                     // Message should not be added
                                                     if existingMessageIDs.contains(messageId!)

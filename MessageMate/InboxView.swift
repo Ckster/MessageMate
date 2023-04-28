@@ -59,7 +59,10 @@ enum MessagingPlatform: CaseIterable {
 // TODO: Fix Facebook profile pics not loading
 // TODO: Test Facebook and Instagram snapshot listeners
 // TODO: Auto reply toggle in conversation
-// TODO: Put conversations from webhooks at the top of the inbox
+// TODO: Make a cancel button when generating response
+// TODO: Prompt to reply / voice to text
+// TODO: Bug where unread counter is incrementing when in conversation view and receive a message
+
 // TODO: Calendar
 
 
@@ -74,9 +77,29 @@ struct InboxView: View {
                 FacebookAuthenticateView(width: geometry.size.width, height: geometry.size.height).environmentObject(self.session)
             }
             else {
-                ConversationsView(width: geometry.size.width, height: geometry.size.height, geometryReader: geometry)
-                    .environmentObject(self.session)
-                    .environment(\.managedObjectContext, self.moc)
+                VStack {
+                    ConversationsView(width: geometry.size.width, height: geometry.size.height, geometryReader: geometry)
+                        .environmentObject(self.session)
+                        .environment(\.managedObjectContext, self.moc)
+                    
+                    Text("Save database").onTapGesture {
+                        let urls = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
+                        let appSupportURL = urls[urls.count - 1]
+                        let sqliteURL = appSupportURL.appendingPathComponent("Messaging.sqlite")
+                       
+                        print("sqlite \(sqliteURL)")
+                        
+                        do {
+                            try FileManager.default.copyItem(at: sqliteURL, to: URL(fileURLWithPath: "/Users/erickverleye/Desktop/Projects/MessageMate/sqlite/Messaging.sqlite"))
+                           
+                        }
+                        catch {
+                            
+                        }
+                    }
+                    
+                }
+                
             }
         }
     }
@@ -125,7 +148,6 @@ struct ConversationsView: View {
                             
                             PullToRefresh(coordinateSpaceName: "pullToRefresh") {
                                 Task {
-                                    // TODO: If we add this feature find a way to not use so many API calls (only get new message info) or for users not to abuse it
                                     await self.updateConversations(page: self.session.selectedPage!)
                                 }
                             }
@@ -141,13 +163,13 @@ struct ConversationsView: View {
                                 
                                 else {
                                         
-//                                    if self.showingSearch {
-//                                        InboxSearchView(correspondents: self.$corresponsdentsSearch, messages: self.$messagesSearch, searchText: self.$searchText, showingSearch: self.$showingSearch, width: width, height: height, geometryReader: self.geometryReader)
-//                                            .animation(Animation.easeInOut(duration: 0.2), value: self.showingSearch)
-//                                            .transition(.move(edge: .bottom))
-//                                    }
+                                    if self.showingSearch {
+                                        InboxSearchView(correspondents: self.$corresponsdentsSearch, messages: self.$messagesSearch, searchText: self.$searchText, showingSearch: self.$showingSearch, width: width, height: height, geometryReader: self.geometryReader)
+                                            .animation(Animation.easeInOut(duration: 0.2), value: self.showingSearch)
+                                            .transition(.move(edge: .bottom))
+                                    }
                                     
-                                 //   else {
+                                    else {
                                         if self.waitingForReset {
                                             LottieView(name: "Loading-2").frame(width: 100, height: 100)
                                         }
@@ -156,7 +178,7 @@ struct ConversationsView: View {
                                                 .animation(Animation.easeInOut(duration: 0.2), value: self.showingSearch)
                                                 .transition(.move(edge: .bottom))
                                         }
-                                 //   }
+                                    }
                                 }
                             }
                         }
@@ -171,21 +193,21 @@ struct ConversationsView: View {
                         })
                         // Initialize things
                         .onAppear(perform: {
-                            if let existingConversations = self.session.selectedPage!.conversations as? Set<Conversation> {
-                                let conversationsToShow = Array(existingConversations).filter {
-                                    $0.inDayRange
-                                }
-                                self.sortedConversations = self.sortConversations(conversations: conversationsToShow)
-                            }
-                        })
-                        // TODO: Every time the number of conversations updates then do an update
-                        .onReceive(self.conversationsHook.publisher.count(), perform: {
-                            _ in
                             let conversationsToShow : [Conversation] = self.conversationsHook.filter {
                                 $0.metaPage?.id == self.session.selectedPage!.id! &&
                                 $0.inDayRange
                             }
                             self.sortedConversations = self.sortConversations(conversations: conversationsToShow)
+                        })
+                        .onReceive(self.conversationsHook.publisher.count(), perform: {
+                            _ in
+                            if !self.session.loadingPageInformation {
+                                let conversationsToShow : [Conversation] = self.conversationsHook.filter {
+                                    $0.metaPage?.id == self.session.selectedPage!.id! &&
+                                    $0.inDayRange
+                                }
+                                self.sortedConversations = self.sortConversations(conversations: conversationsToShow)
+                            }
                         })
                         .onChange(of: self.session.loadingPageInformation, perform: {
                             loading in
@@ -209,73 +231,79 @@ struct ConversationsView: View {
             }
         }
         .accentColor(Color("Purple"))
-//        .onChange(of: searchText, perform: {
-//            searchText in
-//
-//            if self.session.selectedPage == nil {
-//                return
-//            }
-//
-//            if !searchText.isEmpty {
-//                DispatchQueue.main.async {
-//                    var filteredCorrespondents: [Conversation] = []
-//                    var filteredMessages: [Conversation] = []
-//
-//                    for conversation in self.session.selectedPage!.conversations {
-//                        // Reset
-//                        conversation.messagesToScrollTo = nil
-//
-//                        // See if correspondent needs to be added to search results
-//                        let correspondentContains = (conversation.correspondent?.displayName ?? "").lowercased().contains(searchText.lowercased())
-//                        if correspondentContains {
-//                            filteredCorrespondents.append(
-//                                conversation
-//                            )
-//                        }
-//
-//                        // See which messages need to be added to search result
-//                        var messageFound: Bool = false
-//                        for message in conversation.messages {
-//                            if message.message.lowercased().contains(searchText.lowercased()) {
-//
-//                                if conversation.messagesToScrollTo == nil {
-//                                    conversation.messagesToScrollTo = [message]
-//                                }
-//
-//                                else {
-//                                    conversation.messagesToScrollTo!.append(message)
-//                                }
-//
-//                                messageFound = true
-//
-//                            }
-//                        }
-//
-//                        if messageFound {
-//                            conversation.messagesToScrollTo!.reverse() // So they show up in order of date
-//                            filteredMessages.append(
-//                                conversation
-//                            )
-//                        }
-//                }
-//
-//                self.corresponsdentsSearch = self.sortConversations(conversations: filteredCorrespondents)
-//                self.messagesSearch = self.sortConversations(conversations: filteredMessages)
-//            }
-//            }
-//
-//            else {
-//                self.waitingForReset = true
-//                self.resetSearch()
-//            }
-//        })
-//        .onChange(of: self.showingSearch, perform: {
-//            showing in
-//            if !showing {
-//                self.waitingForReset = true
-//                self.resetSearch()
-//            }
-//        })
+        .onChange(of: searchText, perform: {
+            searchText in
+
+            if self.session.selectedPage == nil {
+                return
+            }
+
+            if !searchText.isEmpty {
+                DispatchQueue.main.async {
+                    var filteredCorrespondents: [Conversation] = []
+                    var filteredMessages: [Conversation] = []
+
+                    let conversationsToShow : [Conversation] = self.conversationsHook.filter {
+                        $0.metaPage?.id == self.session.selectedPage!.id! &&
+                        $0.inDayRange
+                    }
+                    
+                    for conversation in conversationsToShow {
+    
+                        // Reset
+                        //conversation.messagesToScrollTo = nil
+
+                        // See if correspondent needs to be added to search results
+                        let correspondentContains = (conversation.correspondent?.displayName() ?? "").lowercased().contains(searchText.lowercased())
+                        if correspondentContains {
+                            filteredCorrespondents.append(
+                                conversation
+                            )
+                        }
+
+                        // See which messages need to be added to search result
+                        var messageFound: Bool = false
+                        if let messageSet = conversation.messages as? Set<Message> {
+                            let messages = Array(messageSet)
+                            for message in messages {
+                                if message.message == nil {
+                                    continue
+                                }
+                                if message.message!.lowercased().contains(searchText.lowercased()) {
+
+                                    conversation.messageToScrollTo = message
+                            
+                                    messageFound = true
+
+                                }
+                            }
+
+                            if messageFound {
+                                filteredMessages.append(
+                                    conversation
+                                )
+                            }
+                        }
+                    }
+
+                    self.corresponsdentsSearch = self.sortConversations(conversations: filteredCorrespondents)
+                    self.messagesSearch = self.sortConversations(conversations: filteredMessages)
+                    try? self.moc.save()
+                }
+            }
+
+            else {
+                self.waitingForReset = true
+                self.resetSearch()
+            }
+        })
+        .onChange(of: self.showingSearch, perform: {
+            showing in
+            if !showing {
+                self.waitingForReset = true
+                self.resetSearch()
+            }
+        })
         // TODO: Add / remove listeners when page changes
     }
     
@@ -300,21 +328,30 @@ struct ConversationsView: View {
         return sortedConversations
     }
     
-//    func resetSearch() {
-//        DispatchQueue.main.async {
-//            print("Resetting")
-//            self.corresponsdentsSearch = []
-//            self.messagesSearch = []
-//            for conversation in self.session.selectedPage!.conversations {
-//                conversation.messagesToScrollTo = nil
-//                for message in conversation.messages {
-//                    message.highlight = false
-//                }
-//            }
-//            self.sortedConversations = self.sortConversations(conversations: self.session.selectedPage!.conversations)
-//            self.waitingForReset = false
-//        }
-//    }
+    func resetSearch() {
+        DispatchQueue.main.async {
+            print("Resetting")
+            self.corresponsdentsSearch = []
+            self.messagesSearch = []
+            let conversationsToShow : [Conversation] = self.conversationsHook.filter {
+                $0.metaPage?.id == self.session.selectedPage!.id! &&
+                $0.inDayRange
+            }
+            for conversation in conversationsToShow {
+                conversation.messageToScrollTo = nil
+                if let messageSet = conversation.messages as? Set<Message> {
+                    let messages = Array(messageSet)
+                    for message in messages {
+                        message.highlight = false
+                    }
+                }
+            }
+            
+            self.sortedConversations = self.sortConversations(conversations: conversationsToShow)
+            self.waitingForReset = false
+            try? self.moc.save()
+        }
+    }
 }
 
 
@@ -346,50 +383,52 @@ struct DefaultInboxView: View {
 }
 
 
-//struct InboxSearchView: View {
-//    @EnvironmentObject var session: SessionStore
-//    @Binding var correspondents: [Conversation]
-//    @Binding var messages: [Conversation]
-//    @Binding var searchText: String
-//    @Binding var showingSearch: Bool
-//    @FocusState var isSearchFocused: Bool
-//
-//    let width: CGFloat
-//    let height: CGFloat
-//    let geometryReader: GeometryProxy
-//
-//    var body: some View {
-//        VStack {
-//            HStack {
-//                SearchBar(text: $searchText).frame(width: width * 0.75)
-//                    .padding(.top)
-//                    .padding(.bottom)
-//                    .focused(self.$isSearchFocused)
-//                Button(action: {
-//                    self.searchText = ""
-//                    self.showingSearch = false
-//                }) {
-//                    Text("Cancel")
-//                }
-//            }
-//
-//            HStack {
-//                ForEach(correspondents, id:\.self) {
-//                    conversation in
-//                    CorrespondentSearchNavigationView(conversation: conversation, page: conversation.page, width: width, height: height, geometryReader: geometryReader).environmentObject(self.session)
-//                }
-//                Spacer()
-//            }.frame(width: width * 0.95)
-//
-//            Text("Conversations").font(Font.custom(BOLD_FONT, size: 25)).frame(width: width * 0.90, alignment: .leading).padding(.top)
-//
-//            ConversationNavigationViewList(sortedConversations: self.$messages, width: width, height: height, geometryReader: self.geometryReader)
-//
-//        }.onAppear(perform: {
-//            self.isSearchFocused = true
-//        })
-//    }
-//}
+struct InboxSearchView: View {
+    @EnvironmentObject var session: SessionStore
+    @Binding var correspondents: [Conversation]
+    @Binding var messages: [Conversation]
+    @Binding var searchText: String
+    @Binding var showingSearch: Bool
+    @FocusState var isSearchFocused: Bool
+
+    let width: CGFloat
+    let height: CGFloat
+    let geometryReader: GeometryProxy
+
+    var body: some View {
+        VStack {
+            HStack {
+                SearchBar(text: $searchText).frame(width: width * 0.75)
+                    .padding(.top)
+                    .padding(.bottom)
+                    .focused(self.$isSearchFocused)
+                Button(action: {
+                    self.searchText = ""
+                    self.showingSearch = false
+                }) {
+                    Text("Cancel")
+                }
+            }
+
+            HStack(spacing: 1) {
+                ForEach(correspondents.prefix(4), id:\.self) {
+                    conversation in
+                    if conversation.metaPage != nil {
+                        CorrespondentSearchNavigationView(conversation: conversation, page: conversation.metaPage!, width: width, height: height, geometryReader: geometryReader).environmentObject(self.session).padding().frame(height: height * 0.10)
+                    }
+                }
+                Spacer()
+            }.frame(width: width * 0.95)
+
+            Text("Conversations").font(Font.custom(BOLD_FONT, size: 25)).frame(width: width * 0.90, alignment: .leading).padding(.top)
+
+            ConversationNavigationViewList(sortedConversations: self.$messages, width: width, height: height, geometryReader: self.geometryReader)
+
+        }.onAppear(perform: {
+            self.isSearchFocused = true
+        })
+    }
+}
 
 
 struct ConversationNavigationViewList: View {
@@ -406,25 +445,10 @@ struct ConversationNavigationViewList: View {
             conversation in
             if let messageSet = conversation.messages as? Set<Message> {
                 if messageSet.count > 0 && conversation.correspondent != nil {
-                    ConversationNavigationView(conversation: conversation, width: width, height: height, geometryReader: self.geometryReader, page: self.session.selectedPage!)
+                    ConversationNavigationView(conversation: conversation, width: width, height: height, geometryReader: self.geometryReader, page: self.session.selectedPage!, messageToScrollTo: conversation.messageToScrollTo)
                         .environmentObject(self.session)
                 }
             }
-            
-//                if conversation.messagesToScrollTo != nil {
-//                    ForEach(conversation.messagesToScrollTo!, id:\.self.uid) {
-//                        message in
-//                        ConversationNavigationView(conversation: conversation, width: width, height: height, geometryReader: self.geometryReader, page: self.session.selectedPage!, messageToScrollTo: message)
-//                                .environmentObject(self.session)
-//                    }
-//                }
-             //   else {
-                   
-              //  }
-        //    }
-//            else {
-//                Text("").onAppear(perform: {print(conversation.id!, "no messages")})
-//            }
         }
     }
 }
@@ -526,58 +550,66 @@ class PagingInfo {
     }
 }
 
-//struct CorrespondentSearchNavigationView: View {
-//    @EnvironmentObject var session: SessionStore
-//    @State var navigate: Bool = false
-//    let conversation: Conversation
-//    let page: MetaPage
-//    let width: CGFloat
-//    let height: CGFloat
-//    let geometryReader: GeometryProxy
-//
-//    var body: some View {
-//        let navTitle = conversation.correspondent?.name ?? conversation.correspondent?.username ?? conversation.correspondent?.email ?? ""
-//
-//        NavigationLink(destination: ConversationView(conversation: conversation, page: page, navigate: self.$navigate, width: width, height: height, geometryReader: self.geometryReader).environmentObject(self.session)
-//            .navigationBarTitleDisplayMode(.inline).toolbar {
-//                ToolbarItem {
-//                    HStack {
-//                        HStack {
-//                            AsyncImage(url: URL(string: conversation.correspondent?.profilePicURL ?? "")) { image in image.resizable() } placeholder: { EmptyView() } .frame(width: 37.5, height: 37.5) .overlay(
-//                                Circle()
-//                                    .stroke(Color("Purple"), lineWidth: 3)
-//                            ).clipShape(Circle())
-//                            VStack(alignment: .leading, spacing: 0.5) {
-//                                Text(navTitle).font(Font.custom(BOLD_FONT, size: 18))
-//                                switch conversation.correspondent?.platform {
-//                                case .instagram:
-//                                    Image("instagram_logo").resizable().frame(width: 20.5, height: 20.5)
-//                                case .facebook:
-//                                    Image("facebook_logo").resizable().frame(width: 20.5, height: 20.5)
-//                                default:
-//                                    EmptyView()
-//                                }
-//                            }.offset(y: -2)
-//                        }.frame(width: width * 0.60, alignment: .leading).padding().onTapGesture {
-//                            openProfile(correspondent: conversation.correspondent!)
-//                        }
-//                        Spacer()
-//                        Image(systemName: "magnifyingglass")
+struct CorrespondentSearchNavigationView: View {
+    @EnvironmentObject var session: SessionStore
+    @State var navigate: Bool = false
+    let conversation: Conversation
+    let page: MetaPage
+    let width: CGFloat
+    let height: CGFloat
+    let geometryReader: GeometryProxy
+
+    var body: some View {
+        let navTitle = conversation.correspondent?.name ?? conversation.correspondent?.username ?? conversation.correspondent?.email ?? ""
+
+        NavigationLink(destination: ConversationView(conversation: conversation, page: page, navigate: self.$navigate, width: width, height: height, geometryReader: self.geometryReader, fromCorrespondentSearch: true).environmentObject(self.session)
+            .navigationBarTitleDisplayMode(.inline).toolbar {
+                ToolbarItem {
+                    HStack {
+                        HStack {
+                            AsyncImage(url: conversation.correspondent?.profilePictureURL ?? URL(string: "")) { image in image.resizable() } placeholder: { EmptyView() } .frame(width: 37.5, height: 37.5) .overlay(
+                                Circle()
+                                    .stroke(Color("Purple"), lineWidth: 3)
+                            ).clipShape(Circle())
+                            VStack(alignment: .leading, spacing: 0.5) {
+                                Text(navTitle).font(Font.custom(BOLD_FONT, size: 18))
+                                switch conversation.correspondent?.platform {
+                                case "instagram":
+                                    Image("instagram_logo").resizable().frame(width: 20.5, height: 20.5)
+                                case "facebook":
+                                    Image("facebook_logo").resizable().frame(width: 20.5, height: 20.5)
+                                default:
+                                    EmptyView()
+                                }
+                            }.offset(y: -2)
+                        }.frame(width: width * 0.60, alignment: .leading).padding().onTapGesture {
+                            openProfile(correspondent: conversation.correspondent!)
+                        }
+                        Spacer()
+                        Image(systemName: "magnifyingglass")
+                    }
+                }
+            }, isActive: $navigate
+        ) {
+            VStack {
+                let displayName = conversation.correspondent?.displayName()
+                AsyncImage(url: conversation.correspondent?.profilePictureURL ?? URL(string:  "")) { image in image.resizable() } placeholder: { InitialsView(name: displayName ?? "").font(.system(size: 60)) } .frame(width: 65, height: 65) .overlay(
+                    Circle()
+                        .stroke(Color("Purple"), lineWidth: 3)
+                ).clipShape(Circle())
+                
+                Text(displayName ?? "").font(Font.custom(REGULAR_FONT, size: 12.5)).lineLimit(1)
+                
+//                let nameSplit = conversation.correspondent?.displayName().split(separator: " ")
+//                VStack {
+//                    ForEach((nameSplit ?? []).prefix(2), id:\.self) { name in
+//                        Text(name).font(Font.custom(REGULAR_FONT, size: 12.5)).lineLimit(1)
 //                    }
 //                }
-//            }, isActive: $navigate
-//        ) {
-//            VStack {
-//                AsyncImage(url: URL(string: conversation.correspondent?.profilePicURL ?? "")) { image in image.resizable() } placeholder: { EmptyView() } .frame(width: 50, height: 50) .overlay(
-//                    Circle()
-//                        .stroke(Color("Purple"), lineWidth: 3)
-//                ).clipShape(Circle())
-//
-//                Text(conversation.correspondent?.displayName ?? "")
-//            }
-//        }
-//    }
-//}
+            }
+        }
+    }
+}
 
 
 struct ConversationNavigationView: View {
@@ -612,9 +644,9 @@ struct ConversationNavigationView: View {
     
     var body: some View {
         VStack {
-            let navTitle = self.correspondent.name ?? self.correspondent.username ?? self.correspondent.email ?? ""
+            let displayName = self.correspondent.displayName() ?? ""
             
-            NavigationLink(destination: ConversationView(conversation: conversation, page: page, navigate: self.$navigate, width: width, height: height, geometryReader: self.geometryReader, messageToScrollTo: self.messageToScrollTo).environmentObject(self.session)
+            NavigationLink(destination: ConversationView(conversation: conversation, page: page, navigate: self.$navigate, width: width, height: height, geometryReader: self.geometryReader, messageToScrollTo: self.messageToScrollTo, fromCorrespondentSearch: false).environmentObject(self.session)
                 .navigationBarTitleDisplayMode(.inline).toolbar {
                     ToolbarItem {
                         HStack {
@@ -624,7 +656,7 @@ struct ConversationNavigationView: View {
                                         .stroke(Color("Purple"), lineWidth: 3)
                                 ).clipShape(Circle())
                                 VStack(alignment: .leading, spacing: 0.5) {
-                                    Text(navTitle).font(Font.custom(BOLD_FONT, size: 18))
+                                    Text(displayName).font(Font.custom(BOLD_FONT, size: 18))
                                     switch self.correspondent.platform {
                                     case "instagram":
                                         Image("instagram_logo").resizable().frame(width: 20.5, height: 20.5)
@@ -646,14 +678,14 @@ struct ConversationNavigationView: View {
                 if self.messages.last != nil {
                     ZStack {
                         HStack {
-                            AsyncImage(url: self.correspondent.profilePictureURL ?? URL(string: "")) { image in image.resizable() } placeholder: { Image(systemName: "person.circle").foregroundColor(Color("Purple")).font(.system(size: 50)) } .frame(width: 55, height: 55).overlay(
+                            AsyncImage(url: self.correspondent.profilePictureURL ?? URL(string: "")) { image in image.resizable() } placeholder: { InitialsView(name: displayName ?? "").font(.system(size: 50)) } .frame(width: 55, height: 55).overlay(
                                 Circle()
                                     .stroke(Color("Purple"), lineWidth: 3)
                             ).clipShape(Circle()).offset(y: self.messages.last?.message ?? "" == "" ? -6 : 0)
                             
                             VStack(spacing: 0.5) {
                                 HStack {
-                                    Text(navTitle).foregroundColor(self.colorScheme == .dark ? .white : .black).font(Font.custom(REGULAR_FONT, size: 22)).lineLimit(1)
+                                    Text(displayName).foregroundColor(self.colorScheme == .dark ? .white : .black).font(Font.custom(REGULAR_FONT, size: 22)).lineLimit(1)
                                     Image(self.correspondent.platform == "instagram" ? "instagram_logo" : "facebook_logo").resizable().frame(width: 15.5, height: 15.5)
                                 }.frame(width: width * 0.55, alignment: .leading)
                             
@@ -793,12 +825,13 @@ struct TextControlView: View {
     let width: CGFloat
     let page: MetaPage
     let messageToScrollTo: Message?
+    let fromCorrespondentSearch: Bool
     let geometryReader: GeometryProxy
         
     var body: some View {
             VStack {
                 
-                DynamicHeightTextBox(typingMessage: self.$typingMessage, messageSendError: self.$messageSendError, width: width, height: height, conversation: conversation, page: page, geometryReader: geometryReader, messageToScrollTo: self.messageToScrollTo).frame(width: width * 0.925).environmentObject(self.session)
+                DynamicHeightTextBox(typingMessage: self.$typingMessage, messageSendError: self.$messageSendError, width: width, height: height, conversation: conversation, page: page, geometryReader: geometryReader, messageToScrollTo: self.messageToScrollTo, fromCorrespondentSearch: self.fromCorrespondentSearch).frame(width: width * 0.925).environmentObject(self.session)
                 
                 Spacer()
                 HStack(spacing: 2) {
@@ -822,6 +855,7 @@ struct TextControlView: View {
 
 
 struct MessageDateHeaderView: View {
+    
     let msg: Message
     let width: CGFloat
     let dateString: String
@@ -901,8 +935,9 @@ struct ConversationView: View {
     
     let page: MetaPage
     let messageToScrollTo: Message?
+    let fromCorrespondentSearch: Bool
 
-    init(conversation: Conversation, page: MetaPage, navigate: Binding<Bool>, width: CGFloat, height: CGFloat, geometryReader: GeometryProxy, messageToScrollTo: Message? = nil) {
+    init(conversation: Conversation, page: MetaPage, navigate: Binding<Bool>, width: CGFloat, height: CGFloat, geometryReader: GeometryProxy, messageToScrollTo: Message? = nil, fromCorrespondentSearch: Bool) {
         self.conversation = conversation
         self.page = page
         self.width = width
@@ -914,6 +949,7 @@ struct ConversationView: View {
             UINavigationBar.appearance().standardAppearance = appearance
         _navigate = navigate
         self.messageToScrollTo = messageToScrollTo
+        self.fromCorrespondentSearch = fromCorrespondentSearch
     }
     
     var body: some View {
@@ -921,7 +957,7 @@ struct ConversationView: View {
             ZStack {
                 VStack {
                     
-                    TextControlView(showCouldNotGenerateResponse: self.$showCouldNotGenerateResponse, messageSendError: self.$messageSendError, typingMessage: self.$typingMessage, conversation: self.conversation, height: height, width: width, page: page, messageToScrollTo: self.messageToScrollTo, geometryReader: geometryReader).focused($messageIsFocused)
+                    TextControlView(showCouldNotGenerateResponse: self.$showCouldNotGenerateResponse, messageSendError: self.$messageSendError, typingMessage: self.$typingMessage, conversation: self.conversation, height: height, width: width, page: page, messageToScrollTo: self.messageToScrollTo, fromCorrespondentSearch: self.fromCorrespondentSearch, geometryReader: geometryReader).focused($messageIsFocused)
                         .environmentObject(self.session)
                     
                 }
@@ -1249,10 +1285,11 @@ struct DynamicHeightTextBox: View {
     let page: MetaPage
     let geometryReader: GeometryProxy
     let messageToScrollTo: Message?
+    let fromCorrespondentSearch: Bool
     
     @FetchRequest var messagesRequest: FetchedResults<Message>
 
-    init(typingMessage: Binding<String>, messageSendError: Binding<String>, width: CGFloat, height: CGFloat, conversation: Conversation, page: MetaPage,     geometryReader: GeometryProxy, messageToScrollTo: Message?) {
+    init(typingMessage: Binding<String>, messageSendError: Binding<String>, width: CGFloat, height: CGFloat, conversation: Conversation, page: MetaPage,         geometryReader: GeometryProxy, messageToScrollTo: Message?, fromCorrespondentSearch: Bool) {
         _typingMessage = typingMessage
         _messageSendError = messageSendError
         self.width = width
@@ -1261,6 +1298,7 @@ struct DynamicHeightTextBox: View {
         self.page = page
         self.geometryReader = geometryReader
         self.messageToScrollTo = messageToScrollTo
+        self.fromCorrespondentSearch = fromCorrespondentSearch
         
         let predicate = NSPredicate(format: "conversation.id == %@", conversation.id!)
         let request: NSFetchRequest<Message> = Message.fetchRequest()
@@ -1280,8 +1318,9 @@ struct DynamicHeightTextBox: View {
                                 if msg.dayStarter {
                                     MessageDateHeaderView(msg: msg, width: width)
                                 }
-                                MessageView(width: width, currentMessage: msg, conversation: conversation, page: page, messageToScrollTo: self.messageToScrollTo).id(msg.uid!)
+                                MessageView(width: width, currentMessage: msg, conversation: conversation, page: page, messageToScrollTo: self.messageToScrollTo, fromCorrespondentSearch: self.fromCorrespondentSearch).id(msg.uid!)
                                     .onAppear(perform: {
+                                        print(msg.message, msg.uid)
                                         if !msg.opened {
                                             msg.opened = true
                                             try? self.moc.save()
@@ -1295,20 +1334,20 @@ struct DynamicHeightTextBox: View {
                         }
                         .onChange(of: typingMessage) { _ in
                             value.scrollTo(self.messages.last?.uid!)
-                        }.onChange(of: self.messages) { _ in
-                            value.scrollTo(self.messages.last?.uid!)
-                        }.onChange(of: textEditorIsFocused) {
-                            _ in
-                            value.scrollTo(self.messages.last?.uid!)
                         }
-                        .onAppear(perform: {
-                            if self.messageToScrollTo != nil {
+                        .onChange(of: self.messages) { _ in
+                            if self.messageToScrollTo != nil && !self.fromCorrespondentSearch {
+                                print("SCROLLING")
                                 value.scrollTo(self.messageToScrollTo!.uid!)
                             }
                             else {
                                 value.scrollTo(self.messages.last?.uid!)
                             }
-                        })
+                        }
+                        .onChange(of: textEditorIsFocused) {
+                            _ in
+                            value.scrollTo(self.messages.last?.uid!)
+                        }
                     }
                 }
                 .frame(height: max(50, self.geometryReader.size.height - self.textEditorHeight - 200))
@@ -1466,21 +1505,23 @@ struct MessageView : View {
     @ObservedObject var conversation: Conversation
     let page: MetaPage
     let messageToScrollTo: Message?
+    let fromCorrespondentSearch: Bool
     @ObservedObject var correspondent: MetaUser
     
-    init(width: CGFloat, currentMessage: Message, conversation: Conversation, page: MetaPage, messageToScrollTo: Message? = nil) {
+    init(width: CGFloat, currentMessage: Message, conversation: Conversation, page: MetaPage, messageToScrollTo: Message? = nil, fromCorrespondentSearch: Bool) {
         self.conversation = conversation
         self.width = width
         self.page = page
         self.currentMessage = currentMessage
         self.correspondent = conversation.correspondent!
         self.messageToScrollTo = messageToScrollTo
+        self.fromCorrespondentSearch = fromCorrespondentSearch
     }
     
     var body: some View {
         let isCurrentUser = page.businessAccountID == currentMessage.from?.id || page.id == currentMessage.from?.id
         let dates = Calendar.current.dateComponents([.hour, .minute], from: currentMessage.createdTime!)
-        let highlight: Bool = self.messageToScrollTo?.uid == currentMessage.uid
+        let highlight: Bool = !self.fromCorrespondentSearch && self.messageToScrollTo?.uid == currentMessage.uid
         if !isCurrentUser {
             VStack(spacing: 1) {
                 HStack {
@@ -1796,301 +1837,10 @@ struct ViewHeightKeyTransform: PreferenceKey {
     }
 }
 
-//struct ViewHeightKey: PreferenceKey {
-//    static var defaultValue: CGFloat { 0 }
-//    static func reduce(value: inout Value, nextValue: () -> Value) {
-//        value = value + nextValue()
-//    }
-//}
-
-
-//class InstagramStoryMention: Hashable, Equatable {
-//    let id: String?
-//    let cdnUrl: String
-//
-//    init (id: String?, cdnUrl: String) {
-//        self.id = id
-//        self.cdnUrl = cdnUrl
-//    }
-//
-//    func hash(into hasher: inout Hasher) {
-//        hasher.combine(self.cdnUrl)
-//    }
-//
-//    static func == (lhs: InstagramStoryMention, rhs: InstagramStoryMention) -> Bool {
-//        return lhs.cdnUrl == rhs.cdnUrl
-//    }
-//
-//}
-//
-//
-//class InstagramStoryReply: Hashable, Equatable {
-//    let id: String?
-//    let cdnUrl: String
-//
-//    init (id: String?, cdnUrl: String) {
-//        self.id = id
-//        self.cdnUrl = cdnUrl
-//    }
-//
-//    func hash(into hasher: inout Hasher) {
-//        hasher.combine(self.cdnUrl)
-//    }
-//
-//    static func == (lhs: InstagramStoryReply, rhs: InstagramStoryReply) -> Bool {
-//        return lhs.cdnUrl == rhs.cdnUrl
-//    }
-//
-//}
-//
-//
-//class ImageAttachment: Hashable, Equatable {
-////    let height: Int
-////    let width: Int
-//    let url: String
-//
-//    init (url: String) {
-//        self.url = url
-//    }
-//
-//    func hash(into hasher: inout Hasher) {
-//        hasher.combine(self.url)
-//    }
-//
-//    static func == (lhs: ImageAttachment, rhs: ImageAttachment) -> Bool {
-//        return lhs.url == rhs.url
-//    }
-//
-//}
-//
-//
-//class VideoAttachment: Hashable, Equatable {
-////    let height: Int
-////    let width: Int
-//    let url: String
-//
-//    init (url: String) {
-//        self.url = url
-//    }
-//
-//    func hash(into hasher: inout Hasher) {
-//        hasher.combine(self.url)
-//    }
-//
-//    static func == (lhs: VideoAttachment, rhs: VideoAttachment) -> Bool {
-//        return lhs.url == rhs.url
-//    }
-//}
-//
-//
-//class Message: Hashable, Equatable {
-//    let id: String
-//    let uid: UUID = UUID()
-//    let message: String
-//    let to: MetaUser
-//    let from: MetaUser
-//    let createdTime: Date
-//    var opened: Bool = false
-//    var instagramStoryMention: InstagramStoryMention?
-//    var instagramStoryReply: InstagramStoryReply?
-//    var imageAttachment: ImageAttachment?
-//    var videoAttachment: VideoAttachment?
-//    var dayStarter: Bool? = nil
-//    @Published var highlight: Bool = false
-//
-//    init (id: String, message: String, to: MetaUser, from: MetaUser, dayStarter: Bool? = nil, createdTimeString: String? = nil, createdTimeDate: Date? = nil, instagramStoryMention: InstagramStoryMention? = nil, instagramStoryReply: InstagramStoryReply? = nil, imageAttachment: ImageAttachment? = nil, videoAttachment: VideoAttachment? = nil) {
-//        self.id = id
-//        self.message = message
-//        self.to = to
-//        self.from = from
-//        if createdTimeString != nil {
-//            self.createdTime = Date().facebookStringToDate(fbString: createdTimeString!)
-//        }
-//        else {
-//            self.createdTime = createdTimeDate!
-//        }
-//        self.instagramStoryMention = instagramStoryMention
-//        self.instagramStoryReply = instagramStoryReply
-//        self.imageAttachment = imageAttachment
-//        self.videoAttachment = videoAttachment
-//        self.dayStarter = dayStarter
-//    }
-//
-//    func hash(into hasher: inout Hasher) {
-//        hasher.combine(self.id)
-//    }
-//
-//    static func ==(lhs: Message, rhs: Message) -> Bool {
-//        return lhs.id == rhs.id
-//    }
-//}
-//
-//class Conversation: Hashable, Equatable, ObservableObject {
-//    let id: String
-//    let updatedTime: Date?
-//    let page: MetaPage
-//    var correspondent: MetaUser? = nil
-//    var pagination: PagingInfo?
-//    var messagesInitialized: Bool = false
-//    let platform: MessagingPlatform
-//    let uid: UUID = UUID()
-//    @Published var messagesToScrollTo: [Message]? = nil
-//    @Published var messages: [Message] = []
-//
-//    init(id: String, updatedTime: String?, page: MetaPage, pagination: PagingInfo?, platform: MessagingPlatform, updatedTimeDate: Date?, correspondent: MetaUser? = nil) {
-//        self.id = id
-//        self.page = page
-//        if updatedTimeDate == nil {
-//            self.updatedTime = Date().facebookStringToDate(fbString: updatedTime!)
-//        }
-//        else {
-//            self.updatedTime = updatedTimeDate
-//        }
-//        self.pagination = pagination
-//        self.platform = platform
-//        self.correspondent = correspondent
-//    }
-//
-//    func hash(into hasher: inout Hasher) {
-//        hasher.combine(self.id)
-//    }
-//
-//    static func ==(lhs: Conversation, rhs: Conversation) -> Bool {
-//        return lhs.id == rhs.id
-//    }
-//
-//    func updateCorrespondent() -> [MetaUser] {
-//        var rList: [MetaUser] = []
-//        for message in self.messages {
-//            if message.from.id != (platform == .instagram ? page.businessAccountId : page.id) {
-//                self.correspondent = message.from
-//                userConversationRegistry[message.from.id] = self
-//
-//                rList = [message.from, message.to]
-//                break
-//            }
-//            else {
-//                self.correspondent = message.to
-//                userConversationRegistry[message.to.id] = self
-//
-//                rList = [message.to, message.from]
-//                break
-//            }
-//        }
-//        return rList
-//    }
-//}
-
 
 func sortMessages(messages: [Message]) -> [Message] {
     return messages.sorted {$0.createdTime! < $1.createdTime!}
 }
-
-
-
-//class MetaPage: Hashable, Equatable, ObservableObject {
-//    let id: String
-//    let name: String
-//    let accessToken: String
-//    let category: String
-//    @Published var conversations: [Conversation] = []
-//    var businessAccountId: String? = nil
-//    var pageUser: MetaUser? = nil
-//    var photoURL: String?
-//
-//    init(id: String, name: String, accessToken: String, category: String, photoURL: String? = nil, businessAccountId: String? = nil) {
-//        self.id = id
-//        self.name = name
-//        self.accessToken = accessToken
-//        self.category = category
-//        self.photoURL = photoURL
-//        self.businessAccountId = businessAccountId
-//    }
-//
-//    func hash(into hasher: inout Hasher) {
-//        hasher.combine(self.id)
-//    }
-//
-//    static func ==(lhs: MetaPage, rhs: MetaPage) -> Bool {
-//        return lhs.id == rhs.id
-//    }
-//
-//    func sortConversations() {
-//        Task {
-//            await MainActor.run {
-//                self.conversations = self.conversations.sorted {$0.messages.last!.createdTime > $1.messages.last!.createdTime}
-//            }
-//        }
-//    }
-//
-//    //@MainActor
-//    func getProfilePicture(accountId: String) async {
-//        let urlString = "https://graph.facebook.com/v16.0/\(accountId)/picture?redirect=0"
-//
-//        let profileData = await getRequest(urlString: urlString)
-//        if profileData != nil {
-//            let data = profileData!["data"] as? [String: AnyObject]
-//            if data != nil {
-//                let profilePicURL = data!["url"] as? String
-//                self.photoURL = profilePicURL?.replacingOccurrences(of: "\\", with: "")
-//            }
-//        }
-//    }
-//
-//    func getPageBusinessAccountId(page: MetaPage) async {
-//        let urlString = "https://graph.facebook.com/v16.0/\(page.id)?fields=instagram_business_account&access_token=\(page.accessToken)"
-//
-//        let responseData: (HTTPURLResponse?, Data?)? = await getRequestResponse(urlString: urlString)
-//        var returnId: String? = nil
-//        if responseData != nil {
-//            let header = responseData!.0
-//            let data = responseData!.1
-//
-//            if header != nil {
-//                // First look in the use case header field
-//                let headerJson = header!.allHeaderFields[AnyHashable("x-business-use-case-usage")] as? String
-//                if headerJson != nil {
-//                    let businessUseCase = convertToDictionary(text: headerJson!)
-//                    if businessUseCase != nil {
-//                        for accountId in businessUseCase!.keys {
-//                            let valueDict = businessUseCase![accountId] as? [[String: Any]]
-//                            if valueDict != nil {
-//                                let typeDict = valueDict!.first
-//                                if typeDict != nil {
-//                                    let type = typeDict!["type"] as? String
-//                                    if type != nil && type == "instagram" {
-//                                        returnId = accountId
-//                                    }
-//                                }
-//                            }
-//                        }
-//                    }
-//                }
-//            }
-//            // Otherwise look in the response data. This should only contain the business account ID for admin pages, because it is not a business use case then
-//            else {
-//                if data != nil {
-//                    do {
-//                        if let jsonDataDict = try JSONSerialization.jsonObject(with: data!, options: JSONSerialization.ReadingOptions.allowFragments) as? [String: AnyObject] {
-//                            let instaData = jsonDataDict["instagram_business_account"] as? [String: String]
-//                            if instaData != nil {
-//                                let id = instaData!["id"]
-//                                if id != nil {
-//                                    returnId = id!
-//                                }
-//                            }
-//                        }
-//                    }
-//                    catch {
-//
-//                    }
-//
-//                }
-//            }
-//        }
-//        self.businessAccountId = returnId
-//    }
-//}
 
 
 func convertToDictionary(text: String) -> [String: Any]? {
@@ -2106,9 +1856,6 @@ func convertToDictionary(text: String) -> [String: Any]? {
     print("DID NOT GET DATA")
     return nil
 }
-
-
-
 
 
 func getRequestResponse(urlString: String, header: [String: String]? = nil) async -> (HTTPURLResponse?, Data?)? {

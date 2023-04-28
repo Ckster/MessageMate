@@ -22,15 +22,16 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     var window: UIWindow?
     let gcmMessageIDKey = "gcm.message_id"
     
-    lazy var persistentContainer: NSPersistentCloudKitContainer = {
-        let container = NSPersistentCloudKitContainer(name: "Messaging")
-        container.loadPersistentStores(completionHandler: { (storeDescription, error) in
-            if let error = error as NSError? {
-                fatalError("Unresolved error \(error), \(error.userInfo)")
+    lazy var persistentContainer: NSPersistentContainer = {
+            let container = NSPersistentContainer(name: "Messaging")
+            container.loadPersistentStores { (storeDescription, error) in
+                if let error = error {
+                    fatalError("Failed to load Core Data stack: \(error)")
+                }
+                print("Core Data stack loaded")
             }
-        })
-        return container
-    }()
+            return container
+        }()
     
     override init() {
         FirebaseApp.configure()
@@ -74,6 +75,27 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         )
 
         Messaging.messaging().delegate = self
+          
+          let coordinator = persistentContainer.persistentStoreCoordinator
+          let store = coordinator.persistentStores.first
+        
+          if store != nil {
+              let sqliteURL = store!.url
+              print("sqlite \(sqliteURL)")
+              
+              if sqliteURL != nil {
+                  do {
+                      try FileManager.default.copyItem(at: sqliteURL!, to: URL(string: "file:///Users/erickverleye/Desktop/Projects/MessageMate/sqlite/Messaging.sqlite")!)
+                  }
+                  catch {
+                      
+                  }
+              }
+          }
+          else {
+              print("store is nil")
+          }
+          
         return true
     }
     

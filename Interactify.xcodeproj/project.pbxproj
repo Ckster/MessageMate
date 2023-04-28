@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		ED23AA3A29FB5C260088947D /* InitialsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED23AA3929FB5C260088947D /* InitialsView.swift */; };
 		ED2CBB1C29936275002161BE /* LottieView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED2CBB1B29936275002161BE /* LottieView.swift */; };
 		ED3032E729C2A73D008EC92A /* TestView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED3032E629C2A73D008EC92A /* TestView.swift */; };
 		ED3032FA29CBF326008EC92A /* Nunito-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = ED3032EA29CBF325008EC92A /* Nunito-Regular.ttf */; };
@@ -85,6 +86,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		ED23AA3929FB5C260088947D /* InitialsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InitialsView.swift; sourceTree = "<group>"; };
 		ED2CBB1B29936275002161BE /* LottieView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LottieView.swift; sourceTree = "<group>"; };
 		ED3032E629C2A73D008EC92A /* TestView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestView.swift; sourceTree = "<group>"; };
 		ED3032E829C58077008EC92A /* MessageMateRelease.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = MessageMateRelease.entitlements; sourceTree = "<group>"; };
@@ -280,6 +282,7 @@
 				ED41B0EC29F62D7800C5443A /* DataController.swift */,
 				ED72C9BB29F7338400DDE685 /* CoreDataExtensions.swift */,
 				ED72C9BD29F7920E00DDE685 /* MessagingExtensions.swift */,
+				ED23AA3929FB5C260088947D /* InitialsView.swift */,
 			);
 			path = MessageMate;
 			sourceTree = "<group>";
@@ -422,6 +425,7 @@
 			files = (
 				ED41B0EB29F62C6D00C5443A /* Messaging.xcdatamodeld in Sources */,
 				ED72C9BE29F7920E00DDE685 /* MessagingExtensions.swift in Sources */,
+				ED23AA3A29FB5C260088947D /* InitialsView.swift in Sources */,
 				ED700B6C297CA1AD0058968B /* AppDelegate.swift in Sources */,
 				ED700B73297CA54E0058968B /* SignInView.swift in Sources */,
 				ED99A90D297C8F2A0029235B /* ContentView.swift in Sources */,
