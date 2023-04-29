@@ -306,9 +306,9 @@ extension ConversationsView {
                         } catch {
                             print("Error saving D data: \(error.localizedDescription)")
                         }
+                        self.session.subscribeToWebhooks(page: newDefault!) {}
                         completion()
                     }
-                    self.session.subscribeToWebhooks(page: newDefault!) {}
                 }
                 else {
                     // There are no active pages ...
@@ -330,9 +330,9 @@ extension ConversationsView {
                     } catch {
                         print("Error saving F data: \(error.localizedDescription)")
                     }
+                    self.session.subscribeToWebhooks(page: defaultPage!) {}
                     completion()
                 }
-                self.session.subscribeToWebhooks(page: defaultPage!) {}
             }
             
         }
@@ -342,12 +342,12 @@ extension ConversationsView {
             
             if existingActivePage != nil {
                 // Just double check on webhooks
-                self.session.subscribeToWebhooks(page: self.session.selectedPage!) {}
                 do {
                     try self.moc.save()
                 } catch {
                     print("Error saving G data: \(error.localizedDescription)")
                 }
+                self.session.subscribeToWebhooks(page: self.session.selectedPage!) {}
                 completion()
             }
             
@@ -364,9 +364,9 @@ extension ConversationsView {
                         } catch {
                             print("Error saving H data: \(error.localizedDescription)")
                         }
+                        self.session.subscribeToWebhooks(page: defaultPage!) {}
                         completion()
                     }
-                    self.session.subscribeToWebhooks(page: defaultPage!) {}
                 }
                 
                 // If not then find first active page to set a new default
@@ -380,10 +380,9 @@ extension ConversationsView {
                         } catch {
                             print("Error saving I data: \(error.localizedDescription)")
                         }
+                        self.session.subscribeToWebhooks(page: defaultPage!) {}
                         completion()
                     }
-    
-                    self.session.subscribeToWebhooks(page: newDefault!) {}
                 }
                 else {
                     // There are no active pages ...
@@ -565,6 +564,7 @@ extension ConversationsView {
     
     func getNewMessages(page: MetaPage, conversation: Conversation, cursor: String? = nil, completion: @escaping (([Message], PagingInfo?)) -> Void) {
         print("Runing getMessages")
+        print(Thread.current, "Thread D")
         
         if page.accessToken != nil && conversation.id != nil {
             var urlString = "https://graph.facebook.com/v16.0/\(conversation.id!)?fields=messages&access_token=\(page.accessToken!)"
@@ -579,185 +579,210 @@ extension ConversationsView {
             
             print("URL string", urlString)
             
-            completionGetRequest(urlString: urlString) {
-                jsonDataDict in
-                
-                let conversationData = jsonDataDict["messages"] as? [String: AnyObject]
-                
-                // Create some variables for storing to / from information
-                var toID: String?
-                var toUsername: String?
-                var toName: String?
-                var toEmail: String?
-                
-                var fromID: String?
-                var fromUsername: String?
-                var fromName: String?
-                var fromEmail: String?
-                
-                var platform: String?
-                
-                var toLookup: [String: String] = [:]
-                var fromLookup: [String: String] = [:]
             
-                if conversationData != nil {
-                    print(conversationData)
+                completionGetRequest(urlString: urlString) {
+                    jsonDataDict in
                     
-                    // Get paging information
-                    var pagingInfo: PagingInfo? = nil
-                    let pointerData = conversationData!["paging"] as? [String: AnyObject]
-                    if pointerData != nil {
-                        let cursorData = pointerData!["cursors"] as? [String: String]
-                        if cursorData != nil {
-                            pagingInfo = PagingInfo(beforeCursor: cursorData!["before"], afterCursor: cursorData!["after"])
-                        }
-                    }
+                    print(Thread.current, "Thread T")
                     
-                    let messageData = conversationData!["data"] as? [[String: AnyObject]]
-                    print("Number of messages: \(messageData!.count)")
+                    let conversationData = jsonDataDict["messages"] as? [String: AnyObject]
                     
-                    if messageData != nil {
-                        let messagesLen = messageData!.count
-                        var indexCounter = 0
-                        var newMessages: [Message] = []
+                    // Create some variables for storing to / from information
+                    var toID: String?
+                    var toUsername: String?
+                    var toName: String?
+                    var toEmail: String?
+                    
+                    var fromID: String?
+                    var fromUsername: String?
+                    var fromName: String?
+                    var fromEmail: String?
+                    
+                    var platform: String?
+                    
+                    var toLookup: [String: String] = [:]
+                    var fromLookup: [String: String] = [:]
+                
+                    if conversationData != nil {
+                        print(conversationData)
                         
-                        for message in messageData! {
-                            let id = message["id"] as? String
-                            let createdTime = message["created_time"] as? String
+                        // Get paging information
+                        var pagingInfo: PagingInfo? = nil
+                        let pointerData = conversationData!["paging"] as? [String: AnyObject]
+                        if pointerData != nil {
+                            let cursorData = pointerData!["cursors"] as? [String: String]
+                            if cursorData != nil {
+                                pagingInfo = PagingInfo(beforeCursor: cursorData!["before"], afterCursor: cursorData!["after"])
+                            }
+                        }
+                        
+                        let messageData = conversationData!["data"] as? [[String: AnyObject]]
+                        print("Number of messages: \(messageData!.count)")
+                        
+                        if messageData != nil {
+                            let messagesLen = messageData!.count
+                            var indexCounter = 0
+                            var newMessages: [Message] = []
                             
-                            if id != nil && createdTime != nil {
-                                let messageDataURLString = "https://graph.facebook.com/v16.0/\(id!)?fields=id,created_time,from,to,message,story,attachments,shares&access_token=\(page.accessToken!)"
+                            for message in messageData! {
+                                let id = message["id"] as? String
+                                let createdTime = message["created_time"] as? String
                                 
-                                completionGetRequest(urlString: messageDataURLString) {
-                                    messageDataDict in
+                                if id != nil && createdTime != nil {
+                                    let messageDataURLString = "https://graph.facebook.com/v16.0/\(id!)?fields=id,created_time,from,to,message,story,attachments,shares&access_token=\(page.accessToken!)"
                                     
-                                    var messageInfo: (to: MetaUserContainer?, from: MetaUserContainer?, id: String?, message: String?, createdTime: Date?, instagramStoryMention: InstagramStoryMention?, instagramStoryReply: InstagramStoryReply?, imageAttachment: ImageAttachment?, videoAttachment: VideoAttachment?)?
-                                    switch conversation.platform {
-                                    case "instagram":
-                                        messageInfo = self.parseInstagramMessage(messageDataDict: messageDataDict, message_id: id!, createdTime: createdTime!, previousMessage: newMessages.last)
-                                    case "facebook":
-                                        messageInfo = self.parseFacebookMessage(messageDataDict: messageDataDict, message_id: id!, createdTime: createdTime!, previousMessage: newMessages.last)
-                                    default:
-                                        messageInfo = nil
-                                    }
-                                    
-                                    indexCounter = indexCounter + 1
-                                    
-                                    if messageInfo != nil {
-                                        print("Message info")
-                                        print(messageInfo!.from)
-                                        print(messageInfo!.to)
+                                    completionGetRequest(urlString: messageDataURLString) {
+                                        messageDataDict in
                                         
-                                        if messageInfo!.to != nil {
-                                            toID = messageInfo!.to!.id
-                                            toUsername = messageInfo!.to!.username
-                                            toEmail = messageInfo!.to!.email
-                                            toName = messageInfo!.to!.name
-                                            platform = messageInfo!.to!.platform
-                                            if messageInfo!.id != nil {
-                                                toLookup[messageInfo!.id!] = toID
-                                            }
+                                        print(Thread.current, "Thread U")
+                                        
+                                        var messageInfo: (to: MetaUserContainer?, from: MetaUserContainer?, id: String?, message: String?, createdTime: Date?, instagramStoryMention: InstagramStoryMention?, instagramStoryReply: InstagramStoryReply?, imageAttachment: ImageAttachment?, videoAttachment: VideoAttachment?)?
+                                        switch conversation.platform {
+                                        case "instagram":
+                                            messageInfo = self.parseInstagramMessage(messageDataDict: messageDataDict, message_id: id!, createdTime: createdTime!, previousMessage: newMessages.last)
+                                        case "facebook":
+                                            messageInfo = self.parseFacebookMessage(messageDataDict: messageDataDict, message_id: id!, createdTime: createdTime!, previousMessage: newMessages.last)
+                                        default:
+                                            messageInfo = nil
                                         }
                                         
-                                        if messageInfo!.from != nil {
-                                            fromID = messageInfo!.from!.id
-                                            fromUsername = messageInfo!.from!.username
-                                            fromEmail = messageInfo!.from!.email
-                                            fromName = messageInfo!.from!.name
-                                            platform = messageInfo!.from!.platform
-                                            if messageInfo!.id != nil {
-                                                fromLookup[messageInfo!.id!] = fromID
-                                            }
-                                        }
+                                        indexCounter = indexCounter + 1
                                         
-                                        // TODO: Do a bunch of not nil checks here.. keeps crashing randomly
-                                        if messageInfo!.id != nil && messageInfo!.message != nil && messageInfo!.createdTime != nil {
-                                            let newMessage: Message = Message(context: self.moc)
-                                            newMessage.conversation = conversation
-                                            newMessage.id = messageInfo!.id
-                                            newMessage.message = messageInfo!.message
-                                            newMessage.createdTime = messageInfo!.createdTime
-                                            newMessage.uid = UUID()
-                                            newMessage.opened = true
+                                        if messageInfo != nil {
+                                            print("Message info")
+                                            print(messageInfo!.from)
+                                            print(messageInfo!.to)
                                             
-                                            if messageInfo!.imageAttachment != nil {
-                                                newMessage.imageAttachment = messageInfo!.imageAttachment
-                                            }
-                                            if messageInfo!.instagramStoryMention != nil {
-                                                newMessage.instagramStoryMention = messageInfo!.instagramStoryMention
-                                            }
-                                            if messageInfo!.instagramStoryReply != nil {
-                                                newMessage.instagramStoryReply = messageInfo!.instagramStoryReply
-                                            }
-                                            if messageInfo!.videoAttachment != nil {
-                                                newMessage.videoAttachment = messageInfo!.videoAttachment
+                                            if messageInfo!.to != nil {
+                                                toID = messageInfo!.to!.id
+                                                toUsername = messageInfo!.to!.username
+                                                toEmail = messageInfo!.to!.email
+                                                toName = messageInfo!.to!.name
+                                                platform = messageInfo!.to!.platform
+                                                if messageInfo!.id != nil {
+                                                    toLookup[messageInfo!.id!] = toID
+                                                }
                                             }
                                             
-                                            newMessages.append(newMessage)
-                                        }
-                                    
-                                    }
-                                    
-                                    if indexCounter == messagesLen {
-                                        newMessages = newMessages.sorted { $0.createdTime! < $1.createdTime! }
-                                        
-                                        // Create or update the users
-                                        let toUser = self.updateOrCreateUser(userID: toID!, name: toName, email: toEmail, username: toUsername, platform: platform!)
-                                        let fromUser = self.updateOrCreateUser(userID: fromID!, name: fromName, email: fromEmail, username: fromUsername, platform: platform!)
-                                        
-                                        var lastDate: Foundation.DateComponents? = nil
-                                        for message in newMessages {
-                                            print("Starting with message")
-                                            let refreshedMessage = self.fetchMessage(withID: message.uid!)
-                                            print("refreshed message", refreshedMessage)
-                                            if refreshedMessage == nil {continue}
-                                            if let to: String = toLookup[message.id!] {
-                                                refreshedMessage!.to = to == toUser.id ? toUser : fromUser
-                                            }
-                                            if let from: String = fromLookup[message.id!] {
-                                                refreshedMessage!.from = from == fromUser.id ? fromUser : toUser
+                                            if messageInfo!.from != nil {
+                                                fromID = messageInfo!.from!.id
+                                                fromUsername = messageInfo!.from!.username
+                                                fromEmail = messageInfo!.from!.email
+                                                fromName = messageInfo!.from!.name
+                                                platform = messageInfo!.from!.platform
+                                                if messageInfo!.id != nil {
+                                                    fromLookup[messageInfo!.id!] = fromID
+                                                }
                                             }
                                             
-                                            let createdTimeDate = Calendar.current.dateComponents([.month, .day], from: refreshedMessage!.createdTime!)
-                                            var dayStarter = lastDate == nil
-                                            if lastDate != nil {
-                                                dayStarter = lastDate!.month! != createdTimeDate.month! || lastDate!.day! != createdTimeDate.day!
+                                            // Accessing variables defined on a background thread from main thread here ...
+                                            self.moc.perform {
+                                                print(Thread.current, "Thread V")
+                                                if messageInfo!.id != nil && messageInfo!.message != nil && messageInfo!.createdTime != nil {
+                                                    let newMessage: Message = Message(context: self.moc)
+                                                    newMessage.conversation = conversation
+                                                    newMessage.id = messageInfo!.id
+                                                    newMessage.message = messageInfo!.message
+                                                    newMessage.createdTime = messageInfo!.createdTime
+                                                    newMessage.uid = UUID()
+                                                    newMessage.opened = true
+                                                    
+                                                    if messageInfo!.imageAttachment != nil {
+                                                        newMessage.imageAttachment = messageInfo!.imageAttachment
+                                                    }
+                                                    if messageInfo!.instagramStoryMention != nil {
+                                                        newMessage.instagramStoryMention = messageInfo!.instagramStoryMention
+                                                    }
+                                                    if messageInfo!.instagramStoryReply != nil {
+                                                        newMessage.instagramStoryReply = messageInfo!.instagramStoryReply
+                                                    }
+                                                    if messageInfo!.videoAttachment != nil {
+                                                        newMessage.videoAttachment = messageInfo!.videoAttachment
+                                                    }
+                                                    
+                                                    newMessages.append(newMessage)
+                                                }
                                             }
-                                            lastDate = createdTimeDate
-                                            refreshedMessage!.dayStarter = dayStarter
-                                            print("Done with refreshed message")
                                         }
-                                        conversation.lastRefresh = Date()
-                                        do {
-                                            Task {
-                                                try self.moc.save()
+                                        
+                                        if indexCounter == messagesLen {
+                                            newMessages = newMessages.sorted { $0.createdTime! < $1.createdTime! }
+                                            
+                                            // Create or update the users
+                                            let toUser = self.updateOrCreateUser(userID: toID!, name: toName, email: toEmail, username: toUsername, platform: platform!)
+                                            let fromUser = self.updateOrCreateUser(userID: fromID!, name: fromName, email: fromEmail, username: fromUsername, platform: platform!)
+                                            
+                                            var lastDate: Foundation.DateComponents? = nil
+                                            for message in newMessages {
+                                                print(Thread.current, "Thread B")
+                                                print("Starting with message")
+                                                let refreshedMessage = self.fetchMessage(withID: message.uid!)
+                                                print("refreshed message", refreshedMessage)
+                                                if refreshedMessage == nil {continue}
+                                                if let to: String = toLookup[message.id!] {
+                                                    refreshedMessage!.to = to == toUser.id ? toUser : fromUser
+                                                }
+                                                if let from: String = fromLookup[message.id!] {
+                                                    refreshedMessage!.from = from == fromUser.id ? fromUser : toUser
+                                                }
+                                                
+                                                let createdTimeDate = Calendar.current.dateComponents([.month, .day], from: refreshedMessage!.createdTime!)
+                                                var dayStarter = lastDate == nil
+                                                if lastDate != nil {
+                                                    dayStarter = lastDate!.month! != createdTimeDate.month! || lastDate!.day! != createdTimeDate.day!
+                                                }
+                                                lastDate = createdTimeDate
+                                                refreshedMessage!.dayStarter = dayStarter
+                                                print("Done with refreshed message")
                                             }
-                                        } catch {
-                                            print("Error saving N data: \(error.localizedDescription)")
+                                            conversation.lastRefresh = Date()
+                                            do {
+                                                Task {
+                                                    try self.moc.save()
+                                                }
+                                            } catch {
+                                                print("Error saving N data: \(error.localizedDescription)")
+                                            }
+                                            completion((newMessages, pagingInfo))
                                         }
-                                        completion((newMessages, pagingInfo))
                                     }
                                 }
                             }
                         }
                     }
                 }
-            }
+            
         }
     }
     
-    func fetchMessage(withID id: UUID) -> Message? {
-        let request = NSFetchRequest<Message>(entityName: "Message")
-        request.predicate = NSPredicate(format: "uid == %@", id as CVarArg)
-        request.fetchLimit = 1
+    func fetchMessage(withID uid: UUID) -> Message? {
+        var message: Message?
+        
+        let group = DispatchGroup()
+        group.enter()
+        
+        // Need to do this on the main thread
+        DispatchQueue.global(qos: .background).async {
+            self.moc.perform {
+                print(Thread.current, "Thread A")
+                let request = NSFetchRequest<Message>(entityName: "Message")
+                request.predicate = NSPredicate(format: "uid == %@", uid as CVarArg)
+                request.fetchLimit = 1
 
-        do {
-            let results = try self.moc.fetch(request)
-            return results.first
-        } catch {
-            print("Error fetching object: \(error.localizedDescription)")
-            return nil
+                do {
+                    let results = try self.moc.fetch(request)
+                    message = results.first
+                    group.leave()
+                } catch {
+                    print("Error fetching object: \(error.localizedDescription)")
+                    group.leave()
+                }
+            }
         }
+        
+        group.wait()
+        return message
+        
     }
     
     func updateOrCreateUser(userID: String, name: String?, email: String?, username: String?, platform: String) -> MetaUser {

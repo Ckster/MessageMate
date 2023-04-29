@@ -136,7 +136,10 @@ struct ConversationsView: View {
                 if self.session.loadingPageInformation {
                     LottieView(name: "Paperplane")
                         .onTapGesture(perform: {
-                            self.getPageInfo {}
+                            self.moc.perform {
+                                print(Thread.current, "Thread C")
+                                self.getPageInfo {}
+                            }
                         }
                     )
                 }
