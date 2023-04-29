@@ -35,10 +35,7 @@ let monthMap: [Int: String] = [
 ]
 
 
-enum MessagingPlatform: CaseIterable {
-    case instagram
-    case facebook
-}
+let messagingPlatforms: [String] = ["instagram", "facebook"]
 
 
 // TODO: Add full screen for story mentions and replies
@@ -123,6 +120,9 @@ struct ConversationsView: View {
     @FetchRequest(sortDescriptors: []) var existingPages: FetchedResults<MetaPage>
     @FetchRequest(sortDescriptors: []) var existingUsers: FetchedResults<MetaUser>
     
+    @State var pageToUdate: MetaPageModel?
+    @State var conversationToUpdate: ConversationModel?
+    
     let db = Firestore.firestore()
     
     let width: CGFloat
@@ -193,6 +193,87 @@ struct ConversationsView: View {
                                     self.missingFields = missingFields
                                 }
                             }
+                        })
+                        .onChange(of: self.pageToUdate, perform: {
+                            page in
+                            if page == nil {
+                                return
+                            }
+                            let existingPage = self.existingPages.first(where: { $0.id == page!.id })
+                            
+                            // Update some fields
+                            if existingPage != nil {
+                                print("Existing page", existingPage)
+                                existingPage!.category = page!.category
+                                existingPage!.name = page!.name
+                                existingPage!.accessToken = page!.accessToken
+                                existingPage!.active = true
+                                Task {
+                                    await existingPage!.getPageBusinessAccountId()
+                                    await existingPage!.getProfilePicture()
+                                }
+                                
+                            }
+                            
+                            // Create a new MetaPage instance
+                            else {
+                                let newPage = MetaPage(context: self.moc)
+                                
+                                newPage.uid = UUID()
+                                newPage.id = page!.id
+                                newPage.category = page!.category
+                                newPage.name = page!.name
+                                newPage.accessToken = page!.accessToken
+                                newPage.active = true
+                                Task {
+                                    await existingPage!.getPageBusinessAccountId()
+                                    await existingPage!.getProfilePicture()
+                                }
+                                initializePage(page: newPage)
+                                newPage.isDefault = false
+                                print("New page", newPage)
+                            }
+                            
+                            self.addConversationListeners(page: page)
+                            
+                            // TODO: Might not need completion here
+                            self.updateSelectedPage {}
+
+                        })
+                        .onChange(of: self.conversationToUpdate, perform: {
+                            conversation in
+                            if conversation == nil {
+                                return
+                            }
+                            
+                            let existingConversation = self.conversationsHook.first(where: {$0.id == conversation!.id})
+                            
+                            
+                            
+                            // Update some fields...
+                            if existingConversation != nil {
+                                print("Updating conversation", existingConversation)
+                                existingConversation!.updatedTime = conversation!.dateUpdated
+                                existingConversation!.inDayRange = conversation!.inDayRange
+                            }
+                            
+                            // Create new instance
+                            else {
+                                let newConversation = Conversation(context: self.moc)
+                                print("New conversation", newConversation)
+                                newConversation.uid = UUID()
+                                newConversation.id = conversation!.id
+                                newConversation.platform = conversation!.platform
+                                newConversation.updatedTime = conversation!.dateUpdated
+                                newConversation.inDayRange = conversation!.inDayRange
+                            }
+                            
+                            if conversation!.inDayRange && conversation!.dateUpdated > conversation.lastRefresh ?? Date(timeIntervalSince1970: 0) {
+                                
+                            }
+                            
+                            try? self.moc.save()
+                                                            
                         })
                         // Initialize things
                         .onAppear(perform: {
