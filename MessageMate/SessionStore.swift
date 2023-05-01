@@ -34,7 +34,7 @@ class TabSelectionState: ObservableObject {
     @Published var selectedTab : Int = 2
 }
 
-let conversationDayLimit = 20
+let conversationDayLimit = 200
 
 /**
  Creates an instance of the users authentication state and other single instance attributes for the user's session
@@ -69,6 +69,7 @@ class SessionStore : NSObject, ObservableObject {
     @Published var onboardingCompleted: Bool? = nil
     
     @Published var unreadMessages: Int = 0
+    @Published var conversationsToUpdate: Int = 0
     
     private var db = Firestore.firestore()
     let loginManager = LoginManager()
