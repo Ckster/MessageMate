@@ -185,26 +185,14 @@ extension InfoView {
 
 extension ConversationsView {
     
-//    func getPageInfo(completion: @escaping () -> Void) {
-//        Task {
-//            DispatchQueue.main.async {
-//                self.session.loadingPageInformation = true
-//            }
-//
-//            print("Starting B")
-//            // Get the Business Pages associated with the account
-//            await self.updateActivePages()
-//
-//            print("Active pages")
-//            print(self.session.activePageIDs)
-//
-//            // Update the conversations for each page. When this is done the screen will stop loading
-//            await self.updatePages() {
-//                print("Done updating pages")
-//                completion()
-//            }
-//        }
-//    }
+    func initializePageInfo() {
+        self.moc.perform {
+            print(Thread.current, "Thread C")
+            Task {
+                self.pagesToUpdate = await self.updateActivePages()
+            }
+        }
+    }
     
     func updateActivePages() async -> [MetaPageModel] {
         if self.session.facebookUserToken != nil {
@@ -249,7 +237,7 @@ extension ConversationsView {
             print("Default Page", defaultPage)
             // If not set the default to the first active page
             if defaultPage == nil {
-                let newDefault = self.existingPages.first(where: {$0.active && $0.businessAccountID != nil}) // TODO: Remove business account id check after testing
+                let newDefault = self.existingPages.first(where: {$0.active})
                 print("New Default", newDefault)
                 if newDefault != nil {
                     newDefault!.isDefault = true
@@ -351,235 +339,14 @@ extension ConversationsView {
         }
     }
     
+    func setSortedConversations() {
+        let conversationsToShow : [Conversation] = self.conversationsHook.filter {
+            $0.metaPage?.id == self.session.selectedPage!.id! &&
+            $0.inDayRange
+        }
+        self.sortedConversations = self.sortConversations(conversations: conversationsToShow)
+    }
     
-//    func updateConversations(page: MetaPageModel, completion: @escaping () -> Void) async {
-//            // Update all of the conversations in the database for this page
-//            var newConversations: [Conversation] = []
-//            for platform in messagingPlatforms {
-//                await self.getConversations(page: page, platform: platform)
-//            }
-//
-//            // Reload the page after the conversations have been added
-//
-//
-//
-//            for conversation in conversationsToUpdate {
-//                print("Getting conversation")
-//                self.getNewMessages(page: page, conversation: conversation) {
-//                    conversationTuple in
-//                    let newMessages = conversationTuple.0
-//
-//                    print("New messages")
-//                    print(conversation.id)
-//                    for message in newMessages {
-//                        print(message.conversation!.id)
-//                    }
-//
-//                    // let pagination = conversationTuple.1
-//
-//                    print(newMessages.count, "NMC")
-//                    if newMessages.count > 0 {
-//                        let userList = conversation.updateCorrespondent()
-//                        if userList.count > 0 {
-//                            page.pageUser = userList[1]
-//                            print("Page user", page.pageUser)
-//                        }
-//                    }
-//
-//                    conversation.messagesInitialized = true
-//
-//                    var allConversationsLoaded: Bool = true
-//                    for conversation in conversationsToUpdate {
-//                        if !conversation.messagesInitialized {
-//                            allConversationsLoaded = false
-//                        }
-//                    }
-//
-//                    print("ACL", allConversationsLoaded)
-//                    if allConversationsLoaded {
-//
-//                        self.refreshUserProfilePictures(page: page)
-//
-//                        // reset for the next reload
-//                        for conversation in conversationsToUpdate {
-//                            conversation.messagesInitialized = false
-//                        }
-//
-//                        print("Conversations updated")
-//                        print(conversationsToUpdate)
-//
-//                        pagesLoaded = pagesLoaded + 1
-//                        if pagesLoaded == activePages.count {
-//                            print("All pages loaded")
-//                            do {
-//                                try self.moc.save()
-//                            } catch {
-//                                print("Error saving K data: \(error.localizedDescription)")
-//                            }
-//                            DispatchQueue.main.async {
-//                                // Set the selected page is the currently selected page is nil or no longer exists in the set of avaialable pages
-//                                self.updateSelectedPage() {
-//                                    if self.session.selectedPage != nil {
-//                                        self.addConversationListeners(page: self.session.selectedPage!)
-//                                    }
-//
-//                                    self.session.loadingPageInformation = false
-//
-//                                    completion()
-//                                }
-//                            }
-//                        }
-//                    }
-//                }
-//            }
-//
-//
-//    }
-    
-    
-//    func updatePages(completion: @escaping () -> Void) async {
-//        DispatchQueue.main.async {
-//            self.session.loadingPageInformation = true
-//        }
-//
-//        var pagesLoaded = 0
-//        let activePages = self.existingPages.filter {
-//                $0.active
-//        }
-//
-//        print(activePages.count, "APC")
-//
-//        for page in activePages {
-//
-//            // Update all of the conversations in the database for this page
-//            var newConversations: [Conversation] = []
-//            for platform in messagingPlatforms {
-//                let platformConversations = await self.getConversations(page: page, platform: platform)
-//                newConversations.append(contentsOf: platformConversations)
-//            }
-//
-//            let conversationSet = NSMutableSet()
-//            for conversation in newConversations {
-//                conversationSet.add(conversation)
-//            }
-//            page.addToConversations(conversationSet)
-//
-//            // Reload the page after the conversations have been added
-//            if let existingConversations = page.conversations! as? Set<Conversation> {
-//                let conversationsToUpdate = Array(existingConversations)
-//                    .filter {
-//                    $0.inDayRange == true
-//                    && $0.updatedTime! > $0.lastRefresh ?? Date(timeIntervalSince1970: 0)
-//                }
-//
-//                print("Conversations to update", conversationsToUpdate)
-//
-//                for conversation in conversationsToUpdate {
-//                    print("Getting conversation")
-//                    self.getNewMessages(page: page, conversation: conversation) {
-//                        conversationTuple in
-//                        let newMessages = conversationTuple.0
-//
-//                        print("New messages")
-//                        print(conversation.id)
-//                        for message in newMessages {
-//                            print(message.conversation!.id)
-//                        }
-//
-//                        // let pagination = conversationTuple.1
-//
-//                        print(newMessages.count, "NMC")
-//                        if newMessages.count > 0 {
-//                            let userList = conversation.updateCorrespondent()
-//                            if userList.count > 0 {
-//                                page.pageUser = userList[1]
-//                                print("Page user", page.pageUser)
-//                            }
-//                        }
-//
-//                        conversation.messagesInitialized = true
-//
-//                        var allConversationsLoaded: Bool = true
-//                        for conversation in conversationsToUpdate {
-//                            if !conversation.messagesInitialized {
-//                                allConversationsLoaded = false
-//                            }
-//                        }
-//
-//                        print("ACL", allConversationsLoaded)
-//                        if allConversationsLoaded {
-//
-//                            self.refreshUserProfilePictures(page: page)
-//
-//                            // reset for the next reload
-//                            for conversation in conversationsToUpdate {
-//                                conversation.messagesInitialized = false
-//                            }
-//
-//                            print("Conversations updated")
-//                            print(conversationsToUpdate)
-//
-//                            pagesLoaded = pagesLoaded + 1
-//                            if pagesLoaded == activePages.count {
-//                                print("All pages loaded")
-//                                do {
-//                                    try self.moc.save()
-//                                } catch {
-//                                    print("Error saving K data: \(error.localizedDescription)")
-//                                }
-//                                DispatchQueue.main.async {
-//                                    // Set the selected page is the currently selected page is nil or no longer exists in the set of avaialable pages
-//                                    self.updateSelectedPage() {
-//                                        if self.session.selectedPage != nil {
-//                                            self.addConversationListeners(page: self.session.selectedPage!)
-//                                        }
-//
-//                                        self.session.loadingPageInformation = false
-//
-//                                        completion()
-//                                    }
-//                                }
-//                            }
-//                        }
-//                    }
-//                }
-//
-//                // If no conversations mark the page as loaded and see if all pages have been loaded
-//                if conversationsToUpdate.count == 0 {
-//                    pagesLoaded = pagesLoaded + 1
-//                    if pagesLoaded == activePages.count {
-//                        print("All pages loaded")
-//                        do {
-//                            try self.moc.save()
-//                        } catch {
-//                            print("Error saving L data: \(error.localizedDescription)")
-//                        }
-//                        DispatchQueue.main.async {
-//                            //self.refreshUserProfilePictures(page: page)
-//                            // Set the selected page is the currently selected page is nil or no longer exists in the set of avaialable pages
-//                            self.updateSelectedPage() {
-//                                if self.session.selectedPage != nil {
-//                                    self.addConversationListeners(page: self.session.selectedPage!)
-//                                }
-//                                DispatchQueue.main.async {
-//                                    self.session.loadingPageInformation = false
-//                                }
-//                                completion()
-//                            }
-//                        }
-//                    }
-//                }
-//            }
-//        }
-//
-//        if activePages.count == 0 {
-//            DispatchQueue.main.async {
-//                self.session.loadingPageInformation = false
-//            }
-//            completion()
-//        }
-//
-//    }
     func decrementConversationsToUpdate(pageID: String?) {
         if pageID == self.session.selectedPage!.id {
             if self.session.conversationsToUpdate > 0 {
@@ -594,23 +361,36 @@ extension ConversationsView {
         }
     }
 
-    func refreshUserProfilePictures(page: MetaPage) {
-        print("Calling refresh profile pic")
-        var userIndex = 0
-        for user in self.existingUsers {
-            userIndex += 1
-            user.getProfilePicture(page: page) {
-                print("USERPP", user)
-                if userIndex == self.existingUsers.count {
-                    do {
-                        Task {
-                            try self.moc.save()
+    func refreshUserProfilePictures() {
+        let activePages: [MetaPage] = self.existingPages.filter {
+            $0.active
+        }
+        for page in activePages {
+            var userIndex = 0
+            for user in self.existingUsers {
+                userIndex += 1
+                user.getProfilePicture(page: page) {
+                    print("USERPP", user)
+                    if userIndex == self.existingUsers.count {
+                        do {
+                            Task {
+                                try self.moc.save()
+                            }
+                        } catch {
+                            print("Error saving M data: \(error.localizedDescription)")
                         }
-                    } catch {
-                        print("Error saving M data: \(error.localizedDescription)")
                     }
                 }
             }
+        }
+    }
+    
+    func addActivePageListeners() {
+        let activePages: [MetaPage] = self.existingPages.filter {
+            $0.active
+        }
+        for page in activePages {
+            self.addConversationListeners(page: page)
         }
     }
     
@@ -766,7 +546,7 @@ extension ConversationsView {
                 }
         }
         else {
-            self.session.conversationsToUpdate = self.session.conversationsToUpdate - 1
+            self.decrementConversationsToUpdate(pageID: conversation.page.id)
         }
     }
     
@@ -1071,11 +851,6 @@ extension ConversationsView {
                                     let conversations = Array(conversationSet)
                                     for conversation in conversations {
                                         
-                                        // TODO: Having some trouble with this
-                                        if conversation.correspondent == nil {
-                                            print("Correspondent is nil")
-                                        }
-                                        
                                         if conversation.correspondent != nil && conversation.correspondent!.id == senderId {
                                             print("SLC")
                                             conversationFound = true
@@ -1166,17 +941,9 @@ extension ConversationsView {
                                 }
                                 
                                 // TODO: Of course facebook doesn't send the conversation ID with the webhook... this should work for now but may be slow. Try to come up with a more efficient way later
-//                                if !conversationFound && isDeleted != nil && !isDeleted! {
-//                                    print("Not found", senderId)
-//                                    for platform in messagingPlatforms {
-//                                        Task {
-//                                            if page.id != nil && page.name != nil && page.name != nil && page.accessToken != nil && page.category != nil {
-//                                                let pageModel = MetaPageModel(id: page.id!, name: page.name!, accessToken: page.accessToken!, category: page.category!)
-//                                                await self.getConversations(page: pageModel, platform: platform)
-//                                            }
-//                                        }
-//                                    }
-//                                }
+                                if !conversationFound && isDeleted != nil && !isDeleted! {
+                                    self.initializePageInfo()
+                                }
                             }
                         }
                     }

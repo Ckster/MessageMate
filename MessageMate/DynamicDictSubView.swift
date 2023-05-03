@@ -278,7 +278,6 @@ struct DictHeaderView: View {
 }
 
 
-// TODO: Show something is user does not fill in both fields
 struct DoubleInputBoxView: View, Equatable {
     @Environment(\.colorScheme) var colorScheme
     @EnvironmentObject var session: SessionStore

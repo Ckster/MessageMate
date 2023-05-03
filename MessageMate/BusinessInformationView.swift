@@ -23,9 +23,6 @@ struct BusinessInformationView: View {
     @Environment(\.colorScheme) var colorScheme
     @State var loading: Bool = true
     let db = Firestore.firestore()
-    
-    // TODO: Make sure users can't delete everything
-    // TODO: Update when screen goes away in case user inputs info and then doesn't navigate back. Maybe 'Done' button
 
     let subViewDict: Dictionary<String, AnyView> = [
         GENERAL_INFORMATION: AnyView(GeneralInfoSubView()),

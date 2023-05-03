@@ -17,7 +17,12 @@ extension MetaUser {
                 profileData in
                 print("PROFILE DATA", profileData, page.accessToken!, self.id)
                 let profilePicURL = profileData["profile_pic"] as? String
-                self.profilePictureURL = URL(string: profilePicURL?.replacingOccurrences(of: "\\", with: "") ?? "")
+                if profilePicURL != nil {
+                    let url = URL(string: profilePicURL!)
+                    if url != nil {
+                        self.profilePictureURL = url!
+                    }
+                }
                 completion()
             }
         }

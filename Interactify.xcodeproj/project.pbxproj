@@ -54,6 +54,7 @@
 		ED53B9B1297F8A250013C03B /* TutorialView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED53B9B0297F8A250013C03B /* TutorialView.swift */; };
 		ED53B9B3297F8A400013C03B /* BusinessInformationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED53B9B2297F8A400013C03B /* BusinessInformationView.swift */; };
 		ED53B9B5297F8AAA0013C03B /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED53B9B4297F8AAA0013C03B /* OnboardingView.swift */; };
+		ED5EC3F42A0237BC00BE7E5D /* MessagingDatabaseUpdaters.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED5EC3F32A0237BC00BE7E5D /* MessagingDatabaseUpdaters.swift */; };
 		ED700B6B297CA1AD0058968B /* SessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED700B68297CA1AC0058968B /* SessionStore.swift */; };
 		ED700B6C297CA1AD0058968B /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED700B69297CA1AC0058968B /* AppDelegate.swift */; };
 		ED700B6D297CA1AD0058968B /* FirebaseNamespaces.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED700B6A297CA1AD0058968B /* FirebaseNamespaces.swift */; };
@@ -136,6 +137,7 @@
 		ED53B9B2297F8A400013C03B /* BusinessInformationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BusinessInformationView.swift; sourceTree = "<group>"; };
 		ED53B9B4297F8AAA0013C03B /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		ED53B9B6297F8C7F0013C03B /* MessageMate.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = MessageMate.entitlements; sourceTree = "<group>"; };
+		ED5EC3F32A0237BC00BE7E5D /* MessagingDatabaseUpdaters.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessagingDatabaseUpdaters.swift; sourceTree = "<group>"; };
 		ED700B68297CA1AC0058968B /* SessionStore.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SessionStore.swift; sourceTree = "<group>"; };
 		ED700B69297CA1AC0058968B /* AppDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		ED700B6A297CA1AD0058968B /* FirebaseNamespaces.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FirebaseNamespaces.swift; sourceTree = "<group>"; };
@@ -286,6 +288,7 @@
 				ED72C9BD29F7920E00DDE685 /* MessagingExtensions.swift */,
 				ED23AA3929FB5C260088947D /* InitialsView.swift */,
 				ED23AA3B29FCA6FB0088947D /* DataModels.swift */,
+				ED5EC3F32A0237BC00BE7E5D /* MessagingDatabaseUpdaters.swift */,
 			);
 			path = MessageMate;
 			sourceTree = "<group>";
@@ -429,6 +432,7 @@
 				ED41B0EB29F62C6D00C5443A /* Messaging.xcdatamodeld in Sources */,
 				ED72C9BE29F7920E00DDE685 /* MessagingExtensions.swift in Sources */,
 				ED23AA3A29FB5C260088947D /* InitialsView.swift in Sources */,
+				ED5EC3F42A0237BC00BE7E5D /* MessagingDatabaseUpdaters.swift in Sources */,
 				ED700B6C297CA1AD0058968B /* AppDelegate.swift in Sources */,
 				ED700B73297CA54E0058968B /* SignInView.swift in Sources */,
 				ED99A90D297C8F2A0029235B /* ContentView.swift in Sources */,

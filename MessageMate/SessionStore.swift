@@ -65,7 +65,6 @@ class SessionStore : NSObject, ObservableObject {
     @Published var fullScreenImageUrlString: String?
     @Published var autoGeneratingMessage: Bool = false
     
-    // TODO: Add in actual workflow to make this false when it needs to be
     @Published var onboardingCompleted: Bool? = nil
     
     @Published var unreadMessages: Int = 0
@@ -346,7 +345,6 @@ class SessionStore : NSObject, ObservableObject {
                         
                         // Set the initial datafields
                         userSettings.setData([
-                            // TODO: Get first name of user from the credential here or earlier on in the auth workflow and put it in the database here
                             Users.fields.ONBOARDING_COMPLETED: false,
                             Users.fields.LEGAL_AGREEMENT: Timestamp.init(),
                             Users.fields.TOKENS: [Messaging.messaging().fcmToken ?? ""]

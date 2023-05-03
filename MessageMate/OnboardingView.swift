@@ -25,9 +25,6 @@ let senderCharacteristicsExample = "Ex. Clear, concise, down to Earth, sometimes
 let businessNameExample = "Ex. Noon Moon Coffee"
 let industryExample = "Ex. Coffee shop and bakery"
 
-// TODO: Programatically add page for Facebook and maybe Instagram webhooks
-// TODO: Add rate limit UI
-
 
 struct OnboardingView: View {
     @EnvironmentObject var session: SessionStore
