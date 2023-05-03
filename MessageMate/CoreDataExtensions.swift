@@ -143,71 +143,69 @@ extension Conversation {
         return rList
     }
     
-    public override func validateForInsert() throws {
-            try super.validateForInsert()
+//    public override func validateForInsert() throws {
+//            try super.validateForInsert()
+//
+//            let context = self.managedObjectContext!
+//            let request = NSFetchRequest<Conversation>(entityName: "Conversation")
+//            request.predicate = NSPredicate(format: "id == %@", self.id!)
+//            let count = try context.count(for: request)
+//
+//            if count > 0 {
+//                throw NSError(domain: "erickverleye.MessageMate", code: 0, userInfo: [
+//                    NSLocalizedDescriptionKey: "Cannot insert. A conversation with this id already exists."
+//                ])
+//            }
+//        }
 
-            let context = self.managedObjectContext!
-            let request = NSFetchRequest<Conversation>(entityName: "Conversation")
-            request.predicate = NSPredicate(format: "id == %@", self.id!)
-            let count = try context.count(for: request)
-
-            if count > 0 {
-                throw NSError(domain: "erickverleye.MessageMate", code: 0, userInfo: [
-                    NSLocalizedDescriptionKey: "A conversation with this id already exists."
-                ])
-            }
-        }
-
-    public override func validateForUpdate() throws {
-            try super.validateForUpdate()
-
-            let context = self.managedObjectContext!
-            let request = NSFetchRequest<Conversation>(entityName: "Conversation")
-            request.predicate = NSPredicate(format: "id == %@ AND self != %@", self.id!, self)
-            let count = try context.count(for: request)
-
-            if count > 0 {
-                throw NSError(domain: "erickverleye.MessageMate", code: 0, userInfo: [
-                    NSLocalizedDescriptionKey: "A conversation with this id already exists."
-                ])
-            }
-        }
-    
-    
+//    public override func validateForUpdate() throws {
+//            try super.validateForUpdate()
+//
+//            let context = self.managedObjectContext!
+//            let request = NSFetchRequest<Conversation>(entityName: "Conversation")
+//            request.predicate = NSPredicate(format: "id == %@ AND self != %@", self.id!, self)
+//            let count = try context.count(for: request)
+//
+//            if count > 0 {
+//                throw NSError(domain: "erickverleye.MessageMate", code: 0, userInfo: [
+//                    NSLocalizedDescriptionKey: "A conversation with this id already exists."
+//                ])
+//            }
+//        }
 }
 
 
 extension Message {
     
-    public override func validateForInsert() throws {
-            try super.validateForInsert()
-
-            let context = self.managedObjectContext!
-            let request = NSFetchRequest<Message>(entityName: "Message")
-            request.predicate = NSPredicate(format: "id == %@", self.id!)
-            let count = try context.count(for: request)
-
-            if count > 0 {
-                throw NSError(domain: "erickverleye.MessageMate", code: 0, userInfo: [
-                    NSLocalizedDescriptionKey: "A message with this id already exists."
-                ])
-            }
-        }
-
-    public override func validateForUpdate() throws {
-            try super.validateForUpdate()
-
-            let context = self.managedObjectContext!
-            let request = NSFetchRequest<Message>(entityName: "Message")
-            request.predicate = NSPredicate(format: "id == %@ AND self != %@", self.id!, self)
-            let count = try context.count(for: request)
-
-            if count > 0 {
-                throw NSError(domain: "erickverleye.MessageMate", code: 0, userInfo: [
-                    NSLocalizedDescriptionKey: "A message with this id already exists."
-                ])
-            }
-        }
+//    public override func validateForInsert() throws {
+//            try super.validateForInsert()
+//
+//            let context = self.managedObjectContext!
+//            let request = NSFetchRequest<Message>(entityName: "Message")
+//            request.predicate = NSPredicate(format: "id == %@", self.id!)
+//            let count = try context.count(for: request)
+//
+//            if count > 0 {
+//                throw NSError(domain: "erickverleye.MessageMate", code: 0, userInfo: [
+//                    NSLocalizedDescriptionKey: "A message with this id already exists."
+//                ])
+//            }
+//        }
+//
+//    public override func validateForUpdate() throws {
+//            try super.validateForUpdate()
+//
+//            let context = self.managedObjectContext!
+//            let request = NSFetchRequest<Message>(entityName: "Message")
+//            request.predicate = NSPredicate(format: "id == %@ AND self != %@", self.id!, self)
+//            let count = try context.count(for: request)
+//
+//            if count > 0 {
+//                throw NSError(domain: "erickverleye.MessageMate", code: 0, userInfo: [
+//                    NSLocalizedDescriptionKey: "A message with this id already exists."
+//                ])
+//            }
+//        }
     
     
 }

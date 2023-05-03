@@ -79,24 +79,25 @@ struct InboxView: View {
                         .environmentObject(self.session)
                         .environment(\.managedObjectContext, self.moc)
                     
-//                    Text("Save database").onTapGesture {
-//                        let urls = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
-//                        let appSupportURL = urls[urls.count - 1]
-//                        let sqliteURL = appSupportURL.appendingPathComponent("Messaging.sqlite")
-//
-//                        print("sqlite \(sqliteURL)")
-//
-//                        do {
-//                            try FileManager.default.copyItem(at: sqliteURL, to: URL(fileURLWithPath: "/Users/erickverleye/Desktop/Projects/MessageMate/sqlite/Messaging.sqlite"))
-//
-//                        }
-//                        catch {
-//
-//                        }
-//                    }
-                    
+                    Text("Save database").onTapGesture {
+                        let urls = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
+                        let appSupportURL = urls[urls.count - 1]
+                        let sqliteURL = appSupportURL.appendingPathComponent("Messaging.sqlite")
+                        let sqliteURL1 = appSupportURL.appendingPathComponent("Messaging.sqlite-wal")
+                        let sqliteURL2 = appSupportURL.appendingPathComponent("Messaging.sqlite-shm")
+                        print("sqlite \(sqliteURL)")
+
+                        do {
+                            try FileManager.default.copyItem(at: sqliteURL, to: URL(fileURLWithPath: "/Users/erickverleye/Desktop/Projects/MessageMate/sqlite/Messaging.sqlite"))
+                            try FileManager.default.copyItem(at: sqliteURL1, to: URL(fileURLWithPath: "/Users/erickverleye/Desktop/Projects/MessageMate/sqlite/Messaging.sqlite-wal"))
+                            try FileManager.default.copyItem(at: sqliteURL2, to: URL(fileURLWithPath: "/Users/erickverleye/Desktop/Projects/MessageMate/sqlite/Messaging.sqlite-shm"))
+
+                        }
+                        catch {
+
+                        }
+                    }
                 }
-                
             }
         }
     }
@@ -120,9 +121,99 @@ struct ConversationsView: View {
     @FetchRequest(sortDescriptors: []) var existingPages: FetchedResults<MetaPage>
     @FetchRequest(sortDescriptors: []) var existingUsers: FetchedResults<MetaUser>
     
-    @State var pageToUdate: MetaPageModel?
+    @State var pagesToUpdate: [MetaPageModel]?
     @State var conversationsToUpdate: [ConversationModel]?
-    @State var messagesToUpdate: [MessageModel]?
+    @State var messagesToUpdate: [MessageModel]? {
+        didSet {
+            DispatchQueue.main.async {
+                let newMessageModels = messagesToUpdate
+                print("Updating message")
+                if newMessageModels == nil || newMessageModels!.count == 0 {
+                    return
+                }
+                
+                print("M Not nil")
+                
+                
+                let conversation = self.conversationsHook.first(where: {$0.id == newMessageModels!.first!.conversation!.id})
+                let page = self.existingPages.first(where: {$0.id == conversation?.metaPage!.id})
+                
+                if conversation == nil || page == nil {
+                    return
+                }
+                
+                for newMessageModel in newMessageModels! {
+                    let newMessage: Message = Message(context: self.moc)
+                    
+                    newMessage.conversation = conversation
+                    
+                    newMessage.id = newMessageModel.id
+                    newMessage.message = newMessageModel.message
+                    newMessage.createdTime = newMessageModel.createdTime
+                    newMessage.uid = UUID()
+                    newMessage.opened = true
+                    newMessage.dayStarter = newMessageModel.dayStarter!
+                    
+                    if newMessageModel.imageAttachment != nil {
+                        let imageAttachment = ImageAttachment(context: self.moc)
+                        imageAttachment.uid = UUID()
+                        imageAttachment.url = URL(string: newMessageModel.imageAttachment!.url) ?? URL(string: "")
+                        newMessage.imageAttachment = imageAttachment
+                    }
+                    if newMessageModel.instagramStoryMention != nil {
+                        print("insta story m \(newMessageModel.instagramStoryMention!.id)")
+                        let instagramStoryMention = InstagramStoryMention(context: self.moc)
+                        instagramStoryMention.uid = UUID()
+                        instagramStoryMention.id = newMessageModel.instagramStoryMention!.id
+                        instagramStoryMention.cdnURL =  URL(string: newMessageModel.instagramStoryMention!.cdnUrl) ?? URL(string: "")
+                        newMessage.instagramStoryMention = instagramStoryMention
+                    }
+                    if newMessageModel.instagramStoryReply != nil {
+                        print("insta story r \(newMessageModel.instagramStoryMention!.id)")
+                        let instagramStoryReply = InstagramStoryReply(context: self.moc)
+                        instagramStoryReply.uid = UUID()
+                        instagramStoryReply.id = newMessageModel.instagramStoryReply!.id
+                        instagramStoryReply.cdnURL = URL(string: newMessageModel.instagramStoryReply!.cdnUrl) ?? URL(string: "")
+                        newMessage.instagramStoryReply = instagramStoryReply
+                    }
+                    if newMessageModel.videoAttachment != nil {
+                        let videoAttachment = VideoAttachment(context: self.moc)
+                        videoAttachment.uid = UUID()
+                        videoAttachment.url = URL(string: newMessageModel.videoAttachment!.url) ?? URL(string: "")
+                        newMessage.videoAttachment = videoAttachment
+                    }
+                    
+                    print("New / update user")
+                    print(newMessageModel.to.id)
+                    print(newMessageModel.from.id)
+                    
+                    let toUser = self.updateOrCreateUser(user: newMessageModel.to)
+                    let fromUser = self.updateOrCreateUser(user: newMessageModel.from)
+                    
+                    newMessage.to = toUser
+                    newMessage.from = fromUser
+                    
+                }
+                conversation?.lastRefresh = Date()
+                let userList = conversation?.updateCorrespondent()
+                if userList?.count ?? 0 > 0 {
+                    page!.pageUser = userList![1]
+                }
+
+                do {
+                    try self.moc.save()
+                } catch {
+                    print("Error saving A1 data: \(error.localizedDescription)")
+                }
+                
+                print("AU \(conversation!.metaPage?.id)")
+                self.decrementConversationsToUpdate(pageID: conversation?.metaPage?.id)
+                
+                print("Updated messages for conversation")
+            }
+            
+        }
+    }
     
     let db = Firestore.firestore()
     
@@ -140,55 +231,66 @@ struct ConversationsView: View {
                             self.moc.perform {
                                 print(Thread.current, "Thread C")
                                 Task {
-                                    await self.updateActivePages()
+                                    self.pagesToUpdate = await self.updateActivePages()
                                 }
                             }
                         })
-                        .onChange(of: self.pageToUdate, perform: {
-                            pageModel in
-                            print("Page to update firing")
-                            
-                            if pageModel == nil {
+                        .onChange(of: self.pagesToUpdate, perform: {
+                            pageModels in
+                            print("Pages to update firing")
+                            if pageModels == nil {
                                 return
                             }
-                        
-                            let existingPage = self.existingPages.first(where: { $0.id == pageModel!.id })
-                            
-                            var page: MetaPage? = nil
-                            
-                            // Update some fields
-                            if existingPage != nil {
-                                print("Existing page", existingPage)
-                                existingPage!.category = pageModel!.category
-                                existingPage!.name = pageModel!.name
-                                existingPage!.accessToken = pageModel!.accessToken
-                                existingPage!.active = true
-                                page = existingPage
-                            }
-                            
-                            // Create a new MetaPage instance
-                            else {
-                                let newPage = MetaPage(context: self.moc)
+                            for pageModel in pageModels! {
+                                let existingPage = self.existingPages.first(where: { $0.id == pageModel.id })
                                 
-                                newPage.uid = UUID()
-                                newPage.id = pageModel!.id
-                                newPage.category = pageModel!.category
-                                newPage.name = pageModel!.name
-                                newPage.accessToken = pageModel!.accessToken
-                                newPage.active = true
-                                initializePage(page: newPage)
-                                newPage.isDefault = false
-                                page = newPage
-                            }
-                            
-                            Task {
-                                await page!.getPageBusinessAccountId()
-                                await page!.getProfilePicture()
-                                self.addConversationListeners(page: page!)
-                                self.updateSelectedPage {
-                                    for platform in messagingPlatforms {
-                                        Task {
-                                            await self.getConversations(page: pageModel!, platform: platform)
+                                var page: MetaPage? = nil
+                                
+                                // Update some fields
+                                if existingPage != nil {
+                                    print("Existing page", existingPage)
+                                    existingPage!.category = pageModel.category
+                                    existingPage!.name = pageModel.name
+                                    existingPage!.accessToken = pageModel.accessToken
+                                    existingPage!.active = true
+                                    page = existingPage
+                                }
+                                
+                                // Create a new MetaPage instance
+                                else {
+                                    let newPage = MetaPage(context: self.moc)
+                                    
+                                    newPage.uid = UUID()
+                                    newPage.id = pageModel.id
+                                    newPage.category = pageModel.category
+                                    newPage.name = pageModel.name
+                                    newPage.accessToken = pageModel.accessToken
+                                    newPage.active = true
+                                    initializePage(page: newPage)
+                                    newPage.isDefault = false
+                                    page = newPage
+                                }
+                                
+                                Task {
+                                    await page!.getPageBusinessAccountId()
+                                    await page!.getProfilePicture()
+                                    self.addConversationListeners(page: page!)
+                                    self.updateSelectedPage {
+                                        var newConversations: [ConversationModel] = []
+                                        var platformCount = 0
+                                        for platform in messagingPlatforms {
+                                            Task {
+                                                let platformConversations = await self.getConversations(page: pageModel, platform: platform)
+                                                newConversations.append(contentsOf: platformConversations)
+                                                platformCount = platformCount + 1
+                                                if platformCount == messagingPlatforms.count {
+                                                    if page!.id == self.session.selectedPage?.id {
+                                                        print("Setting conv count w \(newConversations.count) \(page!.id) \(platformCount) \(messagingPlatforms.count)")
+                                                        self.session.conversationsToUpdate = newConversations.count
+                                                    }
+                                                    self.conversationsToUpdate = newConversations
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -198,31 +300,33 @@ struct ConversationsView: View {
                             conversations in
                             print("CTU firing")
                             if conversations == nil {
+                                self.session.conversationsToUpdate = 0
+                                self.session.loadingPageInformation = false
                                 return
                             }
                             
                             for conversation in conversationsToUpdate! {
                                 let existingConversation = self.conversationsHook.first(where: {$0.id == conversation.id})
                                 let existingPage = self.existingPages.first(where: {$0.id == conversation.page.id})
-                                
+                                print("Existing conversation with id \(conversation.id) \(existingConversation)")
                                 // Update some fields...
                                 if existingConversation != nil {
-                                    print("Updating conversation", existingConversation)
                                     existingConversation!.updatedTime = conversation.dateUpdated
                                     existingConversation!.inDayRange = conversation.inDayRange
                                     existingConversation!.metaPage = existingPage
+                                    print("Updating conversation", existingConversation)
                                 }
                                 
                                 // Create new instance
                                 else {
                                     let newConversation = Conversation(context: self.moc)
-                                    print("New conversation", newConversation)
                                     newConversation.uid = UUID()
                                     newConversation.id = conversation.id
                                     newConversation.platform = conversation.platform
                                     newConversation.updatedTime = conversation.dateUpdated
                                     newConversation.inDayRange = conversation.inDayRange
                                     newConversation.metaPage = existingPage
+                                    print("New conversation", newConversation)
                                 }
                                 
                                 conversation.lastRefresh = existingConversation?.lastRefresh
@@ -233,87 +337,19 @@ struct ConversationsView: View {
                                     print("Getting new messages")
                                     self.getNewMessages(conversation: conversation) { _ in}
                                 }
+                                else {
+                                    print("NO message update")
+                                    self.decrementConversationsToUpdate(pageID: conversation.page.id)
+                                }
                             }
-                            try? self.moc.save()
+                            do {
+                                try self.moc.save()
+                            } catch {
+                                print("Error saving A2 data: \(error.localizedDescription)")
+                            }
                         })
-                        .onChange(of: self.messagesToUpdate, perform: {
-                            newMessageModels in
-                            print("Updating message")
-                            if newMessageModels == nil || newMessageModels!.count == 0 {
-                                return
-                            }
+                        //.onChange(of: self.messagesToUpdate, perform: {})
                             
-                            print("M Not nil")
-                            
-                            let conversation = self.conversationsHook.first(where: {$0.id == newMessageModels!.first!.conversation!.id})
-                            
-                            for newMessageModel in newMessageModels! {
-                                let newMessage: Message = Message(context: self.moc)
-                                
-                                newMessage.conversation = conversation
-                                
-                                newMessage.id = newMessageModel.id
-                                newMessage.message = newMessageModel.message
-                                newMessage.createdTime = newMessageModel.createdTime
-                                newMessage.uid = UUID()
-                                newMessage.opened = true
-                                newMessage.dayStarter = newMessageModel.dayStarter!
-                                
-                                if newMessageModel.imageAttachment != nil {
-                                    let imageAttachment = ImageAttachment(context: self.moc)
-                                    imageAttachment.uid = UUID()
-                                    imageAttachment.url = URL(string: newMessageModel.imageAttachment!.url) ?? URL(string: "")
-                                    newMessage.imageAttachment = imageAttachment
-                                }
-                                if newMessageModel.instagramStoryMention != nil {
-                                    let instagramStoryMention = InstagramStoryMention(context: self.moc)
-                                    instagramStoryMention.uid = UUID()
-                                    instagramStoryMention.id = newMessageModel.instagramStoryMention!.id
-                                    instagramStoryMention.cdnURL =  URL(string: newMessageModel.instagramStoryMention!.cdnUrl) ?? URL(string: "")
-                                    newMessage.instagramStoryMention = instagramStoryMention
-                                }
-                                if newMessageModel.instagramStoryReply != nil {
-                                    let instagramStoryReply = InstagramStoryReply(context: self.moc)
-                                    instagramStoryReply.uid = UUID()
-                                    instagramStoryReply.id = newMessageModel.instagramStoryReply!.id
-                                    instagramStoryReply.cdnURL = URL(string: newMessageModel.instagramStoryReply!.cdnUrl) ?? URL(string: "")
-                                    newMessage.instagramStoryReply = instagramStoryReply
-                                }
-                                if newMessageModel.videoAttachment != nil {
-                                    let videoAttachment = VideoAttachment(context: self.moc)
-                                    videoAttachment.uid = UUID()
-                                    videoAttachment.url = URL(string: newMessageModel.videoAttachment!.url) ?? URL(string: "")
-                                    newMessage.videoAttachment = videoAttachment
-                                }
-                                
-                                let toUser = self.updateOrCreateUser(user: newMessageModel.to)
-                                let fromUser = self.updateOrCreateUser(user: newMessageModel.from)
-                                
-                                newMessage.to = toUser
-                                newMessage.from = fromUser
-                                
-                                conversation?.lastRefresh = Date()
-                                
-                            }
-                            try? self.moc.save()
-                            
-                            print("AU \(conversation!.metaPage?.id)")
-                            if conversation!.metaPage?.id == self.session.selectedPage!.id {
-                                
-                                if self.session.conversationsToUpdate > 0 {
-                                    print("BU \(self.session.conversationsToUpdate)")
-                                    self.session.conversationsToUpdate = self.session.conversationsToUpdate - 1
-                                    print("CU \(self.session.conversationsToUpdate)")
-                                    if self.session.conversationsToUpdate == 0 {
-                                        print("CU")
-                                        self.session.loadingPageInformation = false
-                                    }
-                                }
-                            }
-                            
-                            print("Updated messages for conversation")
-                        }
-                    )
                 }
                 
                 else {
@@ -370,12 +406,23 @@ struct ConversationsView: View {
                         // Initialize things
                         .onAppear(perform: {
                             print("On Appear A")
-                            let conversationsToShow : [Conversation] = self.conversationsHook.filter {
-                                $0.metaPage?.id == self.session.selectedPage!.id! &&
-                                $0.inDayRange
+                            let conversationsToShow : [Conversation] = self.conversationsHook.filter {_ in
+                                true
+                                //$0.metaPage?.id == self.session.selectedPage!.id!
+                                //&&
+                                //$0.inDayRange
                             }
+                            
+                            let activePages: [MetaPage] = self.existingPages.filter {
+                                $0.active
+                            }
+//                            for activePage in activePages {
+//                                self.refreshUserProfilePictures(page: activePage)
+//                            }
+                            
                             self.sortedConversations = self.sortConversations(conversations: conversationsToShow)
                             print("set sorted converations \(self.sortedConversations.count)")
+                            print(self.sortedConversations)
                         })
                         .onReceive(self.conversationsHook.publisher.count(), perform: {
                             _ in

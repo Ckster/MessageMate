@@ -206,38 +206,40 @@ extension ConversationsView {
 //        }
 //    }
     
-    func updateActivePages() async {
+    func updateActivePages() async -> [MetaPageModel] {
         if self.session.facebookUserToken != nil {
             let urlString = "https://graph.facebook.com/v16.0/me/accounts?access_token=\(self.session.facebookUserToken!)"
             
             let jsonDataDict = await getRequest(urlString: urlString)
             if jsonDataDict != nil {
-                DispatchQueue.global(qos: .background).async {
-                    let pages = jsonDataDict!["data"] as? [[String: AnyObject]]
-                    if pages != nil {
-                        let pageCount = pages!.count
-                        var pageIndex = 0
-                        print("Page response results", pages)
-                        for page in pages! {
-                            pageIndex = pageIndex + 1
-                            let pageAccessToken = page["access_token"] as? String
-                            let category = page["category"] as? String
-                            let name = page["name"] as? String
-                            let id = page["id"] as? String
-                            
-                            if id != nil && name != nil && pageAccessToken != nil && category != nil {
-                                let pageToUpdate = MetaPageModel(id: id!, name: name!, accessToken: pageAccessToken!, category: category!)
-                           
-                                print("Setting page to update")
-                                DispatchQueue.main.async {
-                                    self.pageToUdate = pageToUpdate
-                                }
+                let pages = jsonDataDict!["data"] as? [[String: AnyObject]]
+                var newPages: [MetaPageModel] = []
+                if pages != nil {
+                    let pageCount = pages!.count
+                    var pageIndex = 0
+                    print("Page response results", pages)
+                    for page in pages! {
+                        pageIndex = pageIndex + 1
+                        let pageAccessToken = page["access_token"] as? String
+                        let category = page["category"] as? String
+                        let name = page["name"] as? String
+                        let id = page["id"] as? String
+                        
+                        if id != nil && name != nil && pageAccessToken != nil && category != nil {
+                            let pageToUpdate = MetaPageModel(id: id!, name: name!, accessToken: pageAccessToken!, category: category!)
+                            newPages.append(pageToUpdate)
+                            print("Setting page to update")
+                            if pageIndex == pages!.count {
+                                return newPages
                             }
                         }
                     }
                 }
+                else {return []}
             }
+            else {return []}
         }
+        return []
     }
     
     func updateSelectedPage(completion: @escaping () -> Void) {
@@ -578,8 +580,22 @@ extension ConversationsView {
 //        }
 //
 //    }
-    
+    func decrementConversationsToUpdate(pageID: String?) {
+        if pageID == self.session.selectedPage!.id {
+            if self.session.conversationsToUpdate > 0 {
+                print("BU \(self.session.conversationsToUpdate)")
+                self.session.conversationsToUpdate = self.session.conversationsToUpdate - 1
+                print("CU \(self.session.conversationsToUpdate)")
+                if self.session.conversationsToUpdate == 0 {
+                    print("CU")
+                    self.session.loadingPageInformation = false
+                }
+            }
+        }
+    }
+
     func refreshUserProfilePictures(page: MetaPage) {
+        print("Calling refresh profile pic")
         var userIndex = 0
         for user in self.existingUsers {
             userIndex += 1
@@ -595,11 +611,10 @@ extension ConversationsView {
                     }
                 }
             }
-            
         }
     }
     
-    func getConversations(page: MetaPageModel, platform: String) async {
+    func getConversations(page: MetaPageModel, platform: String) async -> [ConversationModel] {
         print("Calling get conversations")
         var urlString = "https://graph.facebook.com/v16.0/\(page.id)/conversations?"
         
@@ -633,15 +648,11 @@ extension ConversationsView {
                         newConversations.append(newConversationModel)
                     }
                 }
-                
-                if page.id == self.session.selectedPage?.id {
-                    print("Setting conv count w \(page.id)")
-                    self.session.conversationsToUpdate = self.session.conversationsToUpdate + newConversations.count
-                }
-                
-                self.conversationsToUpdate = newConversations
+                return newConversations
             }
+            else { return [] }
         }
+        else { return [] }
     }
     
     func getNewMessages(conversation: ConversationModel, cursor: String? = nil, completion: @escaping (([MessageModel], PagingInfo?)) -> Void) {
@@ -740,6 +751,8 @@ extension ConversationsView {
                                                 
                                                 print("Done with refreshed message")
                                             }
+                                            
+                                            print("Setting messages to update")
                                             self.messagesToUpdate = newMessages
                 
                                             completion((newMessages, pagingInfo))
@@ -752,11 +765,26 @@ extension ConversationsView {
                     }
                 }
         }
+        else {
+            self.session.conversationsToUpdate = self.session.conversationsToUpdate - 1
+        }
     }
+    
+    func fetchUser(id: String) -> MetaUser? {
+            let fetchRequest: NSFetchRequest<MetaUser> = MetaUser.fetchRequest()
+            fetchRequest.predicate = NSPredicate(format: "id == %@", id)
+            do {
+                let users = try moc.fetch(fetchRequest)
+                return users.first
+            } catch {
+                print("Error fetching user: \(error.localizedDescription)")
+                return nil
+            }
+        }
     
     func updateOrCreateUser(user: MetaUserModel) -> MetaUser {
         var outUser: MetaUser? = nil
-        let existingUser = self.existingUsers.first(where: {$0.id == user.id})
+        let existingUser = self.fetchUser(id: user.id)
         
         if existingUser != nil {
             existingUser!.name = user.name
@@ -792,10 +820,11 @@ extension ConversationsView {
         if storyData != nil {
             print("not nil")
             let mentionData = storyData!["mention"] as? [String: Any]
+            print("Mention data \(mentionData)")
             if mentionData != nil {
                 let id = mentionData!["id"] as? String
                 let cdnUrl = mentionData!["link"] as? String
-                if cdnUrl != nil {
+                if cdnUrl != nil && id != nil {
                     print("updating instagram story")
                     let newInstagramStoryMention = InstagramStoryMentionModel(id: id, cdnUrl: cdnUrl!)
                     return newInstagramStoryMention
@@ -812,10 +841,11 @@ extension ConversationsView {
         if storyData != nil {
             print("not nil")
             let replyToData = storyData!["reply_to"] as? [String: Any]
+            print("Reply data \(replyToData)")
             if replyToData != nil {
                 let id = replyToData!["id"] as? String
                 let cdnUrl = replyToData!["link"] as? String
-                if cdnUrl != nil {
+                if cdnUrl != nil && id != nil {
                     print("updating instagram story")
                     let newInstagramStoryReply = InstagramStoryReplyModel(id: id, cdnUrl: cdnUrl!)
                     return newInstagramStoryReply
