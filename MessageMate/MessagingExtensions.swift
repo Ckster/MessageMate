@@ -46,7 +46,7 @@ extension InfoView {
                         let name = page["name"] as? String
                         let id = page["id"] as? String
                         
-                        if id != nil {
+                        if id != nil && pageAccessToken != nil {
                             activeIDs.append(id!)
                             let existingPage = existingPages.first(where: { $0.id == id! })
                             
@@ -54,7 +54,7 @@ extension InfoView {
                             if existingPage != nil {
                                 existingPage!.category = category
                                 existingPage!.name = name
-                                existingPage!.accessToken = pageAccessToken
+                                existingPage!.accessToken = pageAccessToken!
                                 existingPage!.active = true
                                 await existingPage!.getPageBusinessAccountId()
                                 await existingPage!.getProfilePicture()
@@ -62,13 +62,14 @@ extension InfoView {
                             
                             // Create a new MetaPage instance
                             else {
-                                let newPage = MetaPage(context: self.moc)
-                                newPage.uid = UUID()
-                                newPage.id = id
-                                newPage.category = category
-                                newPage.name = name
-                                newPage.accessToken = pageAccessToken
-                                newPage.active = true
+                                let newPage = MetaPage(
+                                    context: self.moc,
+                                    id: id!,
+                                    accessToken: pageAccessToken!,
+                                    active: true,
+                                    category: category,
+                                    name: name
+                                )
                                 initializePage(page: newPage)
                                 await newPage.getPageBusinessAccountId()
                                 await newPage.getProfilePicture()
@@ -78,11 +79,11 @@ extension InfoView {
                         if pageIndex == pageCount {
                             // Deactive any pages that were not in response
                             for page in existingPages.lazy {
-                                if page.id != nil {
-                                    if !activeIDs.contains(page.id!) {
-                                        page.active = false
-                                    }
+                         
+                                if !activeIDs.contains(page.id) {
+                                    page.active = false
                                 }
+                                
                                 else {
                                     page.active  = false
                                 }
@@ -109,11 +110,11 @@ extension InfoView {
         @FetchRequest(sortDescriptors: []) var existingPages: FetchedResults<MetaPage>
         if self.session.selectedPage == nil {
             // Find the default if there is one
-            let defaultPage: MetaPage? = existingPages.first(where: {$0.active && $0.isDefault})
+            let defaultPage: MetaPage? = existingPages.first(where: {$0.active?.boolValue ?? false && $0.isDefault?.boolValue ?? false})
             
             // If not set the default to the first active page
             if defaultPage == nil {
-                let newDefault = existingPages.first(where: {$0.active})
+                let newDefault = existingPages.first(where: {$0.active?.boolValue ?? false})
                 if newDefault != nil {
                     newDefault!.isDefault = true
                     DispatchQueue.main.async {
@@ -137,7 +138,7 @@ extension InfoView {
         }
         else {
             // First check if the currently selected page is in the set of activated pages and if it is the default. If not switch to defualt if there is one; if not pick the first page and set it to the default
-            let existingActivePage: MetaPage? = existingPages.first(where: {$0.active && $0.id == self.session.selectedPage!.id})
+            let existingActivePage: MetaPage? = existingPages.first(where: {$0.active?.boolValue ?? false && $0.id == self.session.selectedPage!.id})
             
             if existingActivePage != nil {
                 // Just double check on webhooks
@@ -146,7 +147,7 @@ extension InfoView {
             
             else {
                 // See if there is a default
-                let defaultPage: MetaPage? = existingPages.first(where: {$0.active && $0.isDefault})
+                let defaultPage: MetaPage? = existingPages.first(where: {$0.active?.boolValue ?? false && $0.isDefault?.boolValue ?? false})
                 
                 // Set it if there is one and check webhooks
                 if defaultPage != nil {
@@ -157,7 +158,7 @@ extension InfoView {
                 }
                 
                 // If not then find first active page to set a new default
-                let newDefault = existingPages.first(where: {$0.active})
+                let newDefault = existingPages.first(where: {$0.active?.boolValue ?? false})
                 if newDefault != nil {
                     newDefault!.isDefault = true
                     DispatchQueue.main.async {
@@ -216,8 +217,9 @@ extension ConversationsView {
                         if id != nil && name != nil && pageAccessToken != nil && category != nil {
                             let pageToUpdate = MetaPageModel(id: id!, name: name!, accessToken: pageAccessToken!, category: category!)
                             newPages.append(pageToUpdate)
-                            print("Setting page to update")
+                            
                             if pageIndex == pages!.count {
+                                print("Setting page to update")
                                 return newPages
                             }
                         }
@@ -233,11 +235,11 @@ extension ConversationsView {
     func updateSelectedPage(completion: @escaping () -> Void) {
         if self.session.selectedPage == nil {
             // Find the default if there is one
-            let defaultPage: MetaPage? = self.existingPages.first(where: {$0.active && $0.isDefault})
+            let defaultPage: MetaPage? = self.existingPages.first(where: {$0.active?.boolValue ?? false && $0.isDefault?.boolValue ?? false})
             print("Default Page", defaultPage)
             // If not set the default to the first active page
             if defaultPage == nil {
-                let newDefault = self.existingPages.first(where: {$0.active})
+                let newDefault = self.existingPages.first(where: {$0.active?.boolValue ?? false})
                 print("New Default", newDefault)
                 if newDefault != nil {
                     newDefault!.isDefault = true
@@ -280,7 +282,7 @@ extension ConversationsView {
         }
         else {
             // First check if the currently selected page is in the set of activated pages and if it is the default. If not switch to defualt if there is one; if not pick the first page and set it to the default
-            let existingActivePage: MetaPage? = self.existingPages.first(where: {$0.active && $0.id == self.session.selectedPage!.id})
+            let existingActivePage: MetaPage? = self.existingPages.first(where: {$0.active?.boolValue ?? false && $0.id == self.session.selectedPage!.id})
             
             if existingActivePage != nil {
                 // Just double check on webhooks
@@ -295,7 +297,7 @@ extension ConversationsView {
             
             else {
                 // See if there is a default
-                let defaultPage: MetaPage? = self.existingPages.first(where: {$0.active && $0.isDefault})
+                let defaultPage: MetaPage? = self.existingPages.first(where: {$0.active?.boolValue ?? false && $0.isDefault?.boolValue ?? false})
                 
                 // Set it if there is one and check webhooks
                 if defaultPage != nil {
@@ -312,7 +314,7 @@ extension ConversationsView {
                 }
                 
                 // If not then find first active page to set a new default
-                let newDefault = self.existingPages.first(where: {$0.active})
+                let newDefault = self.existingPages.first(where: {$0.active?.boolValue ?? false})
                 if newDefault != nil {
                     newDefault!.isDefault = true
                     DispatchQueue.main.async {
@@ -341,8 +343,8 @@ extension ConversationsView {
     
     func setSortedConversations() {
         let conversationsToShow : [Conversation] = self.conversationsHook.filter {
-            $0.metaPage?.id == self.session.selectedPage!.id! &&
-            $0.inDayRange
+            $0.metaPage.id == self.session.selectedPage!.id &&
+            $0.inDayRange?.boolValue ?? false
         }
         self.sortedConversations = self.sortConversations(conversations: conversationsToShow)
     }
@@ -363,7 +365,7 @@ extension ConversationsView {
 
     func refreshUserProfilePictures() {
         let activePages: [MetaPage] = self.existingPages.filter {
-            $0.active
+            $0.active?.boolValue ?? false
         }
         for page in activePages {
             var userIndex = 0
@@ -387,7 +389,7 @@ extension ConversationsView {
     
     func addActivePageListeners() {
         let activePages: [MetaPage] = self.existingPages.filter {
-            $0.active
+            $0.active?.boolValue ?? false
         }
         for page in activePages {
             self.addConversationListeners(page: page)
@@ -424,7 +426,7 @@ extension ConversationsView {
                     if id != nil && updatedTime != nil {
                         let dateUpdated = Date().facebookStringToDate(fbString: updatedTime!)
                         let inDayRange = dateUpdated.distance(to: Date()) < Double(86400 * conversationDayLimit)
-                        let newConversationModel = ConversationModel(id: id!, updatedTime: updatedTime!, page: page, platform: platform, dateUpdated: dateUpdated, inDayRange: inDayRange)
+                        let newConversationModel = ConversationModel(id: id!, updatedTime: updatedTime!, page: page, platform: platform, dateUpdated: dateUpdated, inDayRange: NSNumber(value: inDayRange))
                         newConversations.append(newConversationModel)
                     }
                 }
@@ -527,7 +529,7 @@ extension ConversationsView {
                                                     dayStarter = lastDate!.month! != createdTimeDate.month! || lastDate!.day! != createdTimeDate.day!
                                                 }
                                                 lastDate = createdTimeDate
-                                                message.dayStarter = dayStarter
+                                                message.dayStarter = NSNumber(value: dayStarter)
                                                 
                                                 print("Done with refreshed message")
                                             }
@@ -561,7 +563,7 @@ extension ConversationsView {
                 let cdnUrl = mentionData!["link"] as? String
                 if cdnUrl != nil && id != nil {
                     print("updating instagram story")
-                    let newInstagramStoryMention = InstagramStoryMentionModel(id: id, cdnUrl: cdnUrl!)
+                    let newInstagramStoryMention = InstagramStoryMentionModel(id: id!, cdnUrl: cdnUrl!)
                     return newInstagramStoryMention
                 }
                 else {return nil}
@@ -582,7 +584,7 @@ extension ConversationsView {
                 let cdnUrl = replyToData!["link"] as? String
                 if cdnUrl != nil && id != nil {
                     print("updating instagram story")
-                    let newInstagramStoryReply = InstagramStoryReplyModel(id: id, cdnUrl: cdnUrl!)
+                    let newInstagramStoryReply = InstagramStoryReplyModel(id: id!, cdnUrl: cdnUrl!)
                     return newInstagramStoryReply
                 }
                 else {return nil}
@@ -742,7 +744,7 @@ extension ConversationsView {
     
     func initializeConversationCollection(page: MetaPage, completion: @escaping () -> Void) {
         if page.id != nil {
-            let conversationsCollection = self.db.collection(Pages.name).document(page.id!).collection(Pages.collections.CONVERSATIONS.name)
+            let conversationsCollection = self.db.collection(Pages.name).document(page.id).collection(Pages.collections.CONVERSATIONS.name)
             conversationsCollection.getDocuments() {
                 docs, error in
                 if error == nil && docs != nil {
@@ -770,7 +772,7 @@ extension ConversationsView {
             if page.id == nil {
                 return
             }
-            self.db.collection(Pages.name).document(page.id!).collection(Pages.collections.CONVERSATIONS.name).addSnapshotListener {
+            self.db.collection(Pages.name).document(page.id).collection(Pages.collections.CONVERSATIONS.name).addSnapshotListener {
                 querySnapshot, error in
                 guard let snapshot = querySnapshot else {
                     print("Error listening for conversations: \(error!)")
@@ -799,7 +801,7 @@ extension ConversationsView {
                             
                             print("Message id \(messageId)")
                             
-                            if page.businessAccountID ?? "" == pageId || page.id! == pageId {
+                            if page.businessAccountID ?? "" == pageId || page.id == pageId {
                                 print("SLA")
                                 var conversationFound: Bool = false
                                 
@@ -817,7 +819,7 @@ extension ConversationsView {
                                                 let existingMessages = sortMessages(messages: Array(messageSet))
                                                 var existingMessageIDs: [String] = []
                                                 for message in existingMessages {
-                                                    existingMessageIDs.append(message.id!)
+                                                    existingMessageIDs.append(message.id)
                                                 }
                 
                                                 if isDeleted != nil && isDeleted! {
@@ -836,44 +838,51 @@ extension ConversationsView {
                                                     {return}
                                                     
                                                     // Add the new message
-                                                    let lastDate = Calendar.current.dateComponents([.month, .day], from: existingMessages.last!.createdTime!)
+                                                    let lastDate = Calendar.current.dateComponents([.month, .day], from: existingMessages.last!.createdTime)
                                                     let messageCompDate = Calendar.current.dateComponents([.month, .day], from: messageDate)
                                                     let dayStarter = lastDate.month! != messageCompDate.month! || lastDate.day! != messageCompDate.day!
                                                     
-                                                    let newMessage = Message(context: self.moc)
-                                                    newMessage.uid = UUID()
-                                                    newMessage.id = messageId
-                                                    newMessage.conversation = conversation
-                                                    newMessage.message = messageText
-                                                    newMessage.to = page.pageUser
-                                                    newMessage.from = conversation.correspondent!
-                                                    newMessage.dayStarter = dayStarter
-                                                    newMessage.createdTime = messageDate
-                                                    
+                                                    let newMessage = Message(
+                                                        context: self.moc,
+                                                        id: messageId!,
+                                                        createdTime: messageDate,
+                                                        message: messageText,
+                                                        opened: NSNumber(value: false),
+                                                        dayStarter: NSNumber(value: dayStarter),
+                                                        conversation: conversation,
+                                                        to: page.pageUser!,
+                                                        from: conversation.correspondent!
+                                                    )
                                                     
                                                     if imageUrl != nil {
-                                                        let newImageAttachment = ImageAttachment(context: self.moc)
-                                                        newImageAttachment.uid = UUID()
-                                                        newImageAttachment.url = URL(string: imageUrl!)
-                                                        newImageAttachment.message = newMessage
+                                                        let newImageAttachment = ImageAttachment(
+                                                            context: self.moc,
+                                                            url: URL(string: imageUrl!),
+                                                            message: newMessage
+                                                        )
+                                                        newMessage.imageAttachment = newImageAttachment
                                                     }
                                                     else {
                                                         if storyMentionUrl != nil {
                                                             // TODO: Get story ID
-                                                            let newInstagramStoryMention = InstagramStoryMention(context: self.moc)
-                                                            newInstagramStoryMention.uid = UUID()
-                                                            newInstagramStoryMention.cdnURL = URL(string: storyMentionUrl!)
-                                                            newInstagramStoryMention.id = "1"
-                                                            newInstagramStoryMention.message = newMessage
+                                                            let newInstagramStoryMention = InstagramStoryMention(
+                                                                context: self.moc,
+                                                                id: "1",
+                                                                cdnURL: URL(string: storyMentionUrl!),
+                                                                message: newMessage
+                                                            )
+                                                            newMessage.instagramStoryMention = newInstagramStoryMention
                                                         }
                 
                                                         else {
                                                             if storyReplyUrl != nil {
-                                                                let newInstagramStoryReply = InstagramStoryReply(context: self.moc)
-                                                                newInstagramStoryReply.uid = UUID()
-                                                                newInstagramStoryReply.cdnURL = URL(string: storyReplyUrl!)
-                                                                newInstagramStoryReply.message = newMessage
-                                                                newInstagramStoryReply.id = "1"
+                                                                let newInstagramStoryReply = InstagramStoryReply(
+                                                                    context: self.moc,
+                                                                    id: "1",
+                                                                    cdnURL: URL(string: storyReplyUrl!),
+                                                                    message: newMessage
+                                                                )
+                                                                newMessage.instagramStoryReply = newInstagramStoryReply
                                                             }
                                                         }
                                                     }

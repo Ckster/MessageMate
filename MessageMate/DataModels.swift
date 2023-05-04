@@ -36,10 +36,10 @@ class ConversationModel: Hashable, Equatable {
     var messagesInitialized: Bool = false
     let platform: String
     let dateUpdated: Date
-    let inDayRange: Bool
+    let inDayRange: NSNumber
     var lastRefresh: Date?
         
-    init(id: String, updatedTime: String, page: MetaPageModel, platform: String, dateUpdated: Date, inDayRange: Bool, lastRefresh: Date? = nil) {
+    init(id: String, updatedTime: String, page: MetaPageModel, platform: String, dateUpdated: Date, inDayRange: NSNumber, lastRefresh: Date? = nil) {
         self.id = id
         self.page = page
         self.updatedTime = Date().facebookStringToDate(fbString: updatedTime)
@@ -60,10 +60,10 @@ class ConversationModel: Hashable, Equatable {
 
 
 class InstagramStoryMentionModel: Hashable, Equatable {
-    let id: String?
+    let id: String
     let cdnUrl: String
     
-    init (id: String?, cdnUrl: String) {
+    init (id: String, cdnUrl: String) {
         self.id = id
         self.cdnUrl = cdnUrl
     }
@@ -80,10 +80,10 @@ class InstagramStoryMentionModel: Hashable, Equatable {
 
 
 class InstagramStoryReplyModel: Hashable, Equatable {
-    let id: String?
+    let id: String
     let cdnUrl: String
     
-    init (id: String?, cdnUrl: String) {
+    init (id: String, cdnUrl: String) {
         self.id = id
         self.cdnUrl = cdnUrl
     }
@@ -142,15 +142,15 @@ class MessageModel: Hashable, Equatable {
     let to: MetaUserModel
     let from: MetaUserModel
     let createdTime: Date
-    var opened: Bool = false
+    var opened: NSNumber = NSNumber(value: false)
     var instagramStoryMention: InstagramStoryMentionModel?
     var instagramStoryReply: InstagramStoryReplyModel?
     var imageAttachment: ImageAttachmentModel?
     var videoAttachment: VideoAttachmentModel?
-    var dayStarter: Bool? = nil
+    var dayStarter: NSNumber? = nil
     var conversation: ConversationModel? = nil
     
-    init (id: String, message: String, to: MetaUserModel, from: MetaUserModel, dayStarter: Bool? = nil, createdTime: Date, instagramStoryMention: InstagramStoryMentionModel? = nil, instagramStoryReply: InstagramStoryReplyModel? = nil, imageAttachment: ImageAttachmentModel? = nil, videoAttachment: VideoAttachmentModel? = nil) {
+    init (id: String, message: String, to: MetaUserModel, from: MetaUserModel, dayStarter: NSNumber? = nil, createdTime: Date, instagramStoryMention: InstagramStoryMentionModel? = nil, instagramStoryReply: InstagramStoryReplyModel? = nil, imageAttachment: ImageAttachmentModel? = nil, videoAttachment: VideoAttachmentModel? = nil) {
         self.id = id
         self.message = message
         self.to = to

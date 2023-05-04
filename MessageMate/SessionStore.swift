@@ -194,7 +194,7 @@ class SessionStore : NSObject, ObservableObject {
             //            Pages.collections.BUSINESS_INFO.documents.FIELDS.fields.SENDER_CHARACTERISTICS
         ]
         if page.id != nil {
-            self.db.collection("\(Pages.name)/\(page.id!)/\(Pages.collections.BUSINESS_INFO.name)").document(Pages.collections.BUSINESS_INFO.documents.FIELDS.name).getDocument(completion:  {
+            self.db.collection("\(Pages.name)/\(page.id)/\(Pages.collections.BUSINESS_INFO.name)").document(Pages.collections.BUSINESS_INFO.documents.FIELDS.name).getDocument(completion:  {
                 data, error in
                 if data != nil && error == nil {
                     var missingRequiredFields: [String] = []
@@ -218,7 +218,7 @@ class SessionStore : NSObject, ObservableObject {
     
     func signOut () {
         // TODO: Remove FB user token
-        self.db.collection(Users.name).document(self.user.user!.uid).updateData(
+        self.db.collection(Users.name).document(self.user.uid ?? "").updateData(
             [
                 Users.fields.TOKENS: FieldValue.arrayRemove([Messaging.messaging().fcmToken ?? ""]),
                 Users.fields.FACEBOOK_USER_TOKEN: nil
@@ -228,10 +228,10 @@ class SessionStore : NSObject, ObservableObject {
                 if error == nil {
                     // TODO: Move this to a View
                     @FetchRequest(sortDescriptors: []) var existingPages: FetchedResults<MetaPage>
-                    let activePages = existingPages.filter {$0.active && $0.id != nil}
+                    let activePages = existingPages.filter {$0.active?.boolValue ?? false && $0.id != nil}
                     var completedPages = 0
                     for page in activePages {
-                        self.db.collection(Pages.name).document(page.id!).updateData([Pages.fields.APNS_TOKENS: FieldValue.arrayRemove([Messaging.messaging().fcmToken ?? ""])], completion: {
+                        self.db.collection(Pages.name).document(page.id).updateData([Pages.fields.APNS_TOKENS: FieldValue.arrayRemove([Messaging.messaging().fcmToken ?? ""])], completion: {
                             error in
                             print("A", error)
                             completedPages = completedPages + 1
@@ -258,7 +258,7 @@ class SessionStore : NSObject, ObservableObject {
             
             // Delete all of the data for this user from CoreData TODO: Move to a View
             @FetchRequest(sortDescriptors: []) var existingPages: FetchedResults<MetaPage>
-            let activePages = existingPages.filter {$0.active}
+            let activePages = existingPages.filter {$0.active?.boolValue ?? false}
             for page in activePages {
                 page.active = false
             }
@@ -267,7 +267,7 @@ class SessionStore : NSObject, ObservableObject {
             UIApplication.shared.unregisterForRemoteNotifications()
         }
         catch {
-            self.db.collection(Users.name).document(self.user.user!.uid).updateData([Users.fields.TOKENS: FieldValue.arrayUnion([Messaging.messaging().fcmToken ?? ""])])
+            self.db.collection(Users.name).document(self.user.uid ?? "").updateData([Users.fields.TOKENS: FieldValue.arrayUnion([Messaging.messaging().fcmToken ?? ""])])
             self.isLoggedIn = .signedIn
             // self.loginManager.logIn()
         }
@@ -382,7 +382,7 @@ class SessionStore : NSObject, ObservableObject {
     func subscribeToWebhooks(page: MetaPage, completion: @escaping () -> Void ) {
         print("SUBSCRIBING")
         // First get a list of registered apps for this page to see if we even need to do this
-        let urlString: String = "https://graph.facebook.com/v16.0/\(page.id!)/subscribed_apps?access_token=\(page.accessToken!)"
+        let urlString: String = "https://graph.facebook.com/v16.0/\(page.id)/subscribed_apps?access_token=\(page.accessToken)"
         Task {
             let response = await getRequest(urlString: urlString)
             var pageSubscribed = false
@@ -405,7 +405,7 @@ class SessionStore : NSObject, ObservableObject {
             
             // POST request to subscription
             if !pageSubscribed {
-                let urlString = "https://graph.facebook.com/v16.0/\(page.id!)/subscribed_apps"
+                let urlString = "https://graph.facebook.com/v16.0/\(page.id)/subscribed_apps"
                 let params = ["object": "page",
                               "callback_url": "google.com",
                               "subscribed_fields": "messages",

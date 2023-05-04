@@ -17,6 +17,7 @@ extension ConversationsView {
                 return
             }
             for pageModel in self.pagesToUpdate! {
+                print("Updating page model \(pageModel)")
                 self.updateOrCreatePage(pageModel: pageModel) {
                     metaPage in
                     if metaPage != nil {
@@ -65,7 +66,7 @@ extension ConversationsView {
                     if conversation != nil {
                         conversation!.lastRefresh = existingConversation?.lastRefresh
                         
-                        if conversation!.inDayRange && conversation!.updatedTime ?? Date(timeIntervalSince1970: 0) > conversation!.lastRefresh ?? Date(timeIntervalSince1970: 0) {
+                        if conversation!.inDayRange?.boolValue ?? false && conversation!.updatedTime ?? Date(timeIntervalSince1970: 0) > conversation!.lastRefresh ?? Date(timeIntervalSince1970: 0) {
                             print("Getting new messages")
                             self.getNewMessages(conversation: conversationModel) { _ in}
                         }
@@ -93,80 +94,44 @@ extension ConversationsView {
                 return
             }
             
-            let page = self.fetchPage(id: conversation!.metaPage!.id)
+            let page = self.fetchPage(id: conversation!.metaPage.id)
             
             if page == nil {
                 return
             }
             
+            var noErrors: Bool = true
             for newMessageModel in newMessageModels! {
-                let newMessage: Message = Message(context: self.moc)
-                
-                newMessage.conversation = conversation
-                
-                newMessage.id = newMessageModel.id
-                newMessage.message = newMessageModel.message
-                newMessage.createdTime = newMessageModel.createdTime
-                newMessage.uid = UUID()
-                newMessage.opened = true
-                newMessage.dayStarter = newMessageModel.dayStarter!
-                
-                if newMessageModel.imageAttachment != nil {
-                    let imageAttachment = ImageAttachment(context: self.moc)
-                    imageAttachment.uid = UUID()
-                    imageAttachment.url = URL(string: newMessageModel.imageAttachment!.url) ?? URL(string: "")
-                    newMessage.imageAttachment = imageAttachment
-                }
-                if newMessageModel.instagramStoryMention != nil {
-                    let instagramStoryMention = InstagramStoryMention(context: self.moc)
-                    instagramStoryMention.uid = UUID()
-                    instagramStoryMention.id = newMessageModel.instagramStoryMention!.id
-                    instagramStoryMention.cdnURL =  URL(string: newMessageModel.instagramStoryMention!.cdnUrl) ?? URL(string: "")
-                    newMessage.instagramStoryMention = instagramStoryMention
-                }
-                if newMessageModel.instagramStoryReply != nil {
-                    let instagramStoryReply = InstagramStoryReply(context: self.moc)
-                    instagramStoryReply.uid = UUID()
-                    instagramStoryReply.id = newMessageModel.instagramStoryReply!.id
-                    instagramStoryReply.cdnURL = URL(string: newMessageModel.instagramStoryReply!.cdnUrl) ?? URL(string: "")
-                    newMessage.instagramStoryReply = instagramStoryReply
-                }
-                if newMessageModel.videoAttachment != nil {
-                    let videoAttachment = VideoAttachment(context: self.moc)
-                    videoAttachment.uid = UUID()
-                    videoAttachment.url = URL(string: newMessageModel.videoAttachment!.url) ?? URL(string: "")
-                    newMessage.videoAttachment = videoAttachment
-                }
-                
-                print("New / update user")
-                print(newMessageModel.to.id)
-                print(newMessageModel.from.id)
                 
                 self.updateOrCreateUser(userModel: newMessageModel.to) {
                     toUser in
                     self.updateOrCreateUser(userModel: newMessageModel.from) {
                         fromUser in
-                        newMessage.to = toUser
-                        newMessage.from = fromUser
+                        if toUser != nil && fromUser != nil {
+                            self.createMessage(messageModel: newMessageModel, conversation: conversation!, to: toUser!, from: fromUser!) {
+                                newMessage in
+                                if newMessage == nil {
+                                    noErrors = false
+                                }
+                            }
+                        }
+                        else {
+                            noErrors = false
+                        }
                     }
                 }
             }
-            conversation?.lastRefresh = Date()
+            
+            if noErrors {
+                conversation!.lastRefresh = Date()
+            }
+            
             let userList = conversation?.updateCorrespondent()
             if userList?.count ?? 0 > 0 {
                 page!.pageUser = userList![1]
             }
-
-            do {
-                try self.moc.save()
-            } catch {
-                print("Error saving A1 data: \(error.localizedDescription)")
-            }
+            self.decrementConversationsToUpdate(pageID: conversation!.metaPage.id)
             
-            print("AU \(conversation!.metaPage?.id)")
-            self.decrementConversationsToUpdate(pageID: conversation?.metaPage?.id)
-            
-            print("Updated messages for conversation")
         }
     }
     
@@ -182,8 +147,8 @@ extension ConversationsView {
                 var filteredMessages: [Conversation] = []
                 
                 let conversationsToShow : [Conversation] = self.conversationsHook.filter {
-                    $0.metaPage?.id == self.session.selectedPage!.id! &&
-                    $0.inDayRange
+                    $0.metaPage.id == self.session.selectedPage!.id &&
+                    $0.inDayRange?.boolValue ?? false
                 }
                 
                 for conversation in conversationsToShow {
@@ -207,7 +172,7 @@ extension ConversationsView {
                             if message.message == nil {
                                 continue
                             }
-                            if message.message!.lowercased().contains(searchText.lowercased()) {
+                            if message.message.lowercased().contains(searchText.lowercased()) {
                                 
                                 conversation.messageToScrollTo = message
                                 
@@ -237,12 +202,11 @@ extension ConversationsView {
     
     func resetSearch() {
         DispatchQueue.main.async {
-            print("Resetting")
             self.corresponsdentsSearch = []
             self.messagesSearch = []
             let conversationsToShow : [Conversation] = self.conversationsHook.filter {
-                $0.metaPage?.id == self.session.selectedPage!.id! &&
-                $0.inDayRange
+                $0.metaPage.id == self.session.selectedPage!.id &&
+                $0.inDayRange?.boolValue ?? false
             }
             for conversation in conversationsToShow {
                 conversation.messageToScrollTo = nil
@@ -273,6 +237,7 @@ extension ConversationsView {
             }
             completion(nil)
         } catch let error {
+            print("Error saving context: \(error.localizedDescription)")
             completion(error)
         }
     }
@@ -292,6 +257,7 @@ extension ConversationsView {
     }
     
     func updateOrCreatePage(pageModel: MetaPageModel, completion: @escaping (MetaPage?) -> Void) {
+        print("RR")
         let existingPage = self.fetchPage(id: pageModel.id)
         
         var outPage: MetaPage? = nil
@@ -308,16 +274,16 @@ extension ConversationsView {
         
         // Create a new MetaPage instance
         else {
-            let newPage = MetaPage(context: self.moc)
-            
-            newPage.uid = UUID()
-            newPage.id = pageModel.id
-            newPage.category = pageModel.category
-            newPage.name = pageModel.name
-            newPage.accessToken = pageModel.accessToken
-            newPage.active = true
+            let newPage = MetaPage(
+                context: self.moc,
+                id: pageModel.id,
+                accessToken: pageModel.accessToken,
+                active: true,
+                isDefault: false,
+                category: pageModel.category,
+                name: pageModel.name
+            )
             initializePage(page: newPage)
-            newPage.isDefault = false
             outPage = newPage
         }
         
@@ -356,19 +322,19 @@ extension ConversationsView {
         if existingConversation != nil {
             existingConversation!.updatedTime = conversationModel.dateUpdated
             existingConversation!.inDayRange = conversationModel.inDayRange
-            existingConversation!.metaPage = existingPage
             outConversation = existingConversation
         }
         
         // Create new instance
         else {
-            let newConversation = Conversation(context: self.moc)
-            newConversation.uid = UUID()
-            newConversation.id = conversationModel.id
-            newConversation.platform = conversationModel.platform
-            newConversation.updatedTime = conversationModel.dateUpdated
-            newConversation.inDayRange = conversationModel.inDayRange
-            newConversation.metaPage = existingPage
+            let newConversation = Conversation(
+                context: self.moc,
+                id: conversationModel.id,
+                updatedTime: conversationModel.dateUpdated,
+                platform: conversationModel.platform,
+                inDayRange: conversationModel.inDayRange,
+                metaPage: existingPage!
+            )
             outConversation = newConversation
         }
         
@@ -376,6 +342,84 @@ extension ConversationsView {
             error in
             if error == nil {
                 completion(outConversation!)
+            }
+            else {
+                print(error)
+                completion(nil)
+            }
+        }
+        
+    }
+    
+    // Messages
+    func fetchMessage(id: String) -> Message? {
+        let fetchRequest: NSFetchRequest<Message> = Message.fetchRequest()
+        fetchRequest.predicate = NSPredicate(format: "id == %@", id)
+        do {
+            let conversations = try moc.fetch(fetchRequest)
+            return conversations.first
+        } catch {
+            print("Error fetching user: \(error.localizedDescription)")
+            return nil
+        }
+    }
+    
+    func createMessage(messageModel: MessageModel, conversation: Conversation, to: MetaUser, from: MetaUser, completion: @escaping (Message?) -> Void) {
+        let existingMessage = self.fetchMessage(id: messageModel.id)
+        if existingMessage == nil {
+            completion(nil)
+        }
+        
+        let newMessage: Message = Message(
+            context: self.moc,
+            id: messageModel.id,
+            createdTime: messageModel.createdTime, message: messageModel.message,
+            opened: true,
+            dayStarter: messageModel.dayStarter ?? false,
+            conversation: conversation,
+            to: to,
+            from: from
+        )
+        
+        if messageModel.imageAttachment != nil {
+            let imageAttachment = ImageAttachment(
+                context: self.moc,
+                url: URL(string: messageModel.imageAttachment!.url),
+                message: newMessage
+            )
+            newMessage.imageAttachment = imageAttachment
+        }
+        if messageModel.instagramStoryMention != nil {
+            let instagramStoryMention = InstagramStoryMention(
+                context: self.moc,
+                id: messageModel.instagramStoryMention!.id,
+                cdnURL: URL(string: messageModel.instagramStoryMention!.cdnUrl),
+                message: newMessage
+            )
+            newMessage.instagramStoryMention = instagramStoryMention
+        }
+        if messageModel.instagramStoryReply != nil {
+            let instagramStoryReply = InstagramStoryReply(
+                context: self.moc,
+                id: messageModel.instagramStoryReply!.id,
+                cdnURL: URL(string: messageModel.instagramStoryReply!.cdnUrl),
+                message: newMessage
+            )
+            newMessage.instagramStoryReply = instagramStoryReply
+        }
+        if messageModel.videoAttachment != nil {
+            let videoAttachment = VideoAttachment(
+                context: self.moc,
+                url: URL(string: messageModel.videoAttachment!.url),
+                message: newMessage
+            )
+            newMessage.videoAttachment = videoAttachment
+        }
+        
+        self.saveContext() {
+            error in
+            if error == nil {
+                completion(newMessage)
             }
             else {
                 print(error)
@@ -413,13 +457,14 @@ extension ConversationsView {
         }
         
         else {
-            let newUser = MetaUser(context: self.moc)
-            newUser.uid = UUID()
-            newUser.id = userModel.id
-            newUser.name = userModel.name
-            newUser.email = userModel.email
-            newUser.username = userModel.username
-            newUser.platform = userModel.platform
+            let newUser = MetaUser(
+                context: self.moc,
+                id: userModel.id,
+                platform: userModel.platform,
+                email: userModel.email,
+                name: userModel.name,
+                username: userModel.username
+            )
             outUser = newUser
         }
         

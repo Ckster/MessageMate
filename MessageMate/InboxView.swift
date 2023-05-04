@@ -243,7 +243,7 @@ struct ConversationsView: View {
                 if lastMessage == nil {
                     continue
                 }
-                sortTuples.append((date: lastMessage!.createdTime!, conversation: conversation))
+                sortTuples.append((date: lastMessage!.createdTime, conversation: conversation))
             }
         }
         
@@ -317,7 +317,7 @@ struct InboxSearchView: View {
                 ForEach(correspondents.prefix(4), id:\.self) {
                     conversation in
                     if conversation.metaPage != nil {
-                        CorrespondentSearchNavigationView(conversation: conversation, page: conversation.metaPage!, width: width, height: height, geometryReader: geometryReader).environmentObject(self.session).padding().frame(height: height * 0.10)
+                        CorrespondentSearchNavigationView(conversation: conversation, page: conversation.metaPage, width: width, height: height, geometryReader: geometryReader).environmentObject(self.session).padding().frame(height: height * 0.10)
                     }
                 }
                 Spacer()
@@ -344,7 +344,7 @@ struct ConversationNavigationViewList: View {
     let navigationViewPreview: String? = nil
     
     var body: some View {
-        ForEach(self.sortedConversations, id:\.self.uid!) {
+        ForEach(self.sortedConversations, id:\.self.uid) {
             conversation in
             if let messageSet = conversation.messages as? Set<Message> {
                 if messageSet.count > 0 && conversation.correspondent != nil {
@@ -538,7 +538,7 @@ struct ConversationNavigationView: View {
         self.page = page
         self.correspondent = conversation.correspondent!
         self.messageToScrollTo = messageToScrollTo
-        let predicate = NSPredicate(format: "conversation.id == %@", conversation.id!)
+        let predicate = NSPredicate(format: "conversation.id == %@", conversation.id)
         let request: NSFetchRequest<Message> = Message.fetchRequest()
         request.sortDescriptors = [NSSortDescriptor(keyPath: \Message.createdTime, ascending: true)]
         request.predicate = predicate
@@ -594,7 +594,7 @@ struct ConversationNavigationView: View {
                             
                                 HStack {
                                     if self.messageToScrollTo != nil {
-                                        Text(self.messageToScrollTo!.message!).lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(Font.custom(REGULAR_FONT, size: 15)).frame(width: width * 0.55, alignment: .leading)
+                                        Text(self.messageToScrollTo!.message).lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(Font.custom(REGULAR_FONT, size: 15)).frame(width: width * 0.55, alignment: .leading)
                                     }
                                     else {
                                         
@@ -629,13 +629,13 @@ struct ConversationNavigationView: View {
                                     }
                                 }
                             }
-                            let timeInterval = self.messageToScrollTo == nil ? self.messages.last!.createdTime!.timeIntervalSinceNow : self.messageToScrollTo!.createdTime!.timeIntervalSinceNow
+                            let timeInterval = self.messageToScrollTo == nil ? self.messages.last!.createdTime.timeIntervalSinceNow : self.messageToScrollTo!.createdTime.timeIntervalSinceNow
                             let lastMessageIntervalString = self.makeTimeElapsedString(elapsedTime: timeInterval)
                             Text(lastMessageIntervalString).lineLimit(1).multilineTextAlignment(.leading).foregroundColor(.gray).font(Font.custom(REGULAR_FONT, size: 10)).frame(width: width * 0.20)
 
                         }
                         
-                        if !self.messages.last!.opened {
+                        if !self.messages.last!.opened.boolValue ?? false {
                             HStack(spacing: 0) {
                                 Color("Purple").frame(width: width * 0.01, height: 75)
                                 Color.offWhite.frame(width: width * 0.99, height: 75).opacity(0.10)
@@ -741,13 +741,13 @@ struct TextControlView: View {
                     
                     DeleteTypingTextButton(width: self.width, height: self.height, typingText: self.$typingMessage)
                             
-                    AutoGenerateButton(buttonText: "Respond", width: width, height: height, conversationId: self.conversation.id!, pageAccessToken: self.page.accessToken!, pageName: self.page.name!, accountId: self.page.id!, typingText: self.$typingMessage, showCouldNotGenerateResponse: self.$showCouldNotGenerateResponse).environmentObject(self.session)
+                    AutoGenerateButton(buttonText: "Respond", width: width, height: height, conversationId: self.conversation.id, pageAccessToken: self.page.accessToken, pageName: self.page.name!, accountId: self.page.id, typingText: self.$typingMessage, showCouldNotGenerateResponse: self.$showCouldNotGenerateResponse).environmentObject(self.session)
             
-                    AutoGenerateButton(buttonText: "Sell", width: width, height: height, conversationId: self.conversation.id!, pageAccessToken: self.page.accessToken!, pageName: self.page.name!, accountId: self.page.id!, typingText: self.$typingMessage, showCouldNotGenerateResponse: self.$showCouldNotGenerateResponse).environmentObject(self.session)
+                    AutoGenerateButton(buttonText: "Sell", width: width, height: height, conversationId: self.conversation.id, pageAccessToken: self.page.accessToken, pageName: self.page.name!, accountId: self.page.id, typingText: self.$typingMessage, showCouldNotGenerateResponse: self.$showCouldNotGenerateResponse).environmentObject(self.session)
           
-                    AutoGenerateButton(buttonText: "Yes", width: width, height: height, conversationId: self.conversation.id!, pageAccessToken: self.page.accessToken!, pageName: self.page.name!, accountId: self.page.id!, typingText: self.$typingMessage, showCouldNotGenerateResponse: self.$showCouldNotGenerateResponse).environmentObject(self.session)
+                    AutoGenerateButton(buttonText: "Yes", width: width, height: height, conversationId: self.conversation.id, pageAccessToken: self.page.accessToken, pageName: self.page.name!, accountId: self.page.id, typingText: self.$typingMessage, showCouldNotGenerateResponse: self.$showCouldNotGenerateResponse).environmentObject(self.session)
                                 
-                    AutoGenerateButton(buttonText: "No", width: width, height: height, conversationId: self.conversation.id!, pageAccessToken: self.page.accessToken!, pageName: self.page.name!, accountId: self.page.id!, typingText: self.$typingMessage, showCouldNotGenerateResponse: self.$showCouldNotGenerateResponse).environmentObject(self.session)
+                    AutoGenerateButton(buttonText: "No", width: width, height: height, conversationId: self.conversation.id, pageAccessToken: self.page.accessToken, pageName: self.page.name!, accountId: self.page.id, typingText: self.$typingMessage, showCouldNotGenerateResponse: self.$showCouldNotGenerateResponse).environmentObject(self.session)
                     
                 }.padding(.top).padding(.bottom)
             }
@@ -767,7 +767,7 @@ struct MessageDateHeaderView: View {
         self.msg = msg
         self.width = width
                 
-        let dates = Calendar.current.dateComponents([.hour, .minute, .month, .day], from: msg.createdTime!)
+        let dates = Calendar.current.dateComponents([.hour, .minute, .month, .day], from: msg.createdTime)
         let today = Calendar.current.dateComponents([.month, .day], from: Date())
         let yesterday = Calendar.current.dateComponents([.month, .day], from: Date.yesterday)
         var dateString = "\(monthMap[dates.month!]!) \(dates.day!) at \(dates.hour! > 12 ? dates.hour! - 12 : dates.hour!):\(String(format: "%02d", dates.minute!)) \(dates.hour! > 12 ? "PM" : "AM")"
@@ -1203,7 +1203,7 @@ struct DynamicHeightTextBox: View {
         self.messageToScrollTo = messageToScrollTo
         self.fromCorrespondentSearch = fromCorrespondentSearch
         
-        let predicate = NSPredicate(format: "conversation.id == %@", conversation.id!)
+        let predicate = NSPredicate(format: "conversation.id == %@", conversation.id)
         let request: NSFetchRequest<Message> = Message.fetchRequest()
         request.sortDescriptors = [NSSortDescriptor(keyPath: \Message.createdTime, ascending: true)]
         request.predicate = predicate
@@ -1217,15 +1217,15 @@ struct DynamicHeightTextBox: View {
                     ScrollViewReader {
                         value in
                         VStack {
-                            ForEach(self.messages, id: \.self.uid!) { msg in
-                                if msg.dayStarter {
+                            ForEach(self.messages, id: \.self.uid) { msg in
+                                if msg.dayStarter.boolValue {
                                     MessageDateHeaderView(msg: msg, width: width)
                                 }
-                                MessageView(width: width, currentMessage: msg, conversation: conversation, page: page, messageToScrollTo: self.messageToScrollTo, fromCorrespondentSearch: self.fromCorrespondentSearch).id(msg.uid!)
+                                MessageView(width: width, currentMessage: msg, conversation: conversation, page: page, messageToScrollTo: self.messageToScrollTo, fromCorrespondentSearch: self.fromCorrespondentSearch).id(msg.uid)
                                     .onAppear(perform: {
                                         print(msg.message, msg.uid)
-                                        if !msg.opened {
-                                            msg.opened = true
+                                        if !msg.opened.boolValue {
+                                            msg.opened = NSNumber(value: false)
                                             try? self.moc.save()
                                             if self.session.unreadMessages > 0 {
                                                 self.session.unreadMessages = self.session.unreadMessages - 1
@@ -1236,20 +1236,20 @@ struct DynamicHeightTextBox: View {
                             }
                         }
                         .onChange(of: typingMessage) { _ in
-                            value.scrollTo(self.messages.last?.uid!)
+                            value.scrollTo(self.messages.last?.uid)
                         }
                         .onChange(of: self.messages) { _ in
                             if self.messageToScrollTo != nil && !self.fromCorrespondentSearch {
                                 print("SCROLLING")
-                                value.scrollTo(self.messageToScrollTo!.uid!)
+                                value.scrollTo(self.messageToScrollTo!.uid)
                             }
                             else {
-                                value.scrollTo(self.messages.last?.uid!)
+                                value.scrollTo(self.messages.last?.uid)
                             }
                         }
                         .onChange(of: textEditorIsFocused) {
                             _ in
-                            value.scrollTo(self.messages.last?.uid!)
+                            value.scrollTo(self.messages.last?.uid)
                         }
                     }
                 }
@@ -1341,7 +1341,7 @@ struct DynamicHeightTextBox: View {
     
     func sendMessage(message: String, to: MetaUser, conversation: Conversation, completion: @escaping ([String: Any]) -> Void) {
         /// API Reference: https://developers.facebook.com/docs/messenger-platform/reference/send-api/
-        let urlString = "https://graph.facebook.com/v16.0/\(page.id!)/messages?access_token=\(page.accessToken!)"
+        let urlString = "https://graph.facebook.com/v16.0/\(page.id)/messages?access_token=\(page.accessToken)"
         let data: [String: Any] = ["recipient": ["id": to.id], "message": ["text": message]]
         let jsonData = try? JSONSerialization.data(withJSONObject: data)
         
@@ -1357,27 +1357,27 @@ struct DynamicHeightTextBox: View {
                         print("SB")
                        
                         let createdDate = Date(timeIntervalSince1970: NSDate().timeIntervalSince1970)
-                        let lastDate = Calendar.current.dateComponents([.month, .day], from: self.messages.last!.createdTime!)
+                        let lastDate = Calendar.current.dateComponents([.month, .day], from: self.messages.last!.createdTime)
                         let messageDate = Calendar.current.dateComponents([.month, .day], from: createdDate)
                         
                         let dayStarter = lastDate.month! != messageDate.month! || lastDate.day! != messageDate.day!
-                        
-                        let newMessage = Message(context: self.moc)
-                        newMessage.uid = UUID()
-                        newMessage.id = messageId
-                        newMessage.message = message
-                        newMessage.to = conversation.correspondent
-                        newMessage.from = page.pageUser
-                        newMessage.dayStarter = dayStarter
-                        newMessage.createdTime = createdDate
-                        newMessage.opened = true
-                        newMessage.conversation = conversation
+
+                        let newMessage = Message(
+                            context: self.moc,
+                            id: messageId!,
+                            createdTime: createdDate,
+                            message: message,
+                            opened: true,
+                            dayStarter: NSNumber(value: dayStarter),
+                            conversation: conversation,
+                            to: conversation.correspondent!,
+                            from: page.pageUser!
+                        )
                         
                         do {
                             Task {
                                 try self.moc.save()
                             }
-                            //self.messages.append(newMessage)
                         } catch {
                             print("Error saving sent message data: \(error.localizedDescription)")
                         }
@@ -1422,8 +1422,8 @@ struct MessageView : View {
     }
     
     var body: some View {
-        let isCurrentUser = page.businessAccountID == currentMessage.from?.id || page.id == currentMessage.from?.id
-        let dates = Calendar.current.dateComponents([.hour, .minute], from: currentMessage.createdTime!)
+        let isCurrentUser = page.businessAccountID == currentMessage.from.id || page.id == currentMessage.from.id
+        let dates = Calendar.current.dateComponents([.hour, .minute], from: currentMessage.createdTime)
         let highlight: Bool = !self.fromCorrespondentSearch && self.messageToScrollTo?.uid == currentMessage.uid
         if !isCurrentUser {
             VStack(spacing: 1) {
@@ -1500,7 +1500,7 @@ struct InstagramStoryReplyView: View {
                     }
                 }
             }
-            Text(contentMessage.message!)
+            Text(contentMessage.message)
                 .padding(10)
                 .foregroundColor(isCurrentUser ? Color.white : Color.black)
                 .background(isCurrentUser ? Color.blue : Color(UIColor(red: 240/255, green: 240/255, blue: 240/255, alpha: 1.0)))
@@ -1610,7 +1610,7 @@ struct MessageBlurbView: View {
                     }
                     
                     else {
-                        Text(contentMessage.message!)
+                        Text(contentMessage.message)
                             .padding(10)
                             .foregroundColor(isCurrentUser ? Color.white : Color.black)
                             .background(isCurrentUser ? Color("Purple") : Color.offWhite)
@@ -1742,7 +1742,7 @@ struct ViewHeightKeyTransform: PreferenceKey {
 
 
 func sortMessages(messages: [Message]) -> [Message] {
-    return messages.sorted {$0.createdTime! < $1.createdTime!}
+    return messages.sorted {$0.createdTime < $1.createdTime}
 }
 
 
@@ -1924,12 +1924,12 @@ func postRequestXForm(urlString: String, completion: @escaping ([String: AnyObje
 func initializePage(page: MetaPage) {
     let db = Firestore.firestore()
     
-    let pageDoc = db.collection(Pages.name).document(page.id!)
+    let pageDoc = db.collection(Pages.name).document(page.id)
     pageDoc.getDocument() {
         doc, error in
         if error == nil && doc != nil {
             if !doc!.exists {
-                db.collection(Pages.name).document(page.id!).setData(
+                db.collection(Pages.name).document(page.id).setData(
                     [
                         Pages.fields.INSTAGRAM_ID: page.businessAccountID,
                         Pages.fields.STATIC_PROMPT: "",

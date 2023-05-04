@@ -22,31 +22,31 @@ import Foundation
 //}
 
 
-class PersistenceController: ObservableObject {
-    static let shared = PersistenceController()
-
-    let container: NSPersistentContainer
-
-    init() {
-        container = NSPersistentContainer(name: "Messaging")
-        container.loadPersistentStores { _, error in
-            if let error = error {
-                fatalError("Error loading persistent stores: \(error.localizedDescription)")
-            }
-        }
-    }
-
-    func save() {
-        let context = container.viewContext
-        if context.hasChanges {
-            do {
-                try context.save()
-            } catch {
-                let nsError = error as NSError
-                fatalError("Error saving context: \(nsError.localizedDescription)")
-            }
-        }
-    }
-}
+//class PersistenceController: ObservableObject {
+//    static let shared = PersistenceController()
+//
+//    let container: NSPersistentContainer
+//
+//    init() {
+//        container = NSPersistentContainer(name: "Messaging")
+//        container.loadPersistentStores { _, error in
+//            if let error = error {
+//                fatalError("Error loading persistent stores: \(error.localizedDescription)")
+//            }
+//        }
+//    }
+//
+//    func save() {
+//        let context = container.viewContext
+//        if context.hasChanges {
+//            do {
+//                try context.save()
+//            } catch {
+//                let nsError = error as NSError
+//                fatalError("Error saving context: \(nsError.localizedDescription)")
+//            }
+//        }
+//    }
+//}
 
 

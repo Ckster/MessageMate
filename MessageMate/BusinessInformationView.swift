@@ -152,7 +152,7 @@ func initializePage(session: SessionStore, completion: @escaping () -> Void) {
     let db = Firestore.firestore()
     
     if session.selectedPage != nil {
-        let pageDocument = db.collection(Pages.name).document(session.selectedPage!.id!)
+        let pageDocument = db.collection(Pages.name).document(session.selectedPage!.id)
         pageDocument.getDocument {
             doc, error in
             if error == nil && doc != nil {
