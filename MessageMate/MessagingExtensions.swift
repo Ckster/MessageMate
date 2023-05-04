@@ -550,51 +550,6 @@ extension ConversationsView {
         }
     }
     
-    func fetchUser(id: String) -> MetaUser? {
-            let fetchRequest: NSFetchRequest<MetaUser> = MetaUser.fetchRequest()
-            fetchRequest.predicate = NSPredicate(format: "id == %@", id)
-            do {
-                let users = try moc.fetch(fetchRequest)
-                return users.first
-            } catch {
-                print("Error fetching user: \(error.localizedDescription)")
-                return nil
-            }
-        }
-    
-    func updateOrCreateUser(user: MetaUserModel) -> MetaUser {
-        var outUser: MetaUser? = nil
-        let existingUser = self.fetchUser(id: user.id)
-        
-        if existingUser != nil {
-            existingUser!.name = user.name
-            existingUser!.email = user.email
-            existingUser!.username = user.username
-            existingUser!.platform = user.platform
-            outUser = existingUser
-        }
-        
-        else {
-            let newUser = MetaUser(context: self.moc)
-            newUser.uid = UUID()
-            newUser.id = user.id
-            newUser.name = user.name
-            newUser.email = user.email
-            newUser.username = user.username
-            newUser.platform = user.platform
-            outUser = newUser
-        }
-        do {
-            Task {
-                try self.moc.save()
-            }
-        } catch {
-            print("Error saving O data: \(error.localizedDescription)")
-        }
-
-        return outUser!
-    }
-    
     func parseInstagramStoryMention(messageDataDict: [String: Any]) -> InstagramStoryMentionModel? {
         let storyData = messageDataDict["story"] as? [String: Any]
         if storyData != nil {
@@ -841,6 +796,8 @@ extension ConversationsView {
                         let isDeleted = data["is_deleted"] as? Bool
                         
                         if pageId != nil && recipientId != nil && senderId != nil && createdTime != nil && messageId != nil {
+                            
+                            print("Message id \(messageId)")
                             
                             if page.businessAccountID ?? "" == pageId || page.id! == pageId {
                                 print("SLA")

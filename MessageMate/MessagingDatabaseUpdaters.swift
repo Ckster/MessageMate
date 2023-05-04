@@ -17,52 +17,28 @@ extension ConversationsView {
                 return
             }
             for pageModel in self.pagesToUpdate! {
-                let existingPage = self.existingPages.first(where: { $0.id == pageModel.id })
-                
-                var page: MetaPage? = nil
-                
-                // Update some fields
-                if existingPage != nil {
-                    print("Existing page", existingPage)
-                    existingPage!.category = pageModel.category
-                    existingPage!.name = pageModel.name
-                    existingPage!.accessToken = pageModel.accessToken
-                    existingPage!.active = true
-                    page = existingPage
-                }
-                
-                // Create a new MetaPage instance
-                else {
-                    let newPage = MetaPage(context: self.moc)
-                    
-                    newPage.uid = UUID()
-                    newPage.id = pageModel.id
-                    newPage.category = pageModel.category
-                    newPage.name = pageModel.name
-                    newPage.accessToken = pageModel.accessToken
-                    newPage.active = true
-                    initializePage(page: newPage)
-                    newPage.isDefault = false
-                    page = newPage
-                }
-                
-                Task {
-                    await page!.getPageBusinessAccountId()
-                    await page!.getProfilePicture()
-                    self.updateSelectedPage {
-                        var newConversations: [ConversationModel] = []
-                        var platformCount = 0
-                        for platform in messagingPlatforms {
-                            Task {
-                                let platformConversations = await self.getConversations(page: pageModel, platform: platform)
-                                newConversations.append(contentsOf: platformConversations)
-                                platformCount = platformCount + 1
-                                if platformCount == messagingPlatforms.count {
-                                    if page!.id == self.session.selectedPage?.id {
-                                        print("Setting conv count w \(newConversations.count) \(page!.id) \(platformCount) \(messagingPlatforms.count)")
-                                        self.session.conversationsToUpdate = newConversations.count
+                self.updateOrCreatePage(pageModel: pageModel) {
+                    metaPage in
+                    if metaPage != nil {
+                        Task {
+                            await metaPage!.getPageBusinessAccountId()
+                            await metaPage!.getProfilePicture()
+                            self.updateSelectedPage {
+                                var newConversations: [ConversationModel] = []
+                                var platformCount = 0
+                                for platform in messagingPlatforms {
+                                    Task {
+                                        let platformConversations = await self.getConversations(page: pageModel, platform: platform)
+                                        newConversations.append(contentsOf: platformConversations)
+                                        platformCount = platformCount + 1
+                                        if platformCount == messagingPlatforms.count {
+                                            if metaPage!.id == self.session.selectedPage?.id {
+                                                print("Setting conv count w \(newConversations.count) \(metaPage!.id) \(platformCount) \(messagingPlatforms.count)")
+                                                self.session.conversationsToUpdate = newConversations.count
+                                            }
+                                            self.conversationsToUpdate = newConversations
+                                        }
                                     }
-                                    self.conversationsToUpdate = newConversations
                                 }
                             }
                         }
@@ -81,51 +57,27 @@ extension ConversationsView {
                 return
             }
             
-            for conversation in conversationsToUpdate! {
-                let existingConversation = self.conversationsHook.first(where: {$0.id == conversation.id})
-                let existingPage = self.existingPages.first(where: {$0.id == conversation.page.id})
-                print("Existing conversation with id \(conversation.id) \(existingConversation)")
-                // Update some fields...
-                if existingConversation != nil {
-                    existingConversation!.updatedTime = conversation.dateUpdated
-                    existingConversation!.inDayRange = conversation.inDayRange
-                    existingConversation!.metaPage = existingPage
-                    print("Updating conversation", existingConversation)
-                }
+            for conversationModel in conversationsToUpdate! {
+                let existingConversation = self.fetchConversation(id: conversationModel.id)
                 
-                // Create new instance
-                else {
-                    let newConversation = Conversation(context: self.moc)
-                    newConversation.uid = UUID()
-                    newConversation.id = conversation.id
-                    newConversation.platform = conversation.platform
-                    newConversation.updatedTime = conversation.dateUpdated
-                    newConversation.inDayRange = conversation.inDayRange
-                    newConversation.metaPage = existingPage
-                    print("New conversation", newConversation)
+                self.updateOrCreateConversation(conversationModel: conversationModel) {
+                    conversation in
+                    if conversation != nil {
+                        conversation!.lastRefresh = existingConversation?.lastRefresh
+                        
+                        if conversation!.inDayRange && conversation!.updatedTime ?? Date(timeIntervalSince1970: 0) > conversation!.lastRefresh ?? Date(timeIntervalSince1970: 0) {
+                            print("Getting new messages")
+                            self.getNewMessages(conversation: conversationModel) { _ in}
+                        }
+                        else {
+                            print("NO message update")
+                            self.decrementConversationsToUpdate(pageID: conversationModel.page.id)
+                        }
+                    }
                 }
-                
-                conversation.lastRefresh = existingConversation?.lastRefresh
-                
-                print("CIDR", conversation.inDayRange)
-                // TODO: Make sure loading goes to false when there are no conversations to get messages for
-                if conversation.inDayRange && conversation.dateUpdated > existingConversation?.lastRefresh ?? Date(timeIntervalSince1970: 0) {
-                    print("Getting new messages")
-                    self.getNewMessages(conversation: conversation) { _ in}
-                }
-                else {
-                    print("NO message update")
-                    self.decrementConversationsToUpdate(pageID: conversation.page.id)
-                }
-            }
-            do {
-                try self.moc.save()
-            } catch {
-                print("Error saving A2 data: \(error.localizedDescription)")
             }
         }
     }
-    
     
     func writeNewMessages() {
         DispatchQueue.main.async {
@@ -135,10 +87,15 @@ extension ConversationsView {
                 return
             }
         
-            let conversation = self.conversationsHook.first(where: {$0.id == newMessageModels!.first!.conversation!.id})
-            let page = self.existingPages.first(where: {$0.id == conversation?.metaPage!.id})
+            let conversation = self.fetchConversation(id: newMessageModels!.first!.conversation!.id)
             
-            if conversation == nil || page == nil {
+            if conversation == nil {
+                return
+            }
+            
+            let page = self.fetchPage(id: conversation!.metaPage!.id)
+            
+            if page == nil {
                 return
             }
             
@@ -185,12 +142,14 @@ extension ConversationsView {
                 print(newMessageModel.to.id)
                 print(newMessageModel.from.id)
                 
-                let toUser = self.updateOrCreateUser(user: newMessageModel.to)
-                let fromUser = self.updateOrCreateUser(user: newMessageModel.from)
-                
-                newMessage.to = toUser
-                newMessage.from = fromUser
-                
+                self.updateOrCreateUser(userModel: newMessageModel.to) {
+                    toUser in
+                    self.updateOrCreateUser(userModel: newMessageModel.from) {
+                        fromUser in
+                        newMessage.to = toUser
+                        newMessage.from = fromUser
+                    }
+                }
             }
             conversation?.lastRefresh = Date()
             let userList = conversation?.updateCorrespondent()
@@ -301,4 +260,178 @@ extension ConversationsView {
         }
     }
     
+    
+    func saveContext(completion: @escaping (Error?) -> Void) {
+        guard self.moc.hasChanges else {
+            completion(nil)
+            return
+        }
+        
+        do {
+            try self.moc.performAndWait {
+                try self.moc.save()
+            }
+            completion(nil)
+        } catch let error {
+            completion(error)
+        }
+    }
+    
+    
+    // Pages
+    func fetchPage(id: String) -> MetaPage? {
+        let fetchRequest: NSFetchRequest<MetaPage> = MetaPage.fetchRequest()
+        fetchRequest.predicate = NSPredicate(format: "id == %@", id)
+        do {
+            let pages = try moc.fetch(fetchRequest)
+            return pages.first
+        } catch {
+            print("Error fetching user: \(error.localizedDescription)")
+            return nil
+        }
+    }
+    
+    func updateOrCreatePage(pageModel: MetaPageModel, completion: @escaping (MetaPage?) -> Void) {
+        let existingPage = self.fetchPage(id: pageModel.id)
+        
+        var outPage: MetaPage? = nil
+        
+        // Update some fields
+        if existingPage != nil {
+            print("Existing page", existingPage)
+            existingPage!.category = pageModel.category
+            existingPage!.name = pageModel.name
+            existingPage!.accessToken = pageModel.accessToken
+            existingPage!.active = true
+            outPage = existingPage
+        }
+        
+        // Create a new MetaPage instance
+        else {
+            let newPage = MetaPage(context: self.moc)
+            
+            newPage.uid = UUID()
+            newPage.id = pageModel.id
+            newPage.category = pageModel.category
+            newPage.name = pageModel.name
+            newPage.accessToken = pageModel.accessToken
+            newPage.active = true
+            initializePage(page: newPage)
+            newPage.isDefault = false
+            outPage = newPage
+        }
+        
+        self.saveContext() {
+            error in
+            if error == nil {
+                completion(outPage!)
+            }
+            else {
+                print(error)
+                completion(nil)
+            }
+        }
+    }
+    
+    // Conversations
+    func fetchConversation(id: String) -> Conversation? {
+        let fetchRequest: NSFetchRequest<Conversation> = Conversation.fetchRequest()
+        fetchRequest.predicate = NSPredicate(format: "id == %@", id)
+        do {
+            let conversations = try moc.fetch(fetchRequest)
+            return conversations.first
+        } catch {
+            print("Error fetching user: \(error.localizedDescription)")
+            return nil
+        }
+    }
+    
+    func updateOrCreateConversation(conversationModel: ConversationModel, completion: @escaping (Conversation?) -> Void) {
+        let existingPage = self.fetchPage(id: conversationModel.page.id)
+        let existingConversation = self.fetchConversation(id: conversationModel.id)
+        
+        var outConversation: Conversation?
+        
+        // Update some fields...
+        if existingConversation != nil {
+            existingConversation!.updatedTime = conversationModel.dateUpdated
+            existingConversation!.inDayRange = conversationModel.inDayRange
+            existingConversation!.metaPage = existingPage
+            outConversation = existingConversation
+        }
+        
+        // Create new instance
+        else {
+            let newConversation = Conversation(context: self.moc)
+            newConversation.uid = UUID()
+            newConversation.id = conversationModel.id
+            newConversation.platform = conversationModel.platform
+            newConversation.updatedTime = conversationModel.dateUpdated
+            newConversation.inDayRange = conversationModel.inDayRange
+            newConversation.metaPage = existingPage
+            outConversation = newConversation
+        }
+        
+        self.saveContext() {
+            error in
+            if error == nil {
+                completion(outConversation!)
+            }
+            else {
+                print(error)
+                completion(nil)
+            }
+        }
+        
+    }
+    
+    
+    // Users
+    func fetchUser(id: String) -> MetaUser? {
+        let fetchRequest: NSFetchRequest<MetaUser> = MetaUser.fetchRequest()
+        fetchRequest.predicate = NSPredicate(format: "id == %@", id)
+        do {
+            let users = try moc.fetch(fetchRequest)
+            return users.first
+        } catch {
+            print("Error fetching user: \(error.localizedDescription)")
+            return nil
+        }
+    }
+    
+    func updateOrCreateUser(userModel: MetaUserModel, completion: @escaping (MetaUser?) -> Void) {
+        let existingUser = self.fetchUser(id: userModel.id)
+        
+        var outUser: MetaUser? = nil
+        
+        if existingUser != nil {
+            existingUser!.name = userModel.name
+            existingUser!.email = userModel.email
+            existingUser!.username = userModel.username
+            existingUser!.platform = userModel.platform
+            outUser = existingUser
+        }
+        
+        else {
+            let newUser = MetaUser(context: self.moc)
+            newUser.uid = UUID()
+            newUser.id = userModel.id
+            newUser.name = userModel.name
+            newUser.email = userModel.email
+            newUser.username = userModel.username
+            newUser.platform = userModel.platform
+            outUser = newUser
+        }
+        
+        self.saveContext() {
+            error in
+            if error == nil {
+                completion(outUser!)
+            }
+            else {
+                print(error)
+                completion(nil)
+            }
+        }
+    }
 }

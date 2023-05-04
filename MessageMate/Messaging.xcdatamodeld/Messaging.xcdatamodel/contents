@@ -76,7 +76,6 @@
         <relationship name="metaPage" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="MetaPage" inverseName="pageUser" inverseEntity="MetaPage"/>
     </entity>
     <entity name="VideoAttachment" representedClassName="VideoAttachment" syncable="YES" codeGenerationType="class">
-        <attribute name="id" optional="YES" attributeType="String"/>
         <attribute name="uid" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
         <attribute name="url" optional="YES" attributeType="URI"/>
         <relationship name="message" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="Message" inverseName="videoAttachment" inverseEntity="Message"/>
