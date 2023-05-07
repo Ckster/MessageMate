@@ -141,7 +141,7 @@ struct AuthedView: View {
                 .tag(2)
                 .environment(\.managedObjectContext, self.moc)
 
-            AccountView(width: width, height: height).environmentObject(self.session)
+            AccountView(width: width, height: height, contentView: contentView).environmentObject(self.session)
                 .tabItem {
                     var text = "Account"
                     Label(text, systemImage: "person.crop.circle.fill")

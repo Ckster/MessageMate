@@ -14,6 +14,8 @@ struct AccountView: View {
     @Environment(\.colorScheme) var colorScheme
     @EnvironmentObject var session: SessionStore
     @State var showingSignOutAlert: Bool = false
+    
+    let contentView: ContentView
 
     var body: some View {
         let signOutAlert =
@@ -41,7 +43,7 @@ struct AccountView: View {
                 Spacer()
             
                 // Select Page link
-                NavigationLink(destination: SelectPageView(width: width, height: height).environmentObject(self.session)) {
+                NavigationLink(destination: SelectPageView(width: width, height: height, contentView: self.contentView).environmentObject(self.session)) {
                     Text("Manage Pages")
                         .frame(minWidth: 0, maxWidth: .infinity)
                         .font(Font.custom(REGULAR_FONT, size: 30))

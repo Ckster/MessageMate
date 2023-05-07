@@ -148,7 +148,7 @@ extension ContentView {
             
             let userList = conversation?.updateCorrespondent()
             if userList?.count ?? 0 > 0 {
-                page!.pageUser = userList![1]
+                page!.metaUser = userList![1]
             }
             self.decrementConversationsToUpdate(pageID: conversation!.metaPage.id)
             

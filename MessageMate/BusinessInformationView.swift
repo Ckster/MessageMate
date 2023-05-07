@@ -153,17 +153,22 @@ struct PersonalInfoSubView: View {
         
         else {
             GeometryReader { geometry in
-                VStack {
-                    Button(action: {
-                        self.updateInfo()
-                        self.presentationMode.wrappedValue.dismiss()
-                    }) {
-                        Text("Done").frame(width: geometry.size.width * 0.75, alignment: .trailing).font(.system(size: 23))
-                    }
-                    
-                    Text("Personal").font(Font.custom(BOLD_FONT, size: 25)).foregroundColor(textColor).frame(width: geometry.size.width * 0.9, alignment: .leading).padding(.bottom).contentShape(Rectangle()).onTapGesture {
-                        self.isFieldFocused = false
-                    }
+                VStack(alignment: .center) {
+                    HStack {
+                        Spacer()
+                        Text("Personal").foregroundColor(textColor).font(Font.custom(BOLD_FONT, size: 25)).foregroundColor(textColor).frame(width: geometry.size.width * 0.65, alignment: .leading)
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                            self.isFieldFocused = false
+                        }
+                        Button(action: {
+                            self.updateInfo()
+                            self.presentationMode.wrappedValue.dismiss()
+                        }) {
+                            Text("Done").frame(width: geometry.size.width * 0.2).font(.system(size: 25))
+                        }
+                        Spacer()
+                    }.padding(.top)
                     
                     ScrollView {
                         Text("Sender Name").font(Font.custom(BOLD_FONT, size: 20)).frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.15, alignment: .leading).contentShape(Rectangle()).onTapGesture {
@@ -644,20 +649,24 @@ struct GeneralInfoSubView: View {
             // TODO: Add hours field
             GeometryReader { geometry in
                 VStack(alignment: .center) {
-                    Button(action: {
-                        self.updateInfo()
-                        self.presentationMode.wrappedValue.dismiss()
-                    }) {
-                        Text("Done").frame(width: geometry.size.width * 0.75, alignment: .trailing).font(.system(size: 23))
-                    }
                     
-                    Text("General Information").foregroundColor(textColor).font(Font.custom(BOLD_FONT, size: 25)).foregroundColor(textColor).frame(width: geometry.size.width * 0.9, alignment: .leading).padding(.bottom).padding(.leading)
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                        self.isFieldFocused = false
-                    }
+                    HStack {
+                        Spacer()
+                        Text("General Information").foregroundColor(textColor).font(Font.custom(BOLD_FONT, size: 25)).foregroundColor(textColor).frame(width: geometry.size.width * 0.65, alignment: .leading)
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                            self.isFieldFocused = false
+                        }
+                        Button(action: {
+                            self.updateInfo()
+                            self.presentationMode.wrappedValue.dismiss()
+                        }) {
+                            Text("Done").frame(width: geometry.size.width * 0.2).font(.system(size: 25))
+                        }
+                        Spacer()
+                    }.padding(.top)
                     
-                    Text("Add a link(s) to your websites's home page and let the fields automatically generate as long as the information is present on your homepage").font(Font.custom(REGULAR_FONT, size: 20)).frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.10, alignment: .leading).padding(.top).padding(.leading).contentShape(Rectangle()).onTapGesture {
+                    Text("Add a link(s) to your websites's home page and let the fields automatically generate as long as the information is present on your homepage").font(Font.custom(REGULAR_FONT, size: 20)).frame(width: geometry.size.width * 0.85, height: geometry.size.height * 0.15, alignment: .leading).padding(.top).padding(.leading).contentShape(Rectangle()).onTapGesture {
                         self.isFieldFocused = false
                     }
                     Button(action: {self.showingPopup = true}) {

@@ -199,8 +199,6 @@ struct ConversationsView: View {
                         .onAppear(perform: {
                             print("On Appear A")
                             self.setSortedConversations()
-                            self.refreshUserProfilePictures()
-                            self.addActivePageListeners()
                         })
                         .onReceive(self.conversationsHook.publisher.count(), perform: {
                             _ in
@@ -349,40 +347,6 @@ struct ConversationsView: View {
             $0.inDayRange?.boolValue ?? false
         }
         self.sortedConversations = self.sortConversations(conversations: conversationsToShow)
-    }
-    
-    func refreshUserProfilePictures() {
-        // TODO: This doesn't make sense... the page / user relationship
-//        let currentUserPages = self.fetchCurrentUsersPages()
-//        if currentUserPages == nil {
-//            return
-//        }
-//        for page in currentUserPages! {
-//            var userIndex = 0
-//            for user in self.existingUsers {
-//                userIndex += 1
-//                user.getProfilePicture(page: page) {
-//                    print("USERPP", user)
-//                    if userIndex == self.existingUsers.count {
-//                        do {
-//                            Task {
-//                                try self.moc.save()
-//                            }
-//                        } catch {
-//                            print("Error saving M data: \(error.localizedDescription)")
-//                        }
-//                    }
-//                }
-//            }
-//        }
-    }
-    
-    func addActivePageListeners() {
-        if let currentUserPages = self.contentView.fetchCurrentUsersPages() {
-            for page in currentUserPages {
-                self.contentView.addConversationListeners(page: page)
-            }
-        }
     }
     
 }
@@ -1512,7 +1476,7 @@ struct DynamicHeightTextBox: View {
                                 dayStarter: NSNumber(value: dayStarter),
                                 conversation: conversation,
                                 to: conversation.correspondent!,
-                                from: page.pageUser!
+                                from: page.metaUser!
                             )
                             
                             do {

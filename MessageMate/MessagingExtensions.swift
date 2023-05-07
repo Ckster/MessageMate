@@ -197,8 +197,58 @@ extension ContentView {
                             print(error)
                         }
                     }
+                    
+                    self.refreshUserProfilePictures()
+                    self.addActivePageListeners()
+                    
                     self.session.loadingPageInformation = false
                 }
+            }
+        }
+    }
+    
+    func refreshUserProfilePictures() {
+        print("Calling refresh profile pictures")
+        let currentUserPages = self.fetchCurrentUsersPages()
+        if currentUserPages == nil {
+            return
+        }
+        var pageCount = 0
+        for page in currentUserPages! {
+            print("RPPP", page)
+            var conversationCount = 0
+            if let conversations = page.conversations as? Set<Conversation> {
+                print("RPPC \(conversations.count)")
+                for conversation in conversations {
+                    if let correspondent = conversation.correspondent {
+                        correspondent.getProfilePicture(page: page) {
+                            conversationCount = conversationCount + 1
+                            if conversationCount == conversations.count {
+                                pageCount = pageCount + 1
+                            }
+                        }
+                    }
+                    else {
+                        conversationCount = conversationCount + 1
+                        if conversationCount == conversations.count {
+                            pageCount = pageCount + 1
+                        }
+                    }
+                }
+            }
+            else {
+                pageCount = pageCount + 1
+            }
+            if pageCount == currentUserPages!.count {
+                try? self.moc.save()
+            }
+        }
+    }
+    
+    func addActivePageListeners() {
+        if let currentUserPages = self.fetchCurrentUsersPages() {
+            for page in currentUserPages {
+                self.addConversationListeners(page: page)
             }
         }
     }
@@ -618,7 +668,7 @@ extension ContentView {
                                                         opened: NSNumber(value: false),
                                                         dayStarter: NSNumber(value: dayStarter),
                                                         conversation: conversation,
-                                                        to: page.pageUser!,
+                                                        to: page.metaUser!,
                                                         from: conversation.correspondent!
                                                     )
 
