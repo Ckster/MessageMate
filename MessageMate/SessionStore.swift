@@ -34,7 +34,7 @@ class TabSelectionState: ObservableObject {
     @Published var selectedTab : Int = 2
 }
 
-let conversationDayLimit = 200
+let conversationDayLimit = 90
 
 /**
  Creates an instance of the users authentication state and other single instance attributes for the user's session
@@ -60,20 +60,24 @@ class SessionStore : NSObject, ObservableObject {
     @Published var loadingPageInformation: Bool = true
     @Published var webhooksSubscribed: Bool?
     @Published var activePageIDs: [String] = []
+    
     // This is sort of abusive
     @Published var videoPlayerUrl: URL?
     @Published var fullScreenImageUrlString: String?
     @Published var autoGeneratingMessage: Bool = false
     
     @Published var onboardingCompleted: Bool? = nil
+    @Published var initializingPageOnOnboarding: Bool? = nil
     
     @Published var unreadMessages: Int = 0
     @Published var conversationsToUpdate: Int = 0
     
+    let context: NSManagedObjectContext
     private var db = Firestore.firestore()
     let loginManager = LoginManager()
     
-    override init() {
+    init(context: NSManagedObjectContext) {
+        self.context = context
         super.init()
         self.initWorkflow()
     }
@@ -217,7 +221,13 @@ class SessionStore : NSObject, ObservableObject {
     }
     
     func signOut () {
-        // TODO: Remove FB user token
+        let currentUserPages = self.fetchCurrentUserPages()
+        
+        if currentUserPages == nil {
+            // TODO: Tell user there was an error signing out
+            return
+        }
+        
         self.db.collection(Users.name).document(self.user.uid ?? "").updateData(
             [
                 Users.fields.TOKENS: FieldValue.arrayRemove([Messaging.messaging().fcmToken ?? ""]),
@@ -226,23 +236,22 @@ class SessionStore : NSObject, ObservableObject {
                 error in
                 print(error)
                 if error == nil {
-                    // TODO: Move this to a View
-                    @FetchRequest(sortDescriptors: []) var existingPages: FetchedResults<MetaPage>
-                    let activePages = existingPages.filter {$0.active?.boolValue ?? false && $0.id != nil}
-                    var completedPages = 0
-                    for page in activePages {
-                        self.db.collection(Pages.name).document(page.id).updateData([Pages.fields.APNS_TOKENS: FieldValue.arrayRemove([Messaging.messaging().fcmToken ?? ""])], completion: {
-                            error in
-                            print("A", error)
-                            completedPages = completedPages + 1
-                            if completedPages == activePages.count {
-                                self.onboardingCompleted = nil
-                                self.deAuth()
-                            }
-                        })
-                    }
-                    if activePages.count == 0 {
-                        self.deAuth()
+                    DispatchQueue.main.async {
+                        var completedPages = 0
+                        for page in currentUserPages! {
+                            self.db.collection(Pages.name).document(page.id).updateData([Pages.fields.APNS_TOKENS: FieldValue.arrayRemove([Messaging.messaging().fcmToken ?? ""])], completion: {
+                                error in
+                                print("A", error)
+                                completedPages = completedPages + 1
+                                if completedPages == currentUserPages!.count {
+                                    self.onboardingCompleted = nil
+                                    self.deAuth()
+                                }
+                            })
+                        }
+                        if currentUserPages!.count == 0 {
+                            self.deAuth()
+                        }
                     }
                 }
             }
@@ -256,12 +265,6 @@ class SessionStore : NSObject, ObservableObject {
             self.facebookUserToken = nil
             self.selectedPage = nil
             
-            // Delete all of the data for this user from CoreData TODO: Move to a View
-            @FetchRequest(sortDescriptors: []) var existingPages: FetchedResults<MetaPage>
-            let activePages = existingPages.filter {$0.active?.boolValue ?? false}
-            for page in activePages {
-                page.active = false
-            }
             self.isLoggedIn = .signedOut
             // GIDSignIn.sharedInstance().signOut()
             UIApplication.shared.unregisterForRemoteNotifications()
@@ -270,6 +273,23 @@ class SessionStore : NSObject, ObservableObject {
             self.db.collection(Users.name).document(self.user.uid ?? "").updateData([Users.fields.TOKENS: FieldValue.arrayUnion([Messaging.messaging().fcmToken ?? ""])])
             self.isLoggedIn = .signedIn
             // self.loginManager.logIn()
+        }
+    }
+    
+    func fetchCurrentUserPages() -> [MetaPage]? {
+        if let id = self.user.uid {
+            let fetchRequest: NSFetchRequest<MetaPage> = MetaPage.fetchRequest()
+            fetchRequest.predicate = NSPredicate(format: "firebaseUser.id == %@", id)
+            do {
+                let pages = try self.context.fetch(fetchRequest)
+                return pages
+            } catch {
+                print("Error fetching user: \(error.localizedDescription)")
+                return nil
+            }
+        }
+        else {
+            return nil
         }
     }
     

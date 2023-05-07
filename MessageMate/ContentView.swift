@@ -7,6 +7,7 @@
 
 import SwiftUI
 import FBSDKLoginKit
+import FirebaseFirestore
 
 
 struct FooAnchorData: Equatable {
@@ -26,6 +27,7 @@ struct FooAnchorPreferenceKey: PreferenceKey {
 
 
 struct ContentView: View {
+    let db = Firestore.firestore()
     @Environment(\.colorScheme) var colorScheme
     @Environment(\.managedObjectContext) var moc
     @EnvironmentObject var session: SessionStore
@@ -35,6 +37,12 @@ struct ContentView: View {
     @ObservedObject var pushNotificationState = PushNotificationState.shared
     @ObservedObject var tabSelectionState = TabSelectionState.shared
     @State var testString: String = ""
+    
+    @FetchRequest(sortDescriptors: []) var conversationsHook: FetchedResults<Conversation>
+    
+    @State var pagesToUpdate: [MetaPageModel]? { didSet { self.writeNewPages() } }
+    @State var conversationsToUpdate: [ConversationModel]? { didSet { self.writeNewConversations() } }
+    @State var messagesToUpdate: [MessageModel]? { didSet { self.writeNewMessages() } }
     
     init() {
         UINavigationBar.appearance().barTintColor = .lightGray
@@ -60,31 +68,9 @@ struct ContentView: View {
                     ZStack {
                         ZStack(alignment: .bottomLeading) {
 
-                            TabView(selection: self.$tabSelectionState.selectedTab) {
-                                BusinessInformationView().environmentObject(self.session)
-                                    .tabItem {
-                                        Label("Business Info", systemImage: "building.2.crop.circle.fill")
-                                    }
-                                    .tag(1)
-
-                                InboxView()
-                                    .environmentObject(self.session)
-                                    .tabItem {
-                                        var text = "Inbox"
-                                        Label(text, systemImage: "mail.stack.fill")
-                                    }
-                                    .tag(2)
-                                    .environment(\.managedObjectContext, self.moc)
-
-                                AccountView(width: geometry.size.width, height: geometry.size.height).environmentObject(self.session)
-                                    .tabItem {
-                                        var text = "Account"
-                                        Label(text, systemImage: "person.crop.circle.fill")
-                                    }
-                                    .tag(3)
-
-                            }.ignoresSafeArea(.keyboard)
-                                .accentColor(Color("Purple"))
+                            AuthedView(width: geometry.size.width, height: geometry.size.height, contentView: self)
+                                .environmentObject(self.session)
+                                .environment(\.managedObjectContext, self.moc)
 
                             if self.session.unreadMessages > 0 {
                                 // Have to add all this in so keyboard avoidance works
@@ -108,7 +94,7 @@ struct ContentView: View {
                     })
 
                 case false:
-                    OnboardingView()
+                    OnboardingView(contentView: self)
                         .environmentObject(self.session)
                         .environment(\.managedObjectContext, self.moc)
 
@@ -124,4 +110,46 @@ struct ContentView: View {
         }
     }
 }
+}
+
+
+struct AuthedView: View {
+    @Environment(\.managedObjectContext) var moc
+    @EnvironmentObject var session: SessionStore
+    @ObservedObject var tabSelectionState = TabSelectionState.shared
+    
+    let width: CGFloat
+    let height: CGFloat
+    
+    let contentView: ContentView
+    
+    var body: some View {
+        
+        TabView(selection: self.$tabSelectionState.selectedTab) {
+            BusinessInformationView().environmentObject(self.session)
+                .tabItem {
+                    Label("Business Info", systemImage: "building.2.crop.circle.fill")
+                }
+                .tag(1)
+
+            InboxView(contentView: contentView)
+                .environmentObject(self.session)
+                .tabItem {
+                    var text = "Inbox"
+                    Label(text, systemImage: "mail.stack.fill")
+                }
+                .tag(2)
+                .environment(\.managedObjectContext, self.moc)
+
+            AccountView(width: width, height: height).environmentObject(self.session)
+                .tabItem {
+                    var text = "Account"
+                    Label(text, systemImage: "person.crop.circle.fill")
+                }
+                .tag(3)
+
+        }.ignoresSafeArea(.keyboard)
+            .accentColor(Color("Purple"))
+    }
+    
 }

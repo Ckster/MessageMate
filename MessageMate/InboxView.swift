@@ -58,8 +58,6 @@ let messagingPlatforms: [String] = ["instagram", "facebook"]
 // TODO: Auto reply toggle in conversation
 // TODO: Make a cancel button when generating response
 // TODO: Prompt to reply / voice to text
-// TODO: Bug where unread counter is incrementing when in conversation view and receive a message
-// TODO: Enforce unique IDs on Core Data Entities and make sure they aren't throwing errors in code
 // TODO: Make sure loading is stopped / counter is decremented at appopriate times
 // TODO: Get onAppear to stop triggering twice
 // TODO: Image attachments unread message counters aren't decrementing. Probably because of no message id...
@@ -71,6 +69,7 @@ let messagingPlatforms: [String] = ["instagram", "facebook"]
 struct InboxView: View {
     @EnvironmentObject var session: SessionStore
     @Environment(\.managedObjectContext) var moc
+    let contentView: ContentView
     
     var body: some View {
         GeometryReader {
@@ -80,7 +79,7 @@ struct InboxView: View {
             }
             else {
                 VStack {
-                    ConversationsView(width: geometry.size.width, height: geometry.size.height, geometryReader: geometry)
+                    ConversationsView(width: geometry.size.width, height: geometry.size.height, geometryReader: geometry, contentView: contentView)
                         .environmentObject(self.session)
                         .environment(\.managedObjectContext, self.moc)
                     
@@ -123,18 +122,18 @@ struct ConversationsView: View {
     @State var waitingForReset: Bool = false
     @Environment(\.managedObjectContext) var moc
     @FetchRequest(sortDescriptors: []) var conversationsHook: FetchedResults<Conversation>
-    @FetchRequest(sortDescriptors: []) var existingPages: FetchedResults<MetaPage>
     @FetchRequest(sortDescriptors: []) var existingUsers: FetchedResults<MetaUser>
     
-    @State var pagesToUpdate: [MetaPageModel]? { didSet { self.writeNewPages() } }
-    @State var conversationsToUpdate: [ConversationModel]? { didSet { self.writeNewConversations() } }
-    @State var messagesToUpdate: [MessageModel]? { didSet { self.writeNewMessages() } }
+//    @State var pagesToUpdate: [MetaPageModel]? { didSet { self.writeNewPages() } }
+//    @State var conversationsToUpdate: [ConversationModel]? { didSet { self.writeNewConversations() } }
+//    @State var messagesToUpdate: [MessageModel]? { didSet { self.writeNewMessages() } }
     
     let db = Firestore.firestore()
     
     let width: CGFloat
     let height: CGFloat
     let geometryReader: GeometryProxy
+    let contentView: ContentView
     
     var body: some View {
         NavigationView {
@@ -143,7 +142,7 @@ struct ConversationsView: View {
                 if self.session.loadingPageInformation {
                     LottieView(name: "Paperplane")
                         .onTapGesture(perform: {
-                            self.initializePageInfo()
+                            self.contentView.initializePageInfo()
                         }
                     )
                 }
@@ -154,7 +153,7 @@ struct ConversationsView: View {
                         ScrollView {
                             
                             PullToRefresh(coordinateSpaceName: "pullToRefresh") {
-                                self.initializePageInfo()
+                                self.contentView.initializePageInfo()
                             }
                             
                             if self.missingFields.count > 0 {
@@ -214,7 +213,7 @@ struct ConversationsView: View {
                     else {
                         NoBusinessAccountsLinkedView(width: width, height: height).environmentObject(self.session)
                             .onChange(of: self.session.facebookUserToken, perform: { newToken in
-                                self.initializePageInfo()
+                                self.contentView.initializePageInfo()
                         })
                     }
                 }
@@ -255,6 +254,137 @@ struct ConversationsView: View {
         }
         return sortedConversations
     }
+    
+    func writeSearchResults(searchText: String) {
+        if self.session.selectedPage == nil {
+            return
+        }
+        
+        if !searchText.isEmpty {
+            DispatchQueue.main.async {
+                var filteredCorrespondents: [Conversation] = []
+                var filteredMessages: [Conversation] = []
+                
+                let conversationsToShow : [Conversation] = self.conversationsHook.filter {
+                    $0.metaPage.id == self.session.selectedPage!.id &&
+                    $0.inDayRange?.boolValue ?? false
+                }
+                
+                for conversation in conversationsToShow {
+                    
+                    // Reset
+                    //conversation.messagesToScrollTo = nil
+                    
+                    // See if correspondent needs to be added to search results
+                    let correspondentContains = (conversation.correspondent?.displayName() ?? "").lowercased().contains(searchText.lowercased())
+                    if correspondentContains {
+                        filteredCorrespondents.append(
+                            conversation
+                        )
+                    }
+                    
+                    // See which messages need to be added to search result
+                    var messageFound: Bool = false
+                    if let messageSet = conversation.messages as? Set<Message> {
+                        let messages = Array(messageSet)
+                        for message in messages {
+                            if message.message == nil {
+                                continue
+                            }
+                            if message.message.lowercased().contains(searchText.lowercased()) {
+                                
+                                conversation.messageToScrollTo = message
+                                
+                                messageFound = true
+                                
+                            }
+                        }
+                        
+                        if messageFound {
+                            filteredMessages.append(
+                                conversation
+                            )
+                        }
+                    }
+                }
+                
+                self.corresponsdentsSearch = self.sortConversations(conversations: filteredCorrespondents)
+                self.messagesSearch = self.sortConversations(conversations: filteredMessages)
+                //TODO: try? self.moc.save()
+            }
+        }
+        else {
+            self.waitingForReset = true
+            self.resetSearch()
+        }
+    }
+    
+    func resetSearch() {
+        DispatchQueue.main.async {
+            self.corresponsdentsSearch = []
+            self.messagesSearch = []
+            let conversationsToShow : [Conversation] = self.conversationsHook.filter {
+                $0.metaPage.id == self.session.selectedPage!.id &&
+                $0.inDayRange?.boolValue ?? false
+            }
+            for conversation in conversationsToShow {
+                conversation.messageToScrollTo = nil
+                if let messageSet = conversation.messages as? Set<Message> {
+                    let messages = Array(messageSet)
+                    for message in messages {
+                        message.highlight = false
+                    }
+                }
+            }
+            
+            self.sortedConversations = self.sortConversations(conversations: conversationsToShow)
+            self.waitingForReset = false
+            //TODO: try? self.moc.save()
+        }
+    }
+    
+    func setSortedConversations() {
+        let conversationsToShow : [Conversation] = self.conversationsHook.filter {
+            $0.metaPage.id == self.session.selectedPage!.id &&
+            $0.inDayRange?.boolValue ?? false
+        }
+        self.sortedConversations = self.sortConversations(conversations: conversationsToShow)
+    }
+    
+    func refreshUserProfilePictures() {
+        // TODO: This doesn't make sense... the page / user relationship
+//        let currentUserPages = self.fetchCurrentUsersPages()
+//        if currentUserPages == nil {
+//            return
+//        }
+//        for page in currentUserPages! {
+//            var userIndex = 0
+//            for user in self.existingUsers {
+//                userIndex += 1
+//                user.getProfilePicture(page: page) {
+//                    print("USERPP", user)
+//                    if userIndex == self.existingUsers.count {
+//                        do {
+//                            Task {
+//                                try self.moc.save()
+//                            }
+//                        } catch {
+//                            print("Error saving M data: \(error.localizedDescription)")
+//                        }
+//                    }
+//                }
+//            }
+//        }
+    }
+    
+    func addActivePageListeners() {
+        if let currentUserPages = self.contentView.fetchCurrentUsersPages() {
+            for page in currentUserPages {
+                self.contentView.addConversationListeners(page: page)
+            }
+        }
+    }
+    
 }
 
 
@@ -1261,7 +1391,12 @@ struct DynamicHeightTextBox: View {
             }
             .onAppear(perform: {
                 var newMessages: [Message] = []
+                print(self.messagesRequest.count, "Messages count")
                 for message in self.messagesRequest {
+                    if !message.opened.boolValue {
+                        message.opened = NSNumber(value: true)
+                        self.session.unreadMessages = self.session.unreadMessages - 1
+                    }
                     newMessages.append(message)
                 }
                 self.messages = newMessages
@@ -1270,7 +1405,12 @@ struct DynamicHeightTextBox: View {
                 _ in
                 print("On receive messages request")
                 var newMessages: [Message] = []
+                print(self.messagesRequest.count)
                 for message in self.messagesRequest {
+                    if !message.opened.boolValue {
+                        message.opened = NSNumber(value: true)
+                        self.session.unreadMessages = self.session.unreadMessages - 1
+                    }
                     newMessages.append(message)
                 }
                 self.messages = newMessages
@@ -1361,26 +1501,29 @@ struct DynamicHeightTextBox: View {
                         let messageDate = Calendar.current.dateComponents([.month, .day], from: createdDate)
                         
                         let dayStarter = lastDate.month! != messageDate.month! || lastDate.day! != messageDate.day!
-
-                        let newMessage = Message(
-                            context: self.moc,
-                            id: messageId!,
-                            createdTime: createdDate,
-                            message: message,
-                            opened: true,
-                            dayStarter: NSNumber(value: dayStarter),
-                            conversation: conversation,
-                            to: conversation.correspondent!,
-                            from: page.pageUser!
-                        )
                         
-                        do {
-                            Task {
-                                try self.moc.save()
+                        DispatchQueue.main.async {
+                            let newMessage = Message(
+                                context: self.moc,
+                                id: messageId!,
+                                createdTime: createdDate,
+                                message: message,
+                                opened: true,
+                                dayStarter: NSNumber(value: dayStarter),
+                                conversation: conversation,
+                                to: conversation.correspondent!,
+                                from: page.pageUser!
+                            )
+                            
+                            do {
+                                Task {
+                                    try self.moc.save()
+                                }
+                            } catch {
+                                print("Error saving sent message data: \(error.localizedDescription)")
                             }
-                        } catch {
-                            print("Error saving sent message data: \(error.localizedDescription)")
                         }
+                        
                         completion(sentMessageData!)
                     }
                     else {
@@ -1919,38 +2062,6 @@ func postRequestXForm(urlString: String, completion: @escaping ([String: AnyObje
     }
     dataTask.resume()
 }
-
-
-func initializePage(page: MetaPage) {
-    let db = Firestore.firestore()
-    
-    let pageDoc = db.collection(Pages.name).document(page.id)
-    pageDoc.getDocument() {
-        doc, error in
-        if error == nil && doc != nil {
-            if !doc!.exists {
-                db.collection(Pages.name).document(page.id).setData(
-                    [
-                        Pages.fields.INSTAGRAM_ID: page.businessAccountID,
-                        Pages.fields.STATIC_PROMPT: "",
-                        Pages.fields.NAME: page.name,
-                        Pages.fields.APNS_TOKENS: [Messaging.messaging().fcmToken ?? ""]
-                    ]
-                ) {
-                    _ in
-                }
-            }
-            else {
-                doc!.reference.updateData([
-                    Pages.fields.INSTAGRAM_ID: page.businessAccountID,
-                    Pages.fields.NAME: page.name,
-                    Pages.fields.APNS_TOKENS: FieldValue.arrayUnion([Messaging.messaging().fcmToken ?? ""])
-                ])
-            }
-        }
-    }
-}
-
 
 extension Notification {
     var keyboardHeight: CGFloat {

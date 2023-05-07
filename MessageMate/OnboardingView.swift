@@ -38,6 +38,7 @@ struct OnboardingView: View {
     @State var industry: String = industryExample
 
     var db = Firestore.firestore()
+    let contentView: ContentView
     
     var body: some View {
         GeometryReader {
@@ -49,7 +50,7 @@ struct OnboardingView: View {
                         .offset(x: self.activeView != .complete ? self.viewState.width : 0)
                         .animation(.easeInOut)
                     
-                    InfoView(senderName: self.$senderName, senderCharacteristics: self.$senderCharacteristics, businessName: self.$businessName, industry: self.$industry, width: geometry.size.width, height: geometry.size.height)
+                    InfoView(senderName: self.$senderName, senderCharacteristics: self.$senderCharacteristics, businessName: self.$businessName, industry: self.$industry, width: geometry.size.width, height: geometry.size.height, contentView: contentView)
                         .environmentObject(self.session)
                         .offset(x: self.activeView == .info ? 0 : self.activeView == .intro ? screenWidth : -screenWidth)
                         .offset(x: self.viewState.width)
@@ -160,6 +161,7 @@ struct InfoView: View {
     @FocusState var isFieldFocused: Bool
     let width: CGFloat
     let height: CGFloat
+    let contentView: ContentView
     
     var body: some View {
 
@@ -175,11 +177,16 @@ struct InfoView: View {
                 }
                 .onAppear {
                     Task {
-                        self.getPageInfo() {
-                            self.initializing = false
-                        }
+                        self.session.initializingPageOnOnboarding = true
+                        self.contentView.initializePageInfo()
                     }
                 }
+                .onChange(of: self.session.initializingPageOnOnboarding, perform: {
+                    initializing in
+                    if initializing != nil && !initializing! {
+                        self.initializing = false
+                    }
+                })
             }
             
             else {

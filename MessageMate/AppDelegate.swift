@@ -28,8 +28,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 if let error = error {
                     fatalError("Failed to load Core Data stack: \(error)")
                 }
+                container.viewContext.mergePolicy = NSMergePolicy.mergeByPropertyObjectTrump
                 print("Core Data stack loaded")
             }
+        
             return container
         }()
     
@@ -75,26 +77,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         )
 
         Messaging.messaging().delegate = self
-          
-          let coordinator = persistentContainer.persistentStoreCoordinator
-          let store = coordinator.persistentStores.first
-        
-          if store != nil {
-              let sqliteURL = store!.url
-              print("sqlite \(sqliteURL)")
-              
-              if sqliteURL != nil {
-                  do {
-                      try FileManager.default.copyItem(at: sqliteURL!, to: URL(string: "file:///Users/erickverleye/Desktop/Projects/MessageMate/sqlite/Messaging.sqlite")!)
-                  }
-                  catch {
-                      
-                  }
-              }
-          }
-          else {
-              print("store is nil")
-          }
           
         return true
     }
