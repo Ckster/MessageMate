@@ -144,33 +144,24 @@ struct DynamicDictSubView: View {
     }
     
     func getCrawlerResults(completion: @escaping () -> Void) {
-        // TODO: Combine results here or send all urls to backend and take care of it there
-        for url in self.urlValueDict.values {
+        webcrawlRequest(section: self.websiteSection!, urls: self.urlValueDict.values.map { $0 }) {
+            response in
+            let responseData: [String: String] = response as? [String: String] ?? ["" : ""]  // TODO: Add alert if empty
+            var newExistingItems: [DoubleInputBoxView] = []
+            let itemTypes = Array(responseData.keys)
             
-            if url == "" {
-                continue
-            }
-            
-            webcrawlRequest(section: self.websiteSection!, url: url) {
-                response in
-                print(response)
-                let responseData: [String: String] = response as? [String: String] ?? ["" : ""]  // TODO: Add alert if empty
-                var newExistingItems: [DoubleInputBoxView] = []
-                let itemTypes = Array(responseData.keys)
-                
-                for itemType in itemTypes {
-                    let newItem = DoubleInputBoxView(keyType: itemType, value: responseData[itemType]!, deletable: true, keyHeader: self.keyText, valueHeader: self.valueText, inputToDelete: $itemToDelete, inputStrings: $itemStrings, justAdded: false, disableAutoCorrect: self.disableAutoCorrect, disableAutoCapitalization: self.disableAutoCorrect, firebaseItemsField: self.firebaseItemsField)
-                    newExistingItems.append(newItem)
-                    self.itemStrings[newItem.id] = [newItem.type, newItem.value]
-                    if itemType == itemTypes.last {
-                        self.items = newExistingItems
-                        self.loading = false
-                    }
+            for itemType in itemTypes {
+                let newItem = DoubleInputBoxView(keyType: itemType, value: responseData[itemType]!, deletable: true, keyHeader: self.keyText, valueHeader: self.valueText, inputToDelete: $itemToDelete, inputStrings: $itemStrings, justAdded: false, disableAutoCorrect: self.disableAutoCorrect, disableAutoCapitalization: self.disableAutoCorrect, firebaseItemsField: self.firebaseItemsField)
+                newExistingItems.append(newItem)
+                self.itemStrings[newItem.id] = [newItem.type, newItem.value]
+                if itemType == itemTypes.last {
+                    self.items = newExistingItems
+                    self.loading = false
                 }
-                            
-                self.updateItems()
-                completion()
             }
+
+            self.updateItems()
+            completion()
         }
     }
 }

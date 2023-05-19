@@ -108,7 +108,12 @@ struct ContentView: View {
         if self.session.isLoggedIn == .signedOut {
             SignInView().environmentObject(self.session)
         }
-    }
+    }.onChange(of: self.session.facebookUserToken, perform: { newToken in
+        if newToken != nil {
+            print("Initializing page info")
+            self.initializePageInfo()
+        }
+    })
 }
 }
 

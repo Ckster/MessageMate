@@ -773,7 +773,7 @@ struct GeneralInfoSubView: View {
     }
     
     func getCrawlerResults(completion: @escaping () -> Void) {
-        let crawlerResponse = webcrawlRequest(section: "homepage_link", url: self.workingWebsiteURL) {
+        let crawlerResponse = webcrawlRequest(section: "homepage_link", urls: [self.workingWebsiteURL]) {
             response in
             print(response)
             self.address = response["business_address"] as? String ?? ""
@@ -784,6 +784,7 @@ struct GeneralInfoSubView: View {
             completion()
         }
     }
+    
 }
 
 
@@ -922,7 +923,7 @@ struct HorizontalLine: View {
     }
 }
 
-func webcrawlRequest(section: String, url: String, completion: @escaping ([String: Any]) -> Void) {
+func webcrawlRequest(section: String, urls: [String], completion: @escaping ([String: Any]) -> Void) {
     let urlString = "https://us-central1-messagemate-2d9af.cloudfunctions.net/autofill_info_http"
     let currentUser = Auth.auth().currentUser
     
@@ -935,15 +936,26 @@ func webcrawlRequest(section: String, url: String, completion: @escaping ([Strin
         
         let header: [String: String] = [
             "authorization": idToken!,
-            "section": section,
-            "url": url
+            "section": section
         ]
         
-        Task {
-            let data = await getRequest(urlString: urlString, header: header)
-            if data != nil {
-                completion(data!["crawlResults"] as? [String: Any] ?? ["error": ""]) // TODO: Process an actual error message from response
+        let body = [
+            "urls": urls
+        ]
+        
+        let bodyData = try? JSONSerialization.data(withJSONObject: body)
+        
+        if bodyData != nil {
+            postRequestJSON(urlString: urlString, header: header, data: bodyData!) {
+                data in
+                if data != nil {
+                    completion(data!["crawlResults"] as? [String: Any] ?? ["error": ""]) // TODO: Process an actual error message from response
+                }
             }
+        }
+        else {
+            print("Body data nil")
+            completion(["Body data nil": nil])
         }
     }
 }

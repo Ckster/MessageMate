@@ -125,8 +125,6 @@ struct BottomScreen: View {
                         AlegalAlert
                     }
                 
-                    
-                    
     //                // Sign in with Google
     //                Button(action: {self.showingGoogleLegalAlert = true}) {
     //                Image("sign_in_with_google").resizable().cornerRadius(3.0).aspectRatio(contentMode: .fit).frame(width: self.width * 0.92, height: self.height * 0.10)

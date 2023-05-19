@@ -61,9 +61,9 @@ class SessionStore : NSObject, ObservableObject {
     @Published var webhooksSubscribed: Bool?
     @Published var activePageIDs: [String] = []
     
-    // This is sort of abusive
     @Published var videoPlayerUrl: URL?
     @Published var fullScreenImageUrlString: String?
+    
     @Published var autoGeneratingMessage: Bool = false
     
     @Published var onboardingCompleted: Bool? = nil
@@ -310,16 +310,16 @@ class SessionStore : NSObject, ObservableObject {
             if error == nil {
                 if loginResult?.isCancelled == false {
                     let userAccessToken = AccessToken.current!.tokenString
-                    self.facebookUserToken = userAccessToken
-                    
                     if authWorkflow {
                         let credential = FacebookAuthProvider.credential(withAccessToken: AccessToken.current!.tokenString)
                         self.firebaseAuthWorkflow(credential: credential) {
                             self.uploadFBToken(userAccessToken: userAccessToken)
+                            self.facebookUserToken = userAccessToken
                         }
                     }
                     else {
                         self.uploadFBToken(userAccessToken: userAccessToken)
+                        self.facebookUserToken = userAccessToken
                     }
                 }
             }
@@ -478,6 +478,7 @@ class User: ObservableObject {
         }
         
         Auth.auth().addStateDidChangeListener { auth, user in
+            print("AUth state changed")
             if let user = user {
                 self.user = user
                 self.uid = user.uid

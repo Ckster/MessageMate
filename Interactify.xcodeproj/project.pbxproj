@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		ED1A19292A174E5C006CEB6E /* InstagramPost+CoreDataClass.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED1A19272A174E5C006CEB6E /* InstagramPost+CoreDataClass.swift */; };
+		ED1A192A2A174E5C006CEB6E /* InstagramPost+CoreDataProperties.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED1A19282A174E5C006CEB6E /* InstagramPost+CoreDataProperties.swift */; };
 		ED23AA3A29FB5C260088947D /* InitialsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED23AA3929FB5C260088947D /* InitialsView.swift */; };
 		ED23AA3C29FCA6FB0088947D /* DataModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED23AA3B29FCA6FB0088947D /* DataModels.swift */; };
 		ED2CBB1C29936275002161BE /* LottieView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED2CBB1B29936275002161BE /* LottieView.swift */; };
@@ -89,6 +91,8 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		ED1A19272A174E5C006CEB6E /* InstagramPost+CoreDataClass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "InstagramPost+CoreDataClass.swift"; sourceTree = "<group>"; };
+		ED1A19282A174E5C006CEB6E /* InstagramPost+CoreDataProperties.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "InstagramPost+CoreDataProperties.swift"; sourceTree = "<group>"; };
 		ED23AA3929FB5C260088947D /* InitialsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InitialsView.swift; sourceTree = "<group>"; };
 		ED23AA3B29FCA6FB0088947D /* DataModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataModels.swift; sourceTree = "<group>"; };
 		ED2CBB1B29936275002161BE /* LottieView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LottieView.swift; sourceTree = "<group>"; };
@@ -241,6 +245,8 @@
 		ED99A8FE297C8F2A0029235B = {
 			isa = PBXGroup;
 			children = (
+				ED1A19272A174E5C006CEB6E /* InstagramPost+CoreDataClass.swift */,
+				ED1A19282A174E5C006CEB6E /* InstagramPost+CoreDataProperties.swift */,
 				ED99A909297C8F2A0029235B /* MessageMate */,
 				ED99A908297C8F2A0029235B /* Products */,
 			);
@@ -432,6 +438,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				ED1A19292A174E5C006CEB6E /* InstagramPost+CoreDataClass.swift in Sources */,
+				ED1A192A2A174E5C006CEB6E /* InstagramPost+CoreDataProperties.swift in Sources */,
 				ED72C9BE29F7920E00DDE685 /* MessagingExtensions.swift in Sources */,
 				ED23AA3A29FB5C260088947D /* InitialsView.swift in Sources */,
 				ED5EC3F42A0237BC00BE7E5D /* MessagingDatabaseUpdaters.swift in Sources */,
@@ -586,7 +594,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = MessageMate/MessageMate.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 9;
+				CURRENT_PROJECT_VERSION = 10;
 				DEVELOPMENT_ASSET_PATHS = "\"MessageMate/Preview Content\"";
 				DEVELOPMENT_TEAM = WRFAAJL539;
 				ENABLE_PREVIEWS = YES;
@@ -623,7 +631,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = MessageMate/MessageMateRelease.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 9;
+				CURRENT_PROJECT_VERSION = 10;
 				DEVELOPMENT_ASSET_PATHS = "\"MessageMate/Preview Content\"";
 				DEVELOPMENT_TEAM = WRFAAJL539;
 				ENABLE_PREVIEWS = YES;

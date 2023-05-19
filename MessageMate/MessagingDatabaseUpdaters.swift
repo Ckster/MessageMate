@@ -36,6 +36,10 @@ extension ContentView {
                                         metaPage!.photoURL = profilePictureURL
                                     }
                                 }
+                                
+                                // This won't overwrite existing info, just initiaize things that don't exist
+                                initializePage(page: metaPage!)
+                                
                                 self.updateSelectedPage {
                                     var newConversations: [ConversationModel] = []
                                     var platformCount = 0
@@ -88,7 +92,7 @@ extension ContentView {
                         if conversation!.inDayRange?.boolValue ?? false && conversation!.updatedTime ?? Date(timeIntervalSince1970: 0) > conversation!.lastRefresh ?? Date(timeIntervalSince1970: 0) {
                             print("Getting new messages")
                             conversationModel.lastRefresh = conversation!.lastRefresh
-                            self.getNewMessages(conversation: conversationModel) { _ in}
+                            self.getNewMessages(conversation: conversationModel) {_ in}
                         }
                         else {
                             print("NO message update")
@@ -212,6 +216,7 @@ extension ContentView {
             // Need to have Firebase User
             if firebaseUser == nil {
                 completion(nil)
+                return
             }
             
             var outPage: MetaPage? = nil
@@ -239,9 +244,6 @@ extension ContentView {
                 )
                 outPage = newPage
             }
-            
-            // This won't overwrite existing info, just initiaize things that don't exist
-            initializePage(page: outPage!)
             
             print("Calling save")
             
@@ -346,14 +348,6 @@ extension ContentView {
             from: from
         )
         
-        if messageModel.imageAttachment != nil {
-            let imageAttachment = ImageAttachment(
-                context: self.moc,
-                url: URL(string: messageModel.imageAttachment!.url),
-                message: newMessage
-            )
-            newMessage.imageAttachment = imageAttachment
-        }
         if messageModel.instagramStoryMention != nil {
             let instagramStoryMention = InstagramStoryMention(
                 context: self.moc,
@@ -372,11 +366,31 @@ extension ContentView {
             )
             newMessage.instagramStoryReply = instagramStoryReply
         }
+        if messageModel.instagramPost != nil {
+            print("Adding instagram post")
+            let instagramPost = InstagramPost(
+                context: self.moc,
+                id: messageModel.instagramPost!.id,
+                cdnURL: URL(string: messageModel.instagramPost!.cdnUrl),
+                message: newMessage
+            )
+            newMessage.instagramPost = instagramPost
+        }
+        if messageModel.imageAttachment != nil {
+            let imageAttachment = ImageAttachment(
+                context: self.moc,
+                url: URL(string: messageModel.imageAttachment!.url),
+                message: newMessage,
+                id: messageModel.id
+            )
+            newMessage.imageAttachment = imageAttachment
+        }
         if messageModel.videoAttachment != nil {
             let videoAttachment = VideoAttachment(
                 context: self.moc,
                 url: URL(string: messageModel.videoAttachment!.url),
-                message: newMessage
+                message: newMessage,
+                id: messageModel.id
             )
             newMessage.videoAttachment = videoAttachment
         }

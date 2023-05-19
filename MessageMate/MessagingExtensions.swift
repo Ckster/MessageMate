@@ -14,6 +14,7 @@ extension ContentView {
     
     func initializePageInfo() {
         self.moc.perform {
+            self.session.loadingPageInformation = true
             print(Thread.current, "Thread C")
             Task {
                 self.pagesToUpdate = await self.updateActivePages()
@@ -313,53 +314,57 @@ extension ContentView {
             
             print("URL string", urlString)
             
-                completionGetRequest(urlString: urlString) {
-                    jsonDataDict in
-                    
-                    print(Thread.current, "Thread T")
-                    
-                    let conversationData = jsonDataDict["messages"] as? [String: AnyObject]
+            completionGetRequest(urlString: urlString) {
+                jsonDataDict in
                 
-                    if conversationData != nil {
-                        print(conversationData)
-                        
-                        // Get paging information
-                        var pagingInfo: PagingInfo? = nil
-                        let pointerData = conversationData!["paging"] as? [String: AnyObject]
-                        if pointerData != nil {
-                            let cursorData = pointerData!["cursors"] as? [String: String]
-                            if cursorData != nil {
-                                pagingInfo = PagingInfo(beforeCursor: cursorData!["before"], afterCursor: cursorData!["after"])
-                            }
+                if jsonDataDict == nil {
+                    self.decrementConversationsToUpdate(pageID: conversation.page.id)
+                    completion(([], nil))
+                }
+                
+                print(Thread.current, "Thread T")
+                
+                let conversationData = jsonDataDict["messages"] as? [String: AnyObject]
+                
+                if conversationData != nil {
+                    print(conversationData)
+                    
+                    // Get paging information
+                    var pagingInfo: PagingInfo? = nil
+                    let pointerData = conversationData!["paging"] as? [String: AnyObject]
+                    if pointerData != nil {
+                        let cursorData = pointerData!["cursors"] as? [String: String]
+                        if cursorData != nil {
+                            pagingInfo = PagingInfo(beforeCursor: cursorData!["before"], afterCursor: cursorData!["after"])
                         }
+                    }
+                    
+                    let messageData = conversationData!["data"] as? [[String: AnyObject]]
+                    print("Number of messages: \(messageData!.count)")
+                    
+                    if messageData != nil {
+                        print("Message data not nil")
+                        let messagesLen = messageData!.count
+                        var indexCounter = 0
+                        var newMessages: [MessageModel] = []
                         
-                        let messageData = conversationData!["data"] as? [[String: AnyObject]]
-                        print("Number of messages: \(messageData!.count)")
-                        
-                        if messageData != nil {
-                            print("Message data not nil")
-                            let messagesLen = messageData!.count
-                            var indexCounter = 0
-                            var newMessages: [MessageModel] = []
+                        for message in messageData! {
+                            let id = message["id"] as? String
+                            let createdTime = message["created_time"] as? String
                             
-                            for message in messageData! {
-                                let id = message["id"] as? String
-                                let createdTime = message["created_time"] as? String
+                            if id != nil && createdTime != nil {
+                                let messageDataURLString = "https://graph.facebook.com/v16.0/\(id!)?fields=id,created_time,from,to,message,story,attachments,shares&access_token=\(conversation.page.accessToken)"
                                 
-                                if id != nil && createdTime != nil {
-                                    let messageDataURLString = "https://graph.facebook.com/v16.0/\(id!)?fields=id,created_time,from,to,message,story,attachments,shares&access_token=\(conversation.page.accessToken)"
-                                    
-                                    print("message data url \(messageDataURLString)")
-                                    
-                                    completionGetRequest(urlString: messageDataURLString) {
-                                        messageDataDict in
-                                      
+                                print("message data url \(messageDataURLString)")
+                                Task {
+                                    if let messageDataDict = await getRequest(urlString: messageDataURLString) {
                                         print(Thread.current, "Thread U")
                                         
                                         var messageInfo: MessageModel?
                                         switch conversation.platform {
                                         case "instagram":
-                                            messageInfo = self.parseInstagramMessage(messageDataDict: messageDataDict, message_id: id!, createdTime: createdTime!)
+                                            messageInfo = await self.parseInstagramMessage(messageDataDict: messageDataDict, messageId: id!, createdTime: createdTime!, accessToken: conversation.page.accessToken)
+                                            
                                         case "facebook":
                                             messageInfo = self.parseFacebookMessage(messageDataDict: messageDataDict, message_id: id!, createdTime: createdTime!)
                                         default:
@@ -370,44 +375,57 @@ extension ContentView {
                                         
                                         if messageInfo != nil {
                                             messageInfo!.conversation = conversation
-                            
+                                            
                                             if messageInfo!.id != nil && messageInfo!.message != nil && messageInfo!.createdTime != nil {
                                                 newMessages.append(messageInfo!)
                                             }
                                         }
+                                    }
+                                    
+                                    if indexCounter == messagesLen {
+                                        newMessages = newMessages.sorted { $0.createdTime < $1.createdTime }
                                         
-                                        if indexCounter == messagesLen {
-                                            newMessages = newMessages.sorted { $0.createdTime < $1.createdTime }
+                                        var lastDate: Foundation.DateComponents? = nil
+                                        for message in newMessages {
                                             
-                                            var lastDate: Foundation.DateComponents? = nil
-                                            for message in newMessages {
-                                                
-                                                let createdTimeDate = Calendar.current.dateComponents([.month, .day], from: message.createdTime)
-                                                var dayStarter = lastDate == nil
-                                                if lastDate != nil {
-                                                    dayStarter = lastDate!.month! != createdTimeDate.month! || lastDate!.day! != createdTimeDate.day!
-                                                }
-                                                lastDate = createdTimeDate
-                                                message.dayStarter = NSNumber(value: dayStarter)
-                                                
-                                                print("Done with refreshed message")
+                                            let createdTimeDate = Calendar.current.dateComponents([.month, .day], from: message.createdTime)
+                                            var dayStarter = lastDate == nil
+                                            if lastDate != nil {
+                                                dayStarter = lastDate!.month! != createdTimeDate.month! || lastDate!.day! != createdTimeDate.day!
                                             }
+                                            lastDate = createdTimeDate
+                                            message.dayStarter = NSNumber(value: dayStarter)
                                             
-                                            print("Setting messages to update")
-                                            self.messagesToUpdate = newMessages
-                
-                                            completion((newMessages, pagingInfo))
+                                            print("Done with refreshed message")
                                         }
                                         
+                                        print("Setting messages to update")
+                                        self.messagesToUpdate = newMessages
+                                        
+                                        completion((newMessages, pagingInfo))
                                     }
                                 }
                             }
                         }
+                        if messagesLen == 0 {
+                            self.decrementConversationsToUpdate(pageID: conversation.page.id)
+                            completion(([], nil))
+                        }
+                    }
+                    else {
+                        self.decrementConversationsToUpdate(pageID: conversation.page.id)
+                        completion(([], nil))
                     }
                 }
+                else {
+                    self.decrementConversationsToUpdate(pageID: conversation.page.id)
+                    completion(([], nil))
+                }
+            }
         }
         else {
             self.decrementConversationsToUpdate(pageID: conversation.page.id)
+            completion(([], nil))
         }
     }
     
@@ -445,6 +463,25 @@ extension ContentView {
                     print("updating instagram story")
                     let newInstagramStoryReply = InstagramStoryReplyModel(id: id!, cdnUrl: cdnUrl!)
                     return newInstagramStoryReply
+                }
+                else {return nil}
+            }
+            else {return nil}
+        }
+        else {return nil}
+    }
+    
+    func parseInstagramPost(messageId: String, postDataDict: [String: Any]) -> InstagramPostModel? {
+        print("IP \(postDataDict)")
+        let attachmentsData = postDataDict["data"] as? [[String: Any]]
+        print("Attachments data \(attachmentsData)")
+        if attachmentsData != nil {
+            let firstAttachment = attachmentsData!.first
+            if firstAttachment != nil {
+                if let url = firstAttachment!["link"] as? String {
+                    print("updating instagram post")
+                    let newInstagramPost = InstagramPostModel(id: messageId, cdnUrl: url)
+                    return newInstagramPost
                 }
                 else {return nil}
             }
@@ -501,7 +538,36 @@ extension ContentView {
         else {return nil}
     }
     
-    func parseInstagramMessage(messageDataDict: [String: Any], message_id: String, createdTime: String) -> MessageModel? {
+    func createNewMessageModel(
+        fromUsername: String?,
+        fromId: String?,
+        toUsername: String?,
+        toId: String?,
+        message: String?,
+        createdTime: String,
+        messageId: String,
+        instagramStoryMention: InstagramStoryMentionModel?,
+        instagramStoryReply: InstagramStoryReplyModel?,
+        instagramPost: InstagramPostModel?,
+        imageAttachment: ImageAttachmentModel?,
+        videoAttachment: VideoAttachmentModel?
+    ) -> MessageModel? {
+        if fromUsername != nil && fromId != nil && toUsername != nil && toId != nil && message != nil {
+            let fromUser = MetaUserModel(platform: "instagram", name: nil, email: nil, username: fromUsername, id: fromId!)
+            let toUser = MetaUserModel(platform: "instagram", name: nil, email: nil, username: toUsername, id: toId!)
+            print("returning message")
+            
+            let createdTime = Date().facebookStringToDate(fbString: createdTime)
+            
+            return MessageModel(id: messageId, message: message!, to: toUser, from: fromUser, createdTime: createdTime, instagramStoryMention: instagramStoryMention, instagramStoryReply: instagramStoryReply, instagramPost: instagramPost, imageAttachment: imageAttachment, videoAttachment: videoAttachment)
+    
+        }
+        else {
+            return nil
+        }
+    }
+    
+    func parseInstagramMessage(messageDataDict: [String: Any], messageId: String, createdTime: String, accessToken: String) async -> MessageModel? {
         let fromDict = messageDataDict["from"] as? [String: AnyObject]
         let toDictList = messageDataDict["to"] as? [String: AnyObject]
         let message = messageDataDict["message"] as? String
@@ -520,24 +586,32 @@ extension ContentView {
                     let instagramStoryReply = parseInstagramStoryReply(messageDataDict: messageDataDict)
                     let imageAttachment = parseImageAttachment(messageDataDict: messageDataDict)
                     let videoAttachment = parseVideoAttachment(messageDataDict: messageDataDict)
-
-                    if fromUsername != nil && fromId != nil && toUsername != nil && toId != nil && message != nil {
-                        let fromUser = MetaUserModel(platform: "instagram", name: nil, email: nil, username: fromUsername, id: fromId!)
-                        let toUser = MetaUserModel(platform: "instagram", name: nil, email: nil, username: toUsername, id: toId!)
-                        print("returning message")
+                    
+                    if instagramStoryReply == nil && instagramStoryReply == nil && imageAttachment == nil && videoAttachment == nil && message == "" {
+                        print("Calling /shares edge")
+                        // Request /shares edge
+                        let sharesDataURLString = "https://graph.facebook.com/v16.0/\(messageId)/shares?fields=link&access_token=\(accessToken)"
                         
-                        let createdTime = Date().facebookStringToDate(fbString: createdTime)
+                        print("message data url \(sharesDataURLString)")
                         
-                        return MessageModel(id: message_id, message: message!, to: toUser, from: fromUser, createdTime: createdTime, instagramStoryMention: instagramStoryMention, instagramStoryReply: instagramStoryReply, imageAttachment: imageAttachment, videoAttachment: videoAttachment)
-                
+                        if let sharesResponse = await getRequest(urlString: sharesDataURLString) {
+                            print("shares response \(sharesResponse)")
+                            let instagramPost = parseInstagramPost(messageId: messageId, postDataDict: sharesResponse)
+                            print(instagramPost, "instagram post")
+                            return createNewMessageModel(fromUsername: fromUsername, fromId: fromId, toUsername: toUsername, toId: toId, message: message, createdTime: createdTime, messageId: messageId, instagramStoryMention: instagramStoryMention, instagramStoryReply: instagramStoryReply, instagramPost: instagramPost, imageAttachment: imageAttachment, videoAttachment: videoAttachment)
+                        }
                     }
-                    else {return nil}
+                    else {
+                        return createNewMessageModel(fromUsername: fromUsername, fromId: fromId, toUsername: toUsername, toId: toId, message: message, createdTime: createdTime, messageId: messageId, instagramStoryMention: instagramStoryMention, instagramStoryReply: instagramStoryReply, instagramPost: nil, imageAttachment: imageAttachment, videoAttachment: videoAttachment)
+                    }
                 }
                 else {return nil}
             }
             else {return nil}
         }
         else {return nil}
+        
+        return nil
     }
     
     func parseFacebookMessage(messageDataDict: [String: Any], message_id: String, createdTime: String) -> MessageModel? {
@@ -568,7 +642,7 @@ extension ContentView {
                         
                         let createdTime = Date().facebookStringToDate(fbString: createdTime)
                         
-                        return MessageModel(id: message_id, message: message!, to: toUser, from: fromUser, createdTime: createdTime, instagramStoryMention: nil, instagramStoryReply: nil, imageAttachment: imageAttachment, videoAttachment: nil)
+                        return MessageModel(id: message_id, message: message!, to: toUser, from: fromUser, createdTime: createdTime, instagramStoryMention: nil, instagramStoryReply: nil, instagramPost: nil, imageAttachment: imageAttachment, videoAttachment: nil)
                     }
                     else {return nil}
                 }
@@ -608,6 +682,7 @@ extension ContentView {
                     let storyMentionUrl = data["story_mention_url"] as? String
                     let imageUrl = data["image_url"] as? String
                     let storyReplyUrl = data["story_reply_url"] as? String
+                    let sharePostUrl = data["share_post_url"] as? String
                     let isDeleted = data["is_deleted"] as? Bool
                     
                     if pageId != nil && recipientId != nil && senderId != nil && createdTime != nil && messageId != nil {
@@ -676,7 +751,8 @@ extension ContentView {
                                                         let newImageAttachment = ImageAttachment(
                                                             context: self.moc,
                                                             url: URL(string: imageUrl!),
-                                                            message: newMessage
+                                                            message: newMessage,
+                                                            id: messageId!
                                                         )
                                                         newMessage.imageAttachment = newImageAttachment
                                                     }
@@ -685,7 +761,7 @@ extension ContentView {
                                                             // TODO: Get story ID
                                                             let newInstagramStoryMention = InstagramStoryMention(
                                                                 context: self.moc,
-                                                                id: "1",
+                                                                id: messageId!,
                                                                 cdnURL: URL(string: storyMentionUrl!),
                                                                 message: newMessage
                                                             )
@@ -696,15 +772,28 @@ extension ContentView {
                                                             if storyReplyUrl != nil {
                                                                 let newInstagramStoryReply = InstagramStoryReply(
                                                                     context: self.moc,
-                                                                    id: "1",
+                                                                    id: messageId!,
                                                                     cdnURL: URL(string: storyReplyUrl!),
                                                                     message: newMessage
                                                                 )
                                                                 newMessage.instagramStoryReply = newInstagramStoryReply
                                                             }
+                                                            
+                                                            else {
+                                                                if sharePostUrl != nil {
+                                                                    let newInstagramPost = InstagramPost(
+                                                                        context: self.moc,
+                                                                        id: messageId!,
+                                                                        cdnURL: URL(string: sharePostUrl!),
+                                                                        message: newMessage
+                                                                    )
+                                                                }
+                                                            }
                                                         }
                                                     }
-
+                                                    
+                                                    conversation.lastRefresh = Date()
+                                                    
                                                     do {
                                                         Task {
                                                             try self.moc.save()

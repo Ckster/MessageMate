@@ -99,11 +99,33 @@ class InstagramStoryReplyModel: Hashable, Equatable {
 }
 
 
+class InstagramPostModel: Hashable, Equatable {
+    let id: String
+    let cdnUrl: String
+    
+    init (id: String, cdnUrl: String) {
+        self.id = id
+        self.cdnUrl = cdnUrl
+    }
+    
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(self.cdnUrl)
+    }
+
+    static func == (lhs: InstagramPostModel, rhs: InstagramPostModel) -> Bool {
+        return lhs.cdnUrl == rhs.cdnUrl
+    }
+
+}
+
+
 class ImageAttachmentModel: Hashable, Equatable {
     let url: String
+    let id: String?
 
-    init (url: String) {
+    init (url: String, id: String? = nil) {
         self.url = url
+        self.id = id
     }
 
     func hash(into hasher: inout Hasher) {
@@ -119,9 +141,11 @@ class ImageAttachmentModel: Hashable, Equatable {
 
 class VideoAttachmentModel: Hashable, Equatable {
     let url: String
+    let id: String?
 
-    init (url: String) {
+    init (url: String, id: String? = nil) {
         self.url = url
+        self.id = id
     }
 
     func hash(into hasher: inout Hasher) {
@@ -145,12 +169,13 @@ class MessageModel: Hashable, Equatable {
     var opened: NSNumber = NSNumber(value: false)
     var instagramStoryMention: InstagramStoryMentionModel?
     var instagramStoryReply: InstagramStoryReplyModel?
+    var instagramPost: InstagramPostModel?
     var imageAttachment: ImageAttachmentModel?
     var videoAttachment: VideoAttachmentModel?
     var dayStarter: NSNumber? = nil
     var conversation: ConversationModel? = nil
     
-    init (id: String, message: String, to: MetaUserModel, from: MetaUserModel, dayStarter: NSNumber? = nil, createdTime: Date, instagramStoryMention: InstagramStoryMentionModel? = nil, instagramStoryReply: InstagramStoryReplyModel? = nil, imageAttachment: ImageAttachmentModel? = nil, videoAttachment: VideoAttachmentModel? = nil) {
+    init (id: String, message: String, to: MetaUserModel, from: MetaUserModel, dayStarter: NSNumber? = nil, createdTime: Date, instagramStoryMention: InstagramStoryMentionModel? = nil, instagramStoryReply: InstagramStoryReplyModel? = nil, instagramPost: InstagramPostModel?, imageAttachment: ImageAttachmentModel? = nil, videoAttachment: VideoAttachmentModel? = nil) {
         self.id = id
         self.message = message
         self.to = to
@@ -160,6 +185,7 @@ class MessageModel: Hashable, Equatable {
         
         self.instagramStoryMention = instagramStoryMention
         self.instagramStoryReply = instagramStoryReply
+        self.instagramPost = instagramPost
         self.imageAttachment = imageAttachment
         self.videoAttachment = videoAttachment
         self.dayStarter = dayStarter
