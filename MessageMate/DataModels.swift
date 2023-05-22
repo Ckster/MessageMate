@@ -102,10 +102,12 @@ class InstagramStoryReplyModel: Hashable, Equatable {
 class InstagramPostModel: Hashable, Equatable {
     let id: String
     let cdnUrl: String
+    let mediaType: String
     
-    init (id: String, cdnUrl: String) {
+    init (id: String, cdnUrl: String, mediaType: String) {
         self.id = id
         self.cdnUrl = cdnUrl
+        self.mediaType = mediaType
     }
     
     func hash(into hasher: inout Hasher) {

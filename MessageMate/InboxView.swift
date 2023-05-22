@@ -48,16 +48,16 @@ let messagingPlatforms: [String] = ["instagram", "facebook"]
 // TODO: Fix width of message box
 // TODO: Analytics class for button presses etc.
 // TODO: Configure firebase analytics
-// TODO: Fix Facebook profile pics not loading
 // TODO: Test Facebook and Instagram snapshot listeners
 // TODO: Auto reply toggle in conversation
 // TODO: Make a cancel button when generating response
 // TODO: Prompt to reply / voice to text
-// TODO: Make sure loading is stopped / counter is decremented at appopriate times
-// TODO: Better instagram post message UI
 // TODO: Better error message when message sent outside of allowable window
 // TODO: Update converation refresh time when a message is received thru webhooks or sent
 // TODO: Add instagram reactions
+// TODO: Separate loading states for each page
+// TODO: Show interactify name in more places
+// TODO: Image and video cache for media and profile pics
 
 // TODO: Calendar
 
@@ -620,14 +620,14 @@ struct ConversationNavigationView: View {
     
     var body: some View {
         VStack {
-            let displayName = self.correspondent.displayName() ?? ""
+            let displayName = self.correspondent.displayName()
             
             NavigationLink(destination: ConversationView(conversation: conversation, page: page, navigate: self.$navigate, width: width, height: height, geometryReader: self.geometryReader, messageToScrollTo: self.messageToScrollTo, fromCorrespondentSearch: false).environmentObject(self.session)
                 .navigationBarTitleDisplayMode(.inline).toolbar {
                     ToolbarItem {
                         HStack {
                             HStack {
-                                AsyncImage(url: self.correspondent.profilePictureURL ?? URL(string: "")) { image in image.resizable() } placeholder: { EmptyView() } .frame(width: 37.5, height: 37.5) .overlay(
+                                AsyncImage(url: self.correspondent.profilePictureURL ?? URL(string: "")) { image in image.resizable() } placeholder: { InitialsView(name: displayName).font(.system(size: 37.5)) } .frame(width: 37.5, height: 37.5) .overlay(
                                     Circle()
                                         .stroke(Color("Purple"), lineWidth: 3)
                                 ).clipShape(Circle())
@@ -901,11 +901,12 @@ struct VideoPlayerView: View {
                 Image(systemName: "xmark").font(.system(size: 30)).frame(width: width, alignment: .leading).onTapGesture {
                     player.pause()
                     self.session.videoPlayerUrl = nil
-                    
-                }.padding(.bottom).padding(.leading)
+                }
+                .padding(.bottom)
+                .padding(.leading)
                 
                 VideoPlayer(player: player)
-                    .frame(height: 1000).frame(width: width * 0.85, height: height * 0.90, alignment: .leading)
+                    .frame(height: 600).frame(width: width * 0.85, height: height * 0.80, alignment: .leading)
                     .clipShape(RoundedRectangle(cornerRadius: 16))
                     .onAppear(perform: {
                         player.play()
@@ -965,6 +966,7 @@ struct FullScreenImageView: View {
                     .onTapGesture(perform: {
                         self.session.fullScreenImageUrlString = nil
                     })
+                    .padding()
             }
             Spacer()
         }
@@ -1686,7 +1688,7 @@ struct InstagramStoryReplyView: View {
                     Text("Replied to your story").font(.system(size: 10))
                         .foregroundColor(.gray)
                     
-                    if contentMessage.instagramStoryReply!.cdnURL != nil {
+                    if contentMessage.instagramStoryReply!.cdnURL != nil || contentMessage.instagramStoryReply!.cdnURL?.absoluteString ?? "" != "" {
                         AsyncImage(url: contentMessage.instagramStoryReply!.cdnURL!) {
                             image in
                             image
@@ -1695,19 +1697,13 @@ struct InstagramStoryReplyView: View {
                         } placeholder: {  LottieView(name: "Loading-2").frame(width: 50, height: 50, alignment: .leading).onDisappear(perform: {
                             self.loading = false
                         }) }
-                            .frame(width: 150, height: 250).clipShape(RoundedRectangle(cornerRadius: 16))
+                            //.frame(width: 150, height: 250)
+                            .clipShape(RoundedRectangle(cornerRadius: 16))
                             .onTapGesture {
                                 if !loading {
                                     self.session.fullScreenImageUrlString = contentMessage.instagramStoryReply!.cdnURL!.absoluteString
                                 }
                             }
-                    }
-                    else {
-                        Text("Story not available")
-                            .padding(10)
-                            .foregroundColor(isCurrentUser ? Color.white : Color.black)
-                            .background(isCurrentUser ? Color("Purple") : Color.offWhite)
-                            .cornerRadius(10)
                     }
                 }
             }
@@ -1736,12 +1732,12 @@ struct InstagramStoryMentionView: View {
                 Text("Mentioned you in their story")
                     .foregroundColor(.gray).font(.system(size: 10))
                 
-                if contentMessage.instagramStoryMention!.cdnURL != nil {
+                if contentMessage.instagramStoryMention!.cdnURL != nil || contentMessage.instagramStoryMention!.cdnURL?.absoluteString ?? "" != "" {
                     AsyncImage(url: contentMessage.instagramStoryMention!.cdnURL!) {
                         image in
                         image
                             .resizable()
-                        
+                    
                     } placeholder: { LottieView(name: "Loading-2").frame(width: 50, height: 50, alignment: .leading).onDisappear(perform: {
                         self.loading = false
                     }) }
@@ -1751,13 +1747,6 @@ struct InstagramStoryMentionView: View {
                             self.session.fullScreenImageUrlString = contentMessage.instagramStoryMention!.cdnURL!.absoluteString
                         }
                     }
-                }
-                else {
-                    Text("Story not available")
-                        .padding(10)
-                        .foregroundColor(isCurrentUser ? Color.white : Color.black)
-                        .background(isCurrentUser ? Color("Purple") : Color.offWhite)
-                        .cornerRadius(10)
                 }
             }
         }
@@ -1781,19 +1770,15 @@ struct InstagramPostView: View {
                     .foregroundColor(.gray).font(.system(size: 10))
                 
                 if contentMessage.instagramPost!.cdnURL != nil {
-                    AsyncImage(url: contentMessage.instagramPost!.cdnURL!) {
-                        image in
-                        image
-                            .resizable()
+                    switch contentMessage.instagramPost!.mediaType {
+                        case "video":
+                            VideoAttachmentView(contentMessage: contentMessage)
+                        case "image":
+                            ImageAttachmentView(contentMessage: contentMessage)
                         
-                    } placeholder: { LottieView(name: "Loading-2").frame(width: 50, height: 50, alignment: .leading).onDisappear(perform: {
-                        self.loading = false
-                    }) } .frame(width: 150, height: 250).clipShape(RoundedRectangle(cornerRadius: 16))
-                        .onTapGesture {
-                            if !loading {
-                                self.session.fullScreenImageUrlString = contentMessage.instagramPost!.cdnURL!.absoluteString
-                            }
-                        }
+                        default:
+                            EmptyView()
+                    }
                 }
                 else {
                     Text("Post not available")
@@ -1817,7 +1802,7 @@ struct ImageAttachmentView: View {
     let contentMessage: Message
     
     var body: some View {
-        AsyncImage(url: contentMessage.imageAttachment!.url ?? URL(string: "")) {
+        AsyncImage(url: contentMessage.imageAttachment?.url ?? contentMessage.instagramPost?.cdnURL ?? URL(string: "")) {
             image in
             image
                 .resizable()
@@ -1826,16 +1811,18 @@ struct ImageAttachmentView: View {
             LottieView(name: "Loading-2").frame(width: 50, height: 50, alignment: .leading).onDisappear(perform: {
                 self.loading = false
             })
-        }.frame(width: 150, height: 250).clipShape(RoundedRectangle(cornerRadius: 16))
+        }
+        //.frame(width: 150, height: 250)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
             .onTapGesture {
                 if !loading {
-                    self.session.fullScreenImageUrlString = contentMessage.imageAttachment!.url?.absoluteString
+                    self.session.fullScreenImageUrlString = contentMessage.imageAttachment?.url?.absoluteString ?? contentMessage.instagramPost?.cdnURL?.absoluteString
                 }
             }
     }
 }
 
-
+ 
 struct VideoAttachmentView: View {
     @EnvironmentObject var session: SessionStore
     let contentMessage: Message
@@ -1844,7 +1831,7 @@ struct VideoAttachmentView: View {
     @State var offset = CGSize.zero
         
     var body: some View {
-        let url = contentMessage.videoAttachment!.url ?? URL(string: "")
+        let url = contentMessage.videoAttachment?.url ?? contentMessage.instagramPost?.cdnURL ?? URL(string: "")
         
         if url != nil {
             let player = AVPlayer(url: url!)
@@ -1852,7 +1839,7 @@ struct VideoAttachmentView: View {
                 Image(systemName: "play.fill").font(.system(size: 30))
             }
                 //.frame(height: 400)
-                .frame(width: 150, height: 250)
+                //.frame(width: 150, height: 250)
                 .clipShape(RoundedRectangle(cornerRadius: 16))
                 .onTapGesture {
                     self.session.videoPlayerUrl = url
@@ -2217,6 +2204,33 @@ func postRequestXForm(urlString: String, completion: @escaping ([String: AnyObje
     }
     dataTask.resume()
 }
+
+
+func headRequest(urlString: String, header: [String: String]? = nil) async -> [String: String]? {
+    let url = URL(string: urlString)!
+    var request = URLRequest(url: url)
+    request.httpMethod = "HEAD"
+    
+    if header != nil {
+        for key in header!.keys {
+            request.setValue(header![key]!, forHTTPHeaderField: key)
+        }
+    }
+
+    do {
+        let (_, response) = try await URLSession.shared.data(for: request)
+        if let httpResponse = response as? HTTPURLResponse {
+           let headers = httpResponse.allHeaderFields
+           return(headers as? [String: String])
+        }
+      }
+      catch {
+          return nil
+      }
+    return nil
+}
+
+
 
 extension Notification {
     var keyboardHeight: CGFloat {

@@ -357,6 +357,7 @@ extension ContentView {
             )
             newMessage.instagramStoryMention = instagramStoryMention
         }
+        
         if messageModel.instagramStoryReply != nil {
             let instagramStoryReply = InstagramStoryReply(
                 context: self.moc,
@@ -366,12 +367,14 @@ extension ContentView {
             )
             newMessage.instagramStoryReply = instagramStoryReply
         }
+        
         if messageModel.instagramPost != nil {
             print("Adding instagram post")
             let instagramPost = InstagramPost(
                 context: self.moc,
                 id: messageModel.instagramPost!.id,
                 cdnURL: URL(string: messageModel.instagramPost!.cdnUrl),
+                mediaType: messageModel.instagramPost!.mediaType,
                 message: newMessage
             )
             newMessage.instagramPost = instagramPost

@@ -178,6 +178,7 @@ struct InfoView: View {
                 .onAppear {
                     Task {
                         self.session.initializingPageOnOnboarding = true
+                        print("Initializing B")
                         self.contentView.initializePageInfo()
                     }
                 }
