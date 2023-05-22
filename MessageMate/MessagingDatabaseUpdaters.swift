@@ -24,6 +24,7 @@ extension ContentView {
                         metaPage in
                         if metaPage != nil {
                             Task {
+                                metaPage!.loading = true
                                 await metaPage!.getPageBusinessAccountId() {
                                     businessAccountID in
                                     DispatchQueue.main.async {
@@ -41,6 +42,7 @@ extension ContentView {
                                 initializePage(page: metaPage!)
                                 
                                 self.updateSelectedPage {
+                                    self.session.loadingPageInformation = false
                                     var newConversations: [ConversationModel] = []
                                     var platformCount = 0
                                     for platform in messagingPlatforms {
@@ -49,10 +51,8 @@ extension ContentView {
                                             newConversations.append(contentsOf: platformConversations)
                                             platformCount = platformCount + 1
                                             if platformCount == messagingPlatforms.count {
-                                                if metaPage!.id == self.session.selectedPage?.id {
-                                                    print("Setting conv count w \(newConversations.count) \(metaPage!.id) \(platformCount) \(messagingPlatforms.count)")
-                                                    self.session.conversationsToUpdate = newConversations.count
-                                                }
+                                                print("Setting conv count w \(newConversations.count) \(metaPage!.id) \(platformCount) \(messagingPlatforms.count)")
+                                                self.session.conversationsToUpdateByPage[metaPage!.id] = newConversations.count
                                                 self.conversationsToUpdate = newConversations
                                             }
                                         }
@@ -63,11 +63,10 @@ extension ContentView {
                     }
                 }
                 if self.pagesToUpdate!.count == 0 {
-                    self.session.loadingPageInformation = false
+                    self.unloadActivePageListeners()
                 }
             }
             catch {
-                
             }
         }
     }
@@ -76,8 +75,6 @@ extension ContentView {
         DispatchQueue.main.async {
             print("CTU firing")
             if self.conversationsToUpdate == nil {
-                self.session.conversationsToUpdate = 0
-                self.session.loadingPageInformation = false
                 return
             }
             
@@ -237,6 +234,7 @@ extension ContentView {
                     context: self.moc,
                     id: pageModel.id,
                     accessToken: pageModel.accessToken,
+                    loading: NSNumber(value: true),
                     isDefault: false,
                     category: pageModel.category,
                     name: pageModel.name,

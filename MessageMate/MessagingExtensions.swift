@@ -183,27 +183,25 @@ extension ContentView {
     }
     
     func decrementConversationsToUpdate(pageID: String) {
-        if self.session.conversationsToUpdate > 0 {
-            print("BU \(self.session.conversationsToUpdate)")
-            self.session.conversationsToUpdate = self.session.conversationsToUpdate - 1
-            print("CU \(self.session.conversationsToUpdate)")
-            if self.session.conversationsToUpdate == 0 {
-                print("CU")
-                self.saveContext() {
-                    error in
-                    if error == nil {
-                    }
-                    else {
-                        print(error)
+        if let conversationsToUpdate = self.session.conversationsToUpdateByPage[pageID] {
+            if conversationsToUpdate > 0 {
+                self.session.conversationsToUpdateByPage[pageID] = self.session.conversationsToUpdateByPage[pageID]! - 1
+                if self.session.conversationsToUpdateByPage[pageID]! == 0 {
+                    print("CU")
+                    self.refreshUserProfilePictures()
+                    if let metaPage = self.fetchPage(id: pageID) {
+                        self.addConversationListeners(page: metaPage)
+                        metaPage.loading = NSNumber(value: false)
+                        self.saveContext() {
+                            error in
+                            if error == nil {
+                            }
+                            else {
+                                print(error)
+                            }
+                        }
                     }
                 }
-                
-                self.refreshUserProfilePictures()
-                if let metaPage = self.fetchPage(id: pageID) {
-                    self.addConversationListeners(page: metaPage)
-                }
-                
-                self.session.loadingPageInformation = false
             }
         }
     }
@@ -252,6 +250,18 @@ extension ContentView {
                 print("Adding active listeners")
                 self.addConversationListeners(page: page)
             }
+        }
+    }
+    
+    func unloadActivePageListeners() {
+        if let currentUserPages = self.fetchCurrentUsersPages() {
+            for page in currentUserPages {
+                page.loading = NSNumber(value: false)
+            }
+            do {
+                try self.moc.save()
+            }
+            catch {}
         }
     }
     

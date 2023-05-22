@@ -131,13 +131,12 @@ struct ConversationsView: View {
         NavigationView {
         
             VStack(alignment: .leading) {
-                if self.session.loadingPageInformation {
+                if self.session.loadingPageInformation || self.session.selectedPage?.loading.boolValue ?? true {
                     LottieView(name: "Paperplane")
                 }
                 
                 else {
                     if self.session.selectedPage != nil {
-                        
                         ScrollView {
                             
                             PullToRefresh(coordinateSpaceName: "pullToRefresh") {
@@ -194,6 +193,7 @@ struct ConversationsView: View {
                                 self.setSortedConversations()
                             }
                         })
+                        
                     }
                     
                     else {
@@ -1838,7 +1838,7 @@ struct VideoAttachmentView: View {
             VideoPlayer(player: player) {
                 Image(systemName: "play.fill").font(.system(size: 30))
             }
-                //.frame(height: 400)
+                .frame(height: 400)
                 //.frame(width: 150, height: 250)
                 .clipShape(RoundedRectangle(cornerRadius: 16))
                 .onTapGesture {

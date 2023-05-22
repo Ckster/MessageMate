@@ -70,7 +70,7 @@ class SessionStore : NSObject, ObservableObject {
     @Published var initializingPageOnOnboarding: Bool? = nil
     
     @Published var unreadMessages: Int = 0
-    @Published var conversationsToUpdate: Int = 0
+    @Published var conversationsToUpdateByPage: [String: Int] = [:]
     
     let context: NSManagedObjectContext
     private var db = Firestore.firestore()
