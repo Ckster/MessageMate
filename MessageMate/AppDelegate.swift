@@ -118,43 +118,67 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         // Print full message.
         print(userInfo)
         let aps = userInfo["extraData"] as? [String: AnyObject]
-        print("AA")
-        print(aps)
         if aps != nil {
-            print("BB")
             let userId = aps!["user_id"] as? String
             let body = aps!["body"] as? String
             let page = aps!["page"] as? String
             print(userId, body)
             if userId != nil && body != nil {
                 print("CC")
-                let conversation = userConversationRegistry[userId!]
-                let name = conversation?.correspondent?.name ?? conversation?.correspondent?.username ?? "Interactify"
+                let user = self.fetchMetaUser(id: userId!)
+                let conversation = self.fetchConversationForUser(correspondentID: userId!)
                 
-                let content = UNMutableNotificationContent()
-                content.title = name + " [\(page ?? "")]"
-                content.body = body!
-                content.sound = UNNotificationSound.default
-                
-                if conversation != nil {
-                    content.userInfo = ["conversation": conversation!.id]
+                if let conversation {
+                    let content = UNMutableNotificationContent()
+                    content.title = user != nil ? user!.displayName() : "Interactify" + " [\(page ?? "")]"
+                    content.body = body!
+                    content.sound = UNNotificationSound.default
+                    content.userInfo = ["conversation": conversation.id]
+                                    
+                    // TODO: Add image here once cache is implemented
+                    // TODO: Change active page if need be
+
+                    // show this notification five seconds from now
+                    let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
+
+                    // choose a random identifier
+                    let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: trigger)
+
+                    // add our notification request
+                    UNUserNotificationCenter.current().add(request)
                 }
-
-                // show this notification five seconds from now
-                let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
-
-                // choose a random identifier
-                let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: trigger)
-
-                // add our notification request
-                UNUserNotificationCenter.current().add(request)
-                
             }
         }
 
         completionHandler(UIBackgroundFetchResult.newData)
       }
     
+    func fetchMetaUser(id: String) -> MetaUser? {
+        let fetchRequest: NSFetchRequest<MetaUser> = MetaUser.fetchRequest()
+        fetchRequest.predicate = NSPredicate(format: "id == %@", id)
+        do {
+            let users = try self.persistentContainer.viewContext.fetch(fetchRequest)
+            return users.first
+        } catch {
+            print("Error fetching user: \(error.localizedDescription)")
+            return nil
+        }
+    }
+    
+    func fetchConversationForUser(correspondentID: String) -> Conversation? {
+        let fetchRequest: NSFetchRequest<Conversation> = Conversation.fetchRequest()
+        fetchRequest.predicate = NSPredicate(format: "correspondent.id == %@", correspondentID)
+
+        do {
+            let conversations = try self.persistentContainer.viewContext.fetch(fetchRequest)
+            // Handle the fetched conversations
+            return conversations.first
+        } catch {
+            // Handle fetch error
+            print("Error fetching conversations: \(error.localizedDescription)")
+        }
+        return nil
+    }
     
     // This function will be called right after user tap on the notification
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {

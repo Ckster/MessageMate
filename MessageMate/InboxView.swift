@@ -16,9 +16,6 @@ import FirebaseMessaging
 import CoreData
 
 
-var userConversationRegistry: [String: Conversation] = [:]
-
-
 let monthMap: [Int: String] = [
     1: "January",
     2: "February",
@@ -53,11 +50,8 @@ let messagingPlatforms: [String] = ["instagram", "facebook"]
 // TODO: Make a cancel button when generating response
 // TODO: Prompt to reply / voice to text
 // TODO: Better error message when message sent outside of allowable window
-// TODO: Update converation refresh time when a message is received thru webhooks or sent
 // TODO: Add instagram reactions
-// TODO: Separate loading states for each page
 // TODO: Show interactify name in more places
-// TODO: Image and video cache for media and profile pics
 
 // TODO: Calendar
 
@@ -532,6 +526,35 @@ class PagingInfo {
     }
 }
 
+struct UserProfilePicture: View {
+    let user: MetaUser?
+    var width: CGFloat = 55
+    var height: CGFloat = 55
+    
+    var body: some View {
+        if user != nil {
+            if let imageData = user!.profilePicture,
+            let uiImage = UIImage(data: imageData) {
+                Image(uiImage: uiImage)
+                    .resizable()
+                    .frame(width: width, height: height) .overlay(
+                        Circle()
+                            .stroke(Color("Purple"), lineWidth: 3)
+                    ).clipShape(Circle())
+            } else {
+                InitialsView(name: user!.displayName())
+                    .frame(width: width, height: height) .overlay(
+                        Circle()
+                            .stroke(Color("Purple"), lineWidth: 3)
+                    ).clipShape(Circle())
+            }
+        }
+        else {
+            EmptyView()
+        }
+    }
+}
+
 struct CorrespondentSearchNavigationView: View {
     @EnvironmentObject var session: SessionStore
     @State var navigate: Bool = false
@@ -542,17 +565,14 @@ struct CorrespondentSearchNavigationView: View {
     let geometryReader: GeometryProxy
 
     var body: some View {
-        let navTitle = conversation.correspondent?.name ?? conversation.correspondent?.username ?? conversation.correspondent?.email ?? ""
+        let navTitle = conversation.correspondent?.displayName() ?? ""
 
         NavigationLink(destination: ConversationView(conversation: conversation, page: page, navigate: self.$navigate, width: width, height: height, geometryReader: self.geometryReader, fromCorrespondentSearch: true).environmentObject(self.session)
             .navigationBarTitleDisplayMode(.inline).toolbar {
                 ToolbarItem {
                     HStack {
                         HStack {
-                            AsyncImage(url: conversation.correspondent?.profilePictureURL ?? URL(string: "")) { image in image.resizable() } placeholder: { EmptyView() } .frame(width: 37.5, height: 37.5) .overlay(
-                                Circle()
-                                    .stroke(Color("Purple"), lineWidth: 3)
-                            ).clipShape(Circle())
+                            UserProfilePicture(user: conversation.correspondent, width: 37.5, height: 37.5)
                             VStack(alignment: .leading, spacing: 0.5) {
                                 Text(navTitle).font(Font.custom(BOLD_FONT, size: 18))
                                 switch conversation.correspondent?.platform {
@@ -574,14 +594,8 @@ struct CorrespondentSearchNavigationView: View {
             }, isActive: $navigate
         ) {
             VStack {
-                let displayName = conversation.correspondent?.displayName()
-                AsyncImage(url: conversation.correspondent?.profilePictureURL ?? URL(string:  "")) { image in image.resizable() } placeholder: { InitialsView(name: displayName ?? "").font(.system(size: 60)) } .frame(width: 65, height: 65) .overlay(
-                    Circle()
-                        .stroke(Color("Purple"), lineWidth: 3)
-                ).clipShape(Circle())
-                
-                Text(displayName ?? "").font(Font.custom(REGULAR_FONT, size: 12.5)).lineLimit(1)
-                
+                UserProfilePicture(user: conversation.correspondent)
+                Text(navTitle).font(Font.custom(REGULAR_FONT, size: 12.5)).lineLimit(1)
             }
         }
     }
@@ -627,10 +641,7 @@ struct ConversationNavigationView: View {
                     ToolbarItem {
                         HStack {
                             HStack {
-                                AsyncImage(url: self.correspondent.profilePictureURL ?? URL(string: "")) { image in image.resizable() } placeholder: { InitialsView(name: displayName).font(.system(size: 37.5)) } .frame(width: 37.5, height: 37.5) .overlay(
-                                    Circle()
-                                        .stroke(Color("Purple"), lineWidth: 3)
-                                ).clipShape(Circle())
+                                UserProfilePicture(user: conversation.correspondent, width: 37.5, height: 37.5)
                                 VStack(alignment: .leading, spacing: 0.5) {
                                     Text(displayName).font(Font.custom(BOLD_FONT, size: 18))
                                     switch self.correspondent.platform {
@@ -654,10 +665,7 @@ struct ConversationNavigationView: View {
                 if self.messages.last != nil {
                     ZStack {
                         HStack {
-                            AsyncImage(url: self.correspondent.profilePictureURL ?? URL(string: "")) { image in image.resizable() } placeholder: { InitialsView(name: displayName).font(.system(size: 50)) } .frame(width: 55, height: 55).overlay(
-                                Circle()
-                                    .stroke(Color("Purple"), lineWidth: 3)
-                            ).clipShape(Circle()).offset(y: self.messages.last?.message ?? "" == "" ? -6 : 0)
+                            UserProfilePicture(user: conversation.correspondent).offset(y: self.messages.last?.message ?? "" == "" ? -6 : 0)
                             
                             VStack(spacing: 0.5) {
                                 HStack {
@@ -722,7 +730,6 @@ struct ConversationNavigationView: View {
                 }
             }
                 
-            
             HorizontalLine(color: .gray, height: 0.75)
             
         }.onReceive(self.pushNotificationState.$conversationToNavigateTo, perform: {
@@ -948,25 +955,21 @@ struct FullScreenImageView: View {
         VStack {
             Spacer()
             Image(systemName: "xmark").font(.system(size: 30)).frame(width: width, alignment: .leading).onTapGesture {
-                self.session.fullScreenImageUrlString = nil
+                self.session.fullScreenImageData = nil
             }.padding(.bottom).padding(.leading)
             
-            if self.session.fullScreenImageUrlString != nil {
-                AsyncImage(url: URL(string: self.session.fullScreenImageUrlString!)) {
-                    image in
-                    image
+            if self.session.fullScreenImageData != nil {
+                if let imageData = self.session.fullScreenImageData,
+                let uiImage = UIImage(data: imageData) {
+                    Image(uiImage: uiImage)
                         .resizable()
                         .aspectRatio(contentMode: .fit)
-                } placeholder: {
-                    LottieView(name: "Loading-2").frame(width: 50, height: 50, alignment: .leading)
+                        .clipShape(RoundedRectangle(cornerRadius: 16))
+                        .onTapGesture(perform: {
+                            self.session.fullScreenImageData = nil
+                        })
+                        .padding()
                 }
-                    //.frame(height: 1000)
-                    //.frame(width: width * 0.85, height: height * 0.90, alignment: .leading)
-                    .clipShape(RoundedRectangle(cornerRadius: 16))
-                    .onTapGesture(perform: {
-                        self.session.fullScreenImageUrlString = nil
-                    })
-                    .padding()
             }
             Spacer()
         }
@@ -979,7 +982,7 @@ struct FullScreenImageView: View {
                 .onEnded { _ in
                     if abs(offset.height) > 100 {
                         offset = .zero
-                        self.session.fullScreenImageUrlString = nil
+                        self.session.fullScreenImageData = nil
                     } else {
                         offset = .zero
                     }
@@ -1043,7 +1046,7 @@ struct ConversationView: View {
                         .environmentObject(self.session)
                     
                 }
-                .opacity(self.session.videoPlayerUrl != nil || self.session.fullScreenImageUrlString != nil ? 0.10 : 1)
+                .opacity(self.session.videoPlayerUrl != nil || self.session.fullScreenImageData != nil ? 0.10 : 1)
                 .transition(AnyTransition.scale.animation(.easeInOut(duration: 0.50)))
                 
                 
@@ -1051,7 +1054,7 @@ struct ConversationView: View {
                     VideoPlayerView(width: width, height: height).environmentObject(self.session)
                 }
                 else {
-                    if self.session.fullScreenImageUrlString != nil {
+                    if self.session.fullScreenImageData != nil {
                         FullScreenImageView(width: width, height: height).environmentObject(self.session)
                     }
                 }
@@ -1567,7 +1570,7 @@ struct DynamicHeightTextBox: View {
                                 to: conversation.correspondent!,
                                 from: page.metaUser!
                             )
-                            
+                            conversation.lastRefresh = Date()
                             do {
                                 Task {
                                     try self.moc.save()
@@ -1576,7 +1579,6 @@ struct DynamicHeightTextBox: View {
                                 print("Error saving sent message data: \(error.localizedDescription)")
                             }
                         }
-                        
                         completion(sentMessageData!)
                     }
                     else {
@@ -1624,7 +1626,7 @@ struct MessageView : View {
         if !isCurrentUser {
             VStack(spacing: 1) {
                 HStack {
-                    AsyncImage(url: self.correspondent.profilePictureURL ?? URL(string: "")) { image in image.resizable() } placeholder: { Image(systemName: "person.circle").foregroundColor(Color("Purple")) } .frame(width: 25, height: 25, alignment: .bottom) .clipShape(Circle()).padding(.leading).onTapGesture {
+                    UserProfilePicture(user: self.correspondent, width: 30, height: 30).padding(.leading).onTapGesture {
                             openProfile(correspondent: correspondent)
                     }
                     MessageBlurbView(contentMessage: currentMessage, isCurrentUser: isCurrentUser, highlight: highlight)
@@ -1675,8 +1677,6 @@ func openProfile(correspondent: MetaUser) {
 struct InstagramStoryReplyView: View {
     @EnvironmentObject var session: SessionStore
     
-    @State var loading: Bool = true
-    
     let contentMessage: Message
     let isCurrentUser: Bool
     
@@ -1687,22 +1687,14 @@ struct InstagramStoryReplyView: View {
                 VStack(alignment: .leading) {
                     Text("Replied to your story").font(.system(size: 10))
                         .foregroundColor(.gray)
-                    
-                    if contentMessage.instagramStoryReply!.cdnURL != nil || contentMessage.instagramStoryReply!.cdnURL?.absoluteString ?? "" != "" {
-                        AsyncImage(url: contentMessage.instagramStoryReply!.cdnURL!) {
-                            image in
-                            image
-                                .resizable()
-                            
-                        } placeholder: {  LottieView(name: "Loading-2").frame(width: 50, height: 50, alignment: .leading).onDisappear(perform: {
-                            self.loading = false
-                        }) }
-                            //.frame(width: 150, height: 250)
+                    if let imageData = contentMessage.imageAttachment?.imageContent ?? contentMessage.instagramPost?.mediaContent,
+                    let uiImage = UIImage(data: imageData) {
+                        Image(uiImage: uiImage)
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
                             .clipShape(RoundedRectangle(cornerRadius: 16))
                             .onTapGesture {
-                                if !loading {
-                                    self.session.fullScreenImageUrlString = contentMessage.instagramStoryReply!.cdnURL!.absoluteString
-                                }
+                                self.session.fullScreenImageData = imageData
                             }
                     }
                 }
@@ -1720,8 +1712,6 @@ struct InstagramStoryReplyView: View {
 struct InstagramStoryMentionView: View {
     @EnvironmentObject var session: SessionStore
     
-    @State var loading: Bool = true
-    
     let contentMessage: Message
     let isCurrentUser: Bool
 
@@ -1732,21 +1722,15 @@ struct InstagramStoryMentionView: View {
                 Text("Mentioned you in their story")
                     .foregroundColor(.gray).font(.system(size: 10))
                 
-                if contentMessage.instagramStoryMention!.cdnURL != nil || contentMessage.instagramStoryMention!.cdnURL?.absoluteString ?? "" != "" {
-                    AsyncImage(url: contentMessage.instagramStoryMention!.cdnURL!) {
-                        image in
-                        image
-                            .resizable()
-                    
-                    } placeholder: { LottieView(name: "Loading-2").frame(width: 50, height: 50, alignment: .leading).onDisappear(perform: {
-                        self.loading = false
-                    }) }
-                    .frame(width: 150, height: 250).clipShape(RoundedRectangle(cornerRadius: 16))
-                    .onTapGesture {
-                        if !loading {
-                            self.session.fullScreenImageUrlString = contentMessage.instagramStoryMention!.cdnURL!.absoluteString
+                if let imageData = contentMessage.imageAttachment?.imageContent ?? contentMessage.instagramPost?.mediaContent,
+                let uiImage = UIImage(data: imageData) {
+                    Image(uiImage: uiImage)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .clipShape(RoundedRectangle(cornerRadius: 16))
+                        .onTapGesture {
+                            self.session.fullScreenImageData = imageData
                         }
-                    }
                 }
             }
         }
@@ -1797,28 +1781,20 @@ struct InstagramPostView: View {
 struct ImageAttachmentView: View {
     @EnvironmentObject var session: SessionStore
     
-    @State var loading: Bool = true
-    
     let contentMessage: Message
     
     var body: some View {
-        AsyncImage(url: contentMessage.imageAttachment?.url ?? contentMessage.instagramPost?.cdnURL ?? URL(string: "")) {
-            image in
-            image
+        if let imageData = contentMessage.imageAttachment?.imageContent ?? contentMessage.instagramPost?.mediaContent,
+        let uiImage = UIImage(data: imageData) {
+            Image(uiImage: uiImage)
                 .resizable()
                 .aspectRatio(contentMode: .fit)
-        } placeholder: {
-            LottieView(name: "Loading-2").frame(width: 50, height: 50, alignment: .leading).onDisappear(perform: {
-                self.loading = false
-            })
-        }
-        //.frame(width: 150, height: 250)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-            .onTapGesture {
-                if !loading {
-                    self.session.fullScreenImageUrlString = contentMessage.imageAttachment?.url?.absoluteString ?? contentMessage.instagramPost?.cdnURL?.absoluteString
+                .frame(width: 200, height: 200)
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+                .onTapGesture {
+                    self.session.fullScreenImageData = imageData
                 }
-            }
+        }
     }
 }
 
@@ -1838,8 +1814,7 @@ struct VideoAttachmentView: View {
             VideoPlayer(player: player) {
                 Image(systemName: "play.fill").font(.system(size: 30))
             }
-                .frame(height: 400)
-                //.frame(width: 150, height: 250)
+                .frame(width: 200, height: 200)
                 .clipShape(RoundedRectangle(cornerRadius: 16))
                 .onTapGesture {
                     self.session.videoPlayerUrl = url

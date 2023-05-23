@@ -62,7 +62,7 @@ class SessionStore : NSObject, ObservableObject {
     @Published var activePageIDs: [String] = []
     
     @Published var videoPlayerUrl: URL?
-    @Published var fullScreenImageUrlString: String?
+    @Published var fullScreenImageData: Data?
     
     @Published var autoGeneratingMessage: Bool = false
     

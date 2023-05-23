@@ -353,6 +353,7 @@ extension ContentView {
                 cdnURL: URL(string: messageModel.instagramStoryMention!.cdnUrl),
                 message: newMessage
             )
+            instagramStoryMention.cacheImageContent()
             newMessage.instagramStoryMention = instagramStoryMention
         }
         
@@ -363,6 +364,7 @@ extension ContentView {
                 cdnURL: URL(string: messageModel.instagramStoryReply!.cdnUrl),
                 message: newMessage
             )
+            instagramStoryReply.cacheImageContent()
             newMessage.instagramStoryReply = instagramStoryReply
         }
         
@@ -375,6 +377,7 @@ extension ContentView {
                 mediaType: messageModel.instagramPost!.mediaType,
                 message: newMessage
             )
+            instagramPost.cacheMediaContent()
             newMessage.instagramPost = instagramPost
         }
         if messageModel.imageAttachment != nil {
@@ -384,6 +387,7 @@ extension ContentView {
                 message: newMessage,
                 id: messageModel.id
             )
+            imageAttachment.cacheImageContent()
             newMessage.imageAttachment = imageAttachment
         }
         if messageModel.videoAttachment != nil {

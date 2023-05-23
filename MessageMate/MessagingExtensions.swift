@@ -221,6 +221,7 @@ extension ContentView {
                 for conversation in conversations {
                     if let correspondent = conversation.correspondent {
                         correspondent.getProfilePicture(page: page) {
+                            correspondent.loadAndCacheProfilePicture()
                             conversationCount = conversationCount + 1
                             if conversationCount == conversations.count {
                                 pageCount = pageCount + 1
@@ -776,6 +777,7 @@ extension ContentView {
                                                             message: newMessage,
                                                             id: messageId!
                                                         )
+                                                        newImageAttachment.cacheImageContent()
                                                         newMessage.imageAttachment = newImageAttachment
                                                     }
                                                     else {
@@ -787,6 +789,7 @@ extension ContentView {
                                                                 cdnURL: URL(string: storyMentionUrl!),
                                                                 message: newMessage
                                                             )
+                                                            newInstagramStoryMention.cacheImageContent()
                                                             newMessage.instagramStoryMention = newInstagramStoryMention
                                                         }
 
@@ -798,6 +801,7 @@ extension ContentView {
                                                                     cdnURL: URL(string: storyReplyUrl!),
                                                                     message: newMessage
                                                                 )
+                                                                newInstagramStoryReply.cacheImageContent()
                                                                 newMessage.instagramStoryReply = newInstagramStoryReply
                                                             }
                                                             
@@ -807,9 +811,12 @@ extension ContentView {
                                                                         context: self.moc,
                                                                         id: messageId!,
                                                                         cdnURL: URL(string: sharePostUrl!),
-                                                                        mediaType: "photo", // TODO: Need to get content type from webhook
+                                                                        mediaType: "image", // TODO: Need to get content type from webhook
                                                                         message: newMessage
                                                                     )
+                                                                    if newInstagramPost.mediaType == "image" {
+                                                                        newInstagramPost.cacheMediaContent()
+                                                                    }
                                                                 }
                                                             }
                                                         }
